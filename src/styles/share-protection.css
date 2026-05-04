@@ -1,0 +1,92 @@
+/* PROTEÇÕES PARA LINKS COMPARTILHADOS */
+.share-protected {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+  -khtml-user-drag: none !important;
+  -moz-user-drag: none !important;
+  -o-user-drag: none !important;
+  user-drag: none !important;
+}
+
+.share-protected img {
+  pointer-events: none !important;
+  -webkit-user-drag: none !important;
+  -khtml-user-drag: none !important;
+  -moz-user-drag: none !important;
+  -o-user-drag: none !important;
+  user-drag: none !important;
+}
+
+/* Desabilita print screen */
+@media print {
+  .share-protected {
+    display: none !important;
+  }
+}
+
+/* Overlay de proteção mais forte */
+.watermark-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 30px,
+      rgba(255,255,255,0.03) 30px,
+      rgba(255,255,255,0.03) 60px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 30px,
+      rgba(255,255,255,0.02) 30px,
+      rgba(255,255,255,0.02) 60px
+    );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.preview-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-family: 'Poppins', sans-serif;
+  font-weight: bold;
+  color: rgba(255,255,255,0.6);
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  z-index: 3;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: clamp(12px, 3vw, 24px);
+}
+
+
+/* SEGREDINHO DA LOGO TRANSPARENTE SEM PHOTOSHOP */
+.logo img { mix-blend-mode: screen; width: 150px; object-fit: contain; }
+
+/* Proteção adicional contra DevTools */
+.share-protected * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Esconde conteúdo quando DevTools está aberto (detecção básica) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .share-protected .photo-tile img {
+    filter: blur(10px) !important;
+  }
+  .share-protected .viewer-image-container img {
+    filter: blur(15px) !important;
+  }
+}
