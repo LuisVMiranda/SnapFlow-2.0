@@ -10,18 +10,50 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.npm-cache/
+.pnpm-store/
+.yarn/cache/
 *.local
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+!backend/.env.example
 
 # Runtime secrets and generated data
 backend/.env
 backend/db.json
 backend/uploads/
 backend/storage/
+backend/tmp/
 backend/.wwebjs_auth/
 backend/.wwebjs_cache/
+.wwebjs_auth/
+.wwebjs_cache/
+uploads/
+storage/
+media/
+photos/
+videos/
+captures/
+sessions/
+exports/
+tmp/
+temp/
 *.dump
 *.backup
 *.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
 
 # Editor directories and files
 .vscode/*

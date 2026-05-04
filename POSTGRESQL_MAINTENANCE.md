@@ -10,22 +10,22 @@ These credentials are for the simple local Docker PostgreSQL setup only.
 | Port | `55432` |
 | Database | `snapflow` |
 | User | `snapflow` |
-| Password | `snapflow` |
-| Connection URL | `postgres://snapflow:snapflow@127.0.0.1:55432/snapflow` |
+| Password | choose a local-only password |
+| Connection URL | `postgres://snapflow:<local-password>@127.0.0.1:55432/snapflow` |
 
 The local setup writes this database URL into ignored `backend/.env.local`:
 
 ```env
-DATABASE_URL=postgres://snapflow:snapflow@127.0.0.1:55432/snapflow
+DATABASE_URL=postgres://snapflow:<local-password>@127.0.0.1:55432/snapflow
 ```
 
-The local admin token in `backend/.env.local` is:
+Set a unique local admin token in `backend/.env.local`:
 
 ```env
-ADMIN_ACCESS_TOKEN=admin123
+ADMIN_ACCESS_TOKEN=<long-random-local-token>
 ```
 
-Use `admin123` in the SnapFlow dashboard "Acesso administrativo" field.
+Use that same token in the SnapFlow dashboard "Acesso administrativo" field.
 
 ## Daily Commands
 
@@ -85,4 +85,4 @@ npm run migrate
 
 ## Production Note
 
-Do not use the `snapflow/snapflow` password outside local development. For production, create a unique database user/password and update `DATABASE_URL`.
+Do not reuse local development passwords outside this machine. For production, create a unique database user/password and update `DATABASE_URL`.
