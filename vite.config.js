@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const devHost = process.env.SNAPFLOW_DEV_HOST || '127.0.0.1';
+const allowedHosts = (process.env.SNAPFLOW_ALLOWED_HOSTS || '')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
+const hostAllowList = allowedHosts.length ? { allowedHosts } : {};
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -14,9 +21,9 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
   },
   server: {
-    host: true,
+    host: devHost,
     port: 5173,
-    allowedHosts: ['desktop-15212c0.tail40752d.ts.net'],
+    ...hostAllowList,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',
@@ -29,8 +36,8 @@ export default defineConfig({
     },
   },
   preview: {
-    host: true,
+    host: devHost,
     port: 4173,
-    allowedHosts: ['desktop-15212c0.tail40752d.ts.net'],
+    ...hostAllowList,
   },
 });

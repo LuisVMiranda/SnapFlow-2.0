@@ -13,6 +13,8 @@ These credentials are for the simple local Docker PostgreSQL setup only.
 | Password | choose a local-only password |
 | Connection URL | `postgres://snapflow:<local-password>@127.0.0.1:55432/snapflow` |
 
+The Docker Compose port is intentionally bound to `127.0.0.1:55432`, so the development database is not published to the local network by default.
+
 The local setup writes this database URL into ignored `backend/.env.local`:
 
 ```env

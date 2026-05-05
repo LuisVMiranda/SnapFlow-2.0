@@ -27,8 +27,8 @@ async function main() {
   const retention = createRetentionService({ repos, media });
   const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates });
 
-  const server = app.listen(config.port, '0.0.0.0', () => {
-    console.log(`API rodando na porta ${config.port}`);
+  const server = app.listen(config.port, config.host, () => {
+    console.log(`API rodando em ${config.host}:${config.port}`);
     console.log('SnapFlow pronto com Postgres, armazenamento privado e fila de entrega.');
   });
 

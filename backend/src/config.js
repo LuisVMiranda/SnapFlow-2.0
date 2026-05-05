@@ -8,6 +8,7 @@ function numberFromEnv(name, fallback) {
 function createConfig() {
   return {
     port: Number(process.env.PORT) || 3000,
+    host: process.env.HOST || '127.0.0.1',
     databaseUrl: process.env.DATABASE_URL || '',
     publicBaseUrl: process.env.PUBLIC_BASE_URL || 'http://localhost:5173',
     adminAccessToken: process.env.ADMIN_ACCESS_TOKEN || '',

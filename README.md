@@ -87,6 +87,7 @@ CREDENTIALS_SECRET=outro-segredo-longo-para-criptografar-credenciais
 MP_ACCESS_TOKEN=APP_USR-seu-token-mercado-pago
 MP_WEBHOOK_SECRET=seu-segredo-de-webhook
 PUBLIC_BASE_URL=http://localhost:5173
+HOST=127.0.0.1
 PORT=3000
 STORAGE_ROOT=./storage
 ```
@@ -127,7 +128,7 @@ npm run start
 Terminal 2, frontend:
 
 ```powershell
-npm run dev -- --host 0.0.0.0 --port 5173
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Depois acesse:
@@ -141,6 +142,20 @@ A API roda por padrão em:
 ```text
 http://localhost:3000
 ```
+
+Por segurança, o backend e o painel de desenvolvimento iniciam presos ao próprio computador (`127.0.0.1`). Para usar em VPS, Tailscale ou rede local confiável, abra esse acesso de forma intencional:
+
+```env
+HOST=0.0.0.0
+```
+
+```powershell
+$env:SNAPFLOW_DEV_HOST="0.0.0.0"
+$env:SNAPFLOW_ALLOWED_HOSTS="seu-host-publico.example"
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+Use essa opção somente com `ADMIN_ACCESS_TOKEN` forte, firewall configurado e `PUBLIC_BASE_URL` apontando para a URL confiável.
 
 ## Comandos úteis
 
@@ -313,6 +328,7 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - Use HTTPS para `PUBLIC_BASE_URL` em produção.
 - Configure o webhook do Mercado Pago apontando para a URL pública real.
 - Use segredos únicos e longos.
+- Mantenha `HOST=127.0.0.1` para uso local; use `HOST=0.0.0.0` somente quando quiser expor a API de forma consciente.
 - Faça backup do PostgreSQL e do diretório de imagens.
 - Monitore a fila de entrega e o pareamento do WhatsApp.
 - Não reutilize senhas locais em VPS ou produção.
