@@ -3,6 +3,7 @@ import { DELIVERY_META } from '../lib/pricing';
 
 export function ConfirmedScreen({
   activeStage,
+  clientName,
   clientPhone,
   count,
   fetchDashboard,
@@ -33,6 +34,7 @@ export function ConfirmedScreen({
         stage={activeStage}
         count={count}
         total={total}
+        clientName={clientName}
         phone={clientPhone}
         packageType={type}
         pricingOptions={pricingOptions}
@@ -47,7 +49,7 @@ export function ConfirmedScreen({
           <span>💬</span>
           <div>
             <strong style={{ color: '#25D366' }}>{deliveryMeta.label}</strong>
-            <small>Fotos sendo tratadas para {clientPhone || 'o cliente'}</small>
+            <small>Fotos sendo tratadas para {clientName || clientPhone || 'o cliente'}</small>
           </div>
         </button>
       </div>

@@ -25,7 +25,7 @@ async function main() {
   const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsappTemplates });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates });
 
   const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`API rodando na porta ${config.port}`);
@@ -34,7 +34,7 @@ async function main() {
 
   whatsapp.initialize().catch((error) => {
     console.warn(`Erro ao inicializar WhatsApp: ${error.message}`);
-    console.log('API continua funcionando, mas a fila de entrega aguardara o WhatsApp ficar pronto.');
+    console.log('API continua funcionando; o cliente WhatsApp tentara reconectar automaticamente.');
   });
 
   deliveryQueue.start();
@@ -42,6 +42,7 @@ async function main() {
   const shutdown = async () => {
     deliveryQueue.stop();
     server.close();
+    await whatsapp.shutdown?.();
     await repos.close();
   };
 

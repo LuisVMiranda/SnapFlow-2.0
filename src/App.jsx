@@ -1,8 +1,11 @@
 import './index.css';
 import { PhotoViewer } from './components/PhotoViewer';
+import { ScrollToTopButton } from './components/ScrollToTopButton';
+import { AdminApprovalScreen } from './screens/AdminApprovalScreen';
 import { ConfirmedScreen } from './screens/ConfirmedScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { GalleryScreen } from './screens/GalleryScreen';
+import { ManualPaymentPendingScreen } from './screens/ManualPaymentPendingScreen';
 import { PixScreen } from './screens/PixScreen';
 import { ShareLockScreen } from './screens/ShareLockScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
@@ -20,6 +23,7 @@ export default function App() {
     allPhotosSelected,
     brokenPhotoIds,
     cleanupPreview,
+    clientName,
     clientPhone,
     count,
     currentPhoto,
@@ -58,12 +62,15 @@ export default function App() {
     retentionSettings,
     runCleanup,
     saveCredential,
+    saveCredentialsBatch,
     savePackageSettings,
     saveRetentionSettings,
     saveWhatsAppTemplates,
     screen,
     selected,
     selectedPhotoItems,
+    sessionId,
+    setClientName,
     setClientPhone,
     setNotice,
     setPeriod,
@@ -89,10 +96,40 @@ export default function App() {
     unit,
     whatsAppTemplateStatus,
     whatsAppTemplates,
+    withAdminMediaToken,
   } = useSnapFlowController();
 
+  const adminApprovalSessionId =
+    typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('adminApproval');
+  const renderScreen = (content) => (
+    <>
+      {content}
+      <ScrollToTopButton />
+    </>
+  );
+
+  if (adminApprovalSessionId) {
+    return renderScreen(
+      <AdminApprovalScreen
+        adminAccessError={adminAccessError}
+        adminAccessStatus={adminAccessStatus}
+        adminAttemptsRemaining={adminAttemptsRemaining}
+        adminHeaders={adminHeaders}
+        adminRemember={adminRemember}
+        fetchDashboard={fetchDashboard}
+        isAdminUnlocked={isAdminUnlocked}
+        loginAdmin={loginAdmin}
+        logoutAdmin={logoutAdmin}
+        noticeBanner={noticeBanner}
+        pricingOptions={pricingOptions}
+        sessionId={adminApprovalSessionId}
+        setNotice={setNotice}
+      />
+    );
+  }
+
   if (shareToken && screen === 'share-lock') {
-    return (
+    return renderScreen(
       <ShareLockScreen
         shareSessionInfo={shareSessionInfo}
         shareCodeInput={shareCodeInput}
@@ -105,7 +142,7 @@ export default function App() {
   }
 
   if (currentPhoto) {
-    return (
+    return renderScreen(
       <PhotoViewer
         currentPhoto={currentPhoto}
         selected={selected}
@@ -122,7 +159,7 @@ export default function App() {
   }
 
   if (screen === 'dashboard') {
-    return (
+    return renderScreen(
       <DashboardScreen
         activeStage={activeStage}
         adminAccessError={adminAccessError}
@@ -154,9 +191,11 @@ export default function App() {
         retentionSettings={retentionSettings}
         runCleanup={runCleanup}
         saveCredential={saveCredential}
+        saveCredentialsBatch={saveCredentialsBatch}
         savePackageSettings={savePackageSettings}
         saveRetentionSettings={saveRetentionSettings}
         saveWhatsAppTemplates={saveWhatsAppTemplates}
+        sessionId={sessionId}
         setNotice={setNotice}
         setPeriod={setPeriod}
         setRetentionSettings={setRetentionSettings}
@@ -164,6 +203,7 @@ export default function App() {
         startNewSession={startNewSession}
         total={total}
         type={type}
+        withAdminMediaToken={withAdminMediaToken}
         whatsAppTemplateStatus={whatsAppTemplateStatus}
         whatsAppTemplates={whatsAppTemplates}
       />
@@ -171,7 +211,7 @@ export default function App() {
   }
 
   if (screen === 'gallery') {
-    return (
+    return renderScreen(
       <GalleryScreen
         activeStage={activeStage}
         allPhotosSelected={allPhotosSelected}
@@ -200,9 +240,10 @@ export default function App() {
   }
 
   if (screen === 'summary') {
-    return (
+    return renderScreen(
       <SummaryScreen
         activeStage={activeStage}
+        clientName={clientName}
         clientPhone={clientPhone}
         count={count}
         handleCreateShareSession={handleCreateShareSession}
@@ -216,6 +257,7 @@ export default function App() {
         pricingOptions={pricingOptions}
         resetSession={resetSession}
         selectedPhotoItems={selectedPhotoItems}
+        setClientName={setClientName}
         setClientPhone={setClientPhone}
         setScreen={setScreen}
         setShareDurationMinutes={setShareDurationMinutes}
@@ -230,10 +272,29 @@ export default function App() {
     );
   }
 
+  if (screen === 'manual-pending') {
+    return renderScreen(
+      <ManualPaymentPendingScreen
+        activeStage={activeStage}
+        clientName={clientName}
+        clientPhone={clientPhone}
+        count={count}
+        liveOps={liveOps}
+        noticeBanner={noticeBanner}
+        pricingOptions={pricingOptions}
+        sessionId={sessionId}
+        setScreen={setScreen}
+        total={total}
+        type={type}
+      />
+    );
+  }
+
   if (screen === 'pix') {
-    return (
+    return renderScreen(
       <PixScreen
         activeStage={activeStage}
+        clientName={clientName}
         clientPhone={clientPhone}
         count={count}
         liveOps={liveOps}
@@ -254,9 +315,10 @@ export default function App() {
   }
 
   if (screen === 'confirmed') {
-    return (
+    return renderScreen(
       <ConfirmedScreen
         activeStage={activeStage}
+        clientName={clientName}
         clientPhone={clientPhone}
         count={count}
         fetchDashboard={fetchDashboard}

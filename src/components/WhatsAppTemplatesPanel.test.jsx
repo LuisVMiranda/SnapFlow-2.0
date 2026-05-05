@@ -14,7 +14,7 @@ const templates = {
   },
   deliveryThanks: {
     label: 'Agradecimento e envio',
-    body: 'Obrigado pela compra de {count} foto(s)!',
+    body: 'Obrigado, {name}! Aqui estão suas {count} foto(s).',
   },
 };
 
@@ -32,6 +32,7 @@ describe('WhatsAppTemplatesPanel', () => {
     expect(screen.getByLabelText('Link da galeria')).toHaveValue(templates.shareLink.body);
     expect(screen.getByLabelText('Aguardando pagamento')).toHaveValue(templates.paymentWaiting.body);
     expect(screen.getByLabelText('Agradecimento e envio')).toHaveValue(templates.deliveryThanks.body);
+    expect(screen.getByRole('button', { name: '{name}' })).toBeInTheDocument();
     expect(screen.getByText(/a URL precisa aparecer para ficar clicável/i)).toBeInTheDocument();
   });
 
@@ -50,6 +51,24 @@ describe('WhatsAppTemplatesPanel', () => {
 
     expect(screen.getByRole('tooltip')).toHaveTextContent(
       'Combina rótulo e URL em uma frase pronta'
+    );
+  });
+
+  it('explains the client name placeholder pill', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <WhatsAppTemplatesPanel
+        saveWhatsAppTemplates={vi.fn()}
+        status="idle"
+        templates={templates}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: '{name}' }));
+
+    expect(screen.getByRole('tooltip')).toHaveTextContent(
+      'Nome do cliente informado na criação ou edição da galeria'
     );
   });
 

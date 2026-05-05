@@ -8,11 +8,14 @@ export function useSnapFlowActions(config) {
   const {
     adminHeaders,
     adminJsonHeaders,
+    clientName,
     clientPhone,
-    count,
-    selectedPhotoItems,
+  count,
+  fetchDashboard,
+  selectedPhotoItems,
     sessionId,
     setBrokenPhotoIds,
+    setClientName,
     setClientPhone,
     setIsGeneratingPix,
     setIsUploading,
@@ -53,6 +56,7 @@ export function useSnapFlowActions(config) {
     setQrCodeBase64('');
     setPixCopyPaste('');
     setPixWhatsAppMessage('');
+    setClientName('');
     setClientPhone('');
     setViewerIndex(null);
     setBrokenPhotoIds([]);
@@ -111,6 +115,7 @@ export function useSnapFlowActions(config) {
         setPixCopyPaste('');
         setPixWhatsAppMessage('');
         setSessionId('');
+        setClientName('');
         setClientPhone('');
         setViewerIndex(null);
         setLiveOps({
@@ -144,6 +149,7 @@ export function useSnapFlowActions(config) {
         count,
         sessionId: generatedId,
         phone: clientPhone,
+        clientName,
         photoIds: selectedPhotoItems.map((photo) => photo.id),
         packageType: type,
       };
@@ -211,6 +217,7 @@ export function useSnapFlowActions(config) {
           count,
           sessionId: generatedId,
           phone: clientPhone,
+          clientName,
           photoIds: selectedPhotoItems.map((photo) => photo.id),
           packageType: type,
           paymentMethod,
@@ -231,14 +238,15 @@ export function useSnapFlowActions(config) {
         });
         setNotice('Pagamento em dinheiro/cartão confirmado pelo fotógrafo e fotos liberadas.');
       } else if (response.ok && data.status === 'pending') {
+        setSessionId(data.sessionId || generatedId);
         setLiveOps({
           paymentStatus: 'pending',
           deliveryStatus: 'idle',
           deliveryError: null,
           paymentMethod: 'Dinheiro/Cartão',
         });
-        setNotice('Solicitação enviada! Avise o fotógrafo para liberar as fotos.');
-        setScreen('pix');
+        setNotice('Pagamento em dinheiro/cartão aguardando liberação no painel.');
+        setScreen('manual-pending');
         return;
       } else {
         alert('Não foi possível registrar o pagamento: ' + (data.error || 'Erro desconhecido'));
@@ -272,6 +280,7 @@ export function useSnapFlowActions(config) {
     setBrokenPhotoIds([]);
     setQrCodeBase64('');
     setSessionId('');
+    setClientName(data.clientName || '');
     setClientPhone(data.phone || '');
     setType(pricingOptions[data.packageType] ? data.packageType : firstPackageKey(pricingOptions));
     setShareAccess({
@@ -337,6 +346,7 @@ export function useSnapFlowActions(config) {
         body: JSON.stringify({
           photoIds: selectedPhotoItems.map((photo) => photo.id),
           phone: clientPhone,
+          clientName,
           packageType: type,
           count,
           total,
@@ -356,15 +366,20 @@ export function useSnapFlowActions(config) {
         code: data.accessCode,
         link,
         expiresAt: data.expiresAt,
+        clientName: data.clientName || clientName,
         whatsappMessage: data.whatsappMessage || buildShareWhatsAppMessage(link, data.accessCode),
       };
 
       setShareAccess(shareRecord);
-      setNotice('Link gerado e enviado para WhatsApp com validade de ' + shareDurationMinutes + ' minutos.');
-
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      if (data.whatsappSent) {
+        setNotice('Link criado e enviado no WhatsApp.');
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareRecord.whatsappMessage);
+        setNotice('Link criado, mas WhatsApp não enviou. Mensagem copiada para envio manual.');
+      } else {
+        setNotice('Link criado, mas WhatsApp não enviou. Use Copiar mensagem WhatsApp para envio manual.');
       }
+      fetchDashboard?.({ silent: true });
     } catch (error) {
       setNotice(error.message || 'Não foi possível gerar o link.');
     } finally {

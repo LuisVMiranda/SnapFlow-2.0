@@ -6,6 +6,7 @@ export function SessionOpsCard({
   stage,
   count,
   total,
+  clientName,
   phone,
   packageType,
   pricingOptions = DEFAULT_PRICING,
@@ -13,6 +14,7 @@ export function SessionOpsCard({
   paymentStatus,
   deliveryStatus,
   deliveryError,
+  onRetryDelivery,
 }) {
   const paymentMeta = PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
   const deliveryMeta = DELIVERY_META[deliveryStatus] || DELIVERY_META.idle;
@@ -36,7 +38,8 @@ export function SessionOpsCard({
         </div>
         <div className="ops-stat">
           <span>Cliente</span>
-          <strong>{phone || 'Não informado'}</strong>
+          <strong>{clientName || 'Não informado'}</strong>
+          {phone ? <small>{phone}</small> : null}
         </div>
         <div className="ops-stat">
           <span>Pacote ativo</span>
@@ -59,7 +62,16 @@ export function SessionOpsCard({
         </div>
       ) : null}
 
-      {deliveryError ? <div className="ops-error">{deliveryError}</div> : null}
+      {deliveryError ? (
+        <div className="ops-error">
+          <span>{deliveryError}</span>
+          {onRetryDelivery ? (
+            <button className="share-quick-btn approve-session-btn" type="button" onClick={onRetryDelivery}>
+              Reenviar fotos
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

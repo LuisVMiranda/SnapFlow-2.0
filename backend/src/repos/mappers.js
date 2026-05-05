@@ -14,6 +14,7 @@ function rowToSession(row) {
     photoCount: row.photo_count,
     packageType: row.package_type,
     phone: row.phone,
+    clientName: row.client_name || '',
     status: row.status,
     paymentMethod: row.payment_method,
     paymentId: row.payment_id,
@@ -22,6 +23,7 @@ function rowToSession(row) {
     created_at: row.created_at,
     deliveryStatus: row.delivery_status || 'idle',
     deliveryError: row.delivery_error || null,
+    deliveryJobId: row.delivery_job_id || null,
     deliveredAt: row.delivered_at,
   };
 }
@@ -50,8 +52,10 @@ function rowToShare(row, options = {}) {
   if (!row) return null;
   const payload = {
     token: row.token,
+    galleryId: row.gallery_id || row.token,
     packageType: row.package_type,
     phone: row.phone,
+    clientName: row.client_name || '',
     photoCount: row.photo_count,
     total: fromCents(row.total_cents),
     createdAt: row.created_at,

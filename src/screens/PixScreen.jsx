@@ -3,6 +3,7 @@ import { formatMoney } from '../lib/formatters';
 
 export function PixScreen({
   activeStage,
+  clientName,
   clientPhone,
   count,
   liveOps,
@@ -34,6 +35,7 @@ export function PixScreen({
         stage={activeStage}
         count={count}
         total={total}
+        clientName={clientName}
         phone={clientPhone}
         packageType={type}
         pricingOptions={pricingOptions}

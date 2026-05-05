@@ -6,6 +6,32 @@ function createPaymentClient(accessToken) {
   return new Payment(new MercadoPagoConfig({ accessToken: accessToken || 'missing' }));
 }
 
+function parseSignatureHeader(signature = '') {
+  return String(signature)
+    .split(',')
+    .map((part) => part.trim().split('='))
+    .reduce((parsed, [key, value]) => {
+      if (key && value) parsed[key] = value;
+      return parsed;
+    }, {});
+}
+
+function timingSafeEqualText(left, right) {
+  const leftBuffer = Buffer.from(String(left || ''));
+  const rightBuffer = Buffer.from(String(right || ''));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function webhookSignatureTemplate(req, ts) {
+  const pieces = [];
+  const dataId = req.query?.['data.id'];
+  const requestId = req.get('x-request-id');
+  if (dataId) pieces.push(`id:${dataId};`);
+  if (requestId) pieces.push(`request-id:${requestId};`);
+  if (ts) pieces.push(`ts:${ts};`);
+  return pieces.join('');
+}
+
 function createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates }) {
   async function mercadoPagoAccessToken() {
     return (typeof credentials?.getSecretValue === 'function' ? await credentials.getSecretValue('mpAccessToken') : '') || config.mercadoPagoAccessToken;
@@ -42,6 +68,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
         photoCount: payload.count,
         packageType: payload.packageType,
         phone: payload.phone,
+        clientName: payload.clientName || '',
         status: 'pending',
         paymentMethod: 'PIX',
         paymentId: response.id,
@@ -61,6 +88,8 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
           count: payload.count,
           total: payload.total,
           phone: payload.phone,
+          name: payload.clientName || '',
+          clientName: payload.clientName || '',
           sessionId: payload.sessionId,
         })
       : '';
@@ -97,13 +126,26 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
     if (!webhookSecret) {
       throw new HttpError(500, 'MP_WEBHOOK_SECRET ausente no servidor.', 'mp_webhook_secret_missing');
     }
-    const signature = req.get('x-signature') || req.get('x-snapflow-signature') || '';
-    if (!signature) throw new HttpError(401, 'Webhook sem assinatura.', 'webhook_signature_missing');
+    const snapflowSignature = req.get('x-snapflow-signature') || '';
+    if (snapflowSignature) {
+      const raw = JSON.stringify(req.body || {});
+      const expected = crypto.createHmac('sha256', webhookSecret).update(raw).digest('hex');
+      const normalized = snapflowSignature.includes('=') ? snapflowSignature.split('=').pop() : snapflowSignature;
+      if (!timingSafeEqualText(normalized, expected)) {
+        throw new HttpError(401, 'Assinatura de webhook inválida.', 'webhook_signature_invalid');
+      }
+      return;
+    }
 
-    const raw = JSON.stringify(req.body || {});
-    const expected = crypto.createHmac('sha256', webhookSecret).update(raw).digest('hex');
-    const normalized = signature.includes('=') ? signature.split('=').pop() : signature;
-    if (normalized.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(normalized), Buffer.from(expected))) {
+    const signature = req.get('x-signature') || '';
+    if (!signature) throw new HttpError(401, 'Webhook sem assinatura.', 'webhook_signature_missing');
+    const parsedSignature = parseSignatureHeader(signature);
+    if (!parsedSignature.ts || !parsedSignature.v1) {
+      throw new HttpError(401, 'Assinatura de webhook incompleta.', 'webhook_signature_invalid');
+    }
+    const signedTemplate = webhookSignatureTemplate(req, parsedSignature.ts);
+    const expected = crypto.createHmac('sha256', webhookSecret).update(signedTemplate).digest('hex');
+    if (!timingSafeEqualText(parsedSignature.v1, expected)) {
       throw new HttpError(401, 'Assinatura de webhook inválida.', 'webhook_signature_invalid');
     }
   }
@@ -112,7 +154,8 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
     await verifyWebhook(req);
     const dataId = req.query['data.id'] || req.body.data?.id || req.body.id;
     const topic = req.query.topic || req.query.type || req.body.type;
-    if ((topic === 'payment' || topic === 'payment.updated') && dataId) {
+    const action = req.body.action || req.query.action;
+    if ((topic === 'payment' || topic === 'payment.updated' || String(action || '').startsWith('payment.')) && dataId) {
       await approvePayment(dataId);
     }
   }
@@ -120,4 +163,4 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
   return { createPixPayment, approvePayment, handleWebhook, verifyWebhook };
 }
 
-module.exports = { createPaymentService };
+module.exports = { createPaymentService, parseSignatureHeader, webhookSignatureTemplate };

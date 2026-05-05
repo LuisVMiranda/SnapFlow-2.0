@@ -1,7 +1,8 @@
 import { SessionOpsCard } from './SessionOpsCard';
+import { WhatsAppStatusCard } from './WhatsAppStatusCard';
 import { formatMoney } from '../lib/formatters';
 import { DELIVERY_META, PAYMENT_META, packageLabel } from '../lib/pricing';
-import { API_BASE_URL } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
 
 const PERIODS = [
   { key: 'hoje', label: 'Diário', seriesKey: 'diario' },
@@ -9,6 +10,18 @@ const PERIODS = [
   { key: 'mes', label: 'Mensal', seriesKey: 'mensal' },
   { key: 'ano', label: 'Anual', seriesKey: 'anual' },
 ];
+
+function deliveryFailureHint(error) {
+  const message = String(error || '').trim();
+  if (!message) return 'O envio falhou, mas a API não retornou detalhes. Confira se o WhatsApp está pareado e tente reenviar.';
+  if (message.includes('WhatsApp ainda')) {
+    return `${message} Abra Vendas > WhatsApp de envio, escaneie o QR Code no painel quando aparecer e tente reenviar.`;
+  }
+  if (message.includes('Número não encontrado') || message.includes('Telefone') || message.includes('WhatsApp brasileiro')) {
+    return `${message} Corrija o WhatsApp do cliente na galeria/venda antes de reenviar.`;
+  }
+  return message;
+}
 
 function MiniBarChart({ series = [] }) {
   const max = Math.max(1, ...series.map((item) => Number(item.valor) || 0));
@@ -38,6 +51,8 @@ export function SalesStatsPanel({
   liveOps,
   period,
   pricingOptions,
+  sessionId,
+  setNotice,
   setPeriod,
   total,
   type,
@@ -45,7 +60,41 @@ export function SalesStatsPanel({
   const periodConfig = PERIODS.find((item) => item.key === period) || PERIODS[0];
   const stats = dashData.stats?.[period] || { valor: 0, fotos: 0, sessoes: 0 };
   const series = dashData.chartSeries?.[periodConfig.seriesKey] || [];
-
+  const retryDelivery = async (targetSessionId) => {
+    if (!targetSessionId) return;
+    const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/retry-delivery`, {
+      method: 'POST',
+      headers: adminHeaders(),
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      setNotice(buildApiErrorMessage('Não foi possível reenfileirar o envio.', response, data));
+      return;
+    }
+    if (data.session?.deliveryStatus === 'failed') {
+      setNotice(`Envio falhou novamente: ${deliveryFailureHint(data.session.deliveryError)}`);
+    } else if (data.session?.deliveryStatus === 'sent') {
+      setNotice('Fotos reenviadas com sucesso.');
+    } else {
+      setNotice('Entrega reenfileirada. Deixe o WhatsApp pareado e aberto para concluir o envio.');
+    }
+    fetchDashboard({ silent: true });
+  };
+  const clearStats = async () => {
+    if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas? As galerias compartilhadas continuarão na aba Galerias.')) return;
+    if (!window.confirm('Confirme novamente: esta ação apaga as sessões de venda do painel.')) return;
+    const response = await fetch(`${API_BASE_URL}/api/admin/stats/clear`, {
+      method: 'POST',
+      headers: adminHeaders(),
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      setNotice(buildApiErrorMessage('Não foi possível limpar as estatísticas.', response, data));
+      return;
+    }
+    setNotice(`${data.deletedSessions || 0} sessão(ões) removida(s) das estatísticas.`);
+    fetchDashboard({ silent: true });
+  };
   return (
     <section className="admin-panel">
       <div className="period-tabs">
@@ -57,13 +106,20 @@ export function SalesStatsPanel({
       </div>
 
       <div className="stats-card">
-        <div className="stats-title">Vendas ({periodConfig.label})</div>
+        <div className="stats-card-header">
+          <div className="stats-title">Vendas ({periodConfig.label})</div>
+          <button className="share-quick-btn share-quick-btn-danger" type="button" onClick={clearStats}>
+            Limpar estatísticas
+          </button>
+        </div>
         <div className="stats-value">{formatMoney(stats.valor)}</div>
         <div className="stats-subtitle">
           {stats.sessoes} sessões • {stats.fotos} fotos vendidas
         </div>
         <MiniBarChart series={series} />
       </div>
+
+      <WhatsAppStatusCard adminHeaders={adminHeaders} setNotice={setNotice} />
 
       {hasActiveSession ? (
         <SessionOpsCard
@@ -78,15 +134,22 @@ export function SalesStatsPanel({
           paymentStatus={liveOps.paymentStatus}
           deliveryStatus={liveOps.deliveryStatus}
           deliveryError={liveOps.deliveryError}
+          onRetryDelivery={liveOps.deliveryStatus === 'failed' ? () => retryDelivery(sessionId) : null}
         />
       ) : null}
 
-      <RecentSessions adminHeaders={adminHeaders} dashData={dashData} fetchDashboard={fetchDashboard} pricingOptions={pricingOptions} />
+      <RecentSessions
+        adminHeaders={adminHeaders}
+        dashData={dashData}
+        fetchDashboard={fetchDashboard}
+        pricingOptions={pricingOptions}
+        retryDelivery={retryDelivery}
+      />
     </section>
   );
 }
 
-function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions }) {
+function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions, retryDelivery }) {
   return (
     <div className="recent-sessions">
       <div className="recent-header">
@@ -122,6 +185,14 @@ function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions
                 >
                   Liberar fotos
                 </button>
+              ) : null}
+              {session.status === 'approved' && session.deliveryStatus === 'failed' ? (
+                <button className="share-quick-btn approve-session-btn" onClick={() => retryDelivery(session.id)}>
+                  Reenviar fotos
+                </button>
+              ) : null}
+              {session.deliveryStatus === 'failed' ? (
+                <small className="delivery-failure-note">{deliveryFailureHint(session.deliveryError)}</small>
               ) : null}
             </div>
           </div>

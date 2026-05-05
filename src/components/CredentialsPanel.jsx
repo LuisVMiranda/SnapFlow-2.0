@@ -1,5 +1,6 @@
 import { EyeOff, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { buildCredentialDrafts, changedCredentialDrafts } from '../lib/credentials';
 
 const GROUP_META = {
   api: {
@@ -12,11 +13,19 @@ const GROUP_META = {
   },
 };
 
-function emptyDrafts(groups) {
-  return [...(groups.api || []), ...(groups.profile || [])].reduce((acc, item) => {
-    acc[item.key] = item.sensitive ? '' : item.maskedValue || '';
-    return acc;
-  }, {});
+function SaveAllButton({ disabled, onClick, placement }) {
+  return (
+    <button
+      className="btn-primary credentials-save-all"
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      data-placement={placement}
+    >
+      <Save size={16} />
+      Salvar alterações
+    </button>
+  );
 }
 
 export function CredentialsPanel({
@@ -24,17 +33,21 @@ export function CredentialsPanel({
   credentialsStatus,
   deleteCredential,
   saveCredential,
+  saveCredentialsBatch,
 }) {
   const [drafts, setDrafts] = useState({});
   const [pendingAction, setPendingAction] = useState(null);
   const [confirmation, setConfirmation] = useState('');
+  const [saveResults, setSaveResults] = useState({});
+  const dirtyChanges = changedCredentialDrafts(credentialsData, drafts);
 
   useEffect(() => {
-    setDrafts(emptyDrafts(credentialsData));
+    setDrafts(buildCredentialDrafts(credentialsData));
   }, [credentialsData]);
 
-  const openSave = (credential) => {
-    setPendingAction({ type: 'save', credential, value: drafts[credential.key] || '' });
+  const openSaveAll = () => {
+    if (!dirtyChanges.length) return;
+    setPendingAction({ type: 'saveAll', changes: dirtyChanges });
     setConfirmation('');
   };
 
@@ -51,15 +64,48 @@ export function CredentialsPanel({
   const confirmAction = async (event) => {
     event.preventDefault();
     if (!pendingAction) return;
-    const payload = { key: pendingAction.credential.key, confirmation };
-    const ok = pendingAction.type === 'save'
-      ? await saveCredential({ ...payload, value: pendingAction.value })
-      : await deleteCredential(payload);
+    let ok;
+    if (pendingAction.type === 'saveAll') {
+      const saver = saveCredentialsBatch || (async ({ changes }) => {
+        const results = {};
+        for (const change of changes) {
+          results[change.key] = await saveCredential({ ...change, confirmation })
+            ? { status: 'saved' }
+            : { status: 'failed', error: 'Falha ao salvar.' };
+        }
+        return { ok: Object.values(results).every((result) => result.status === 'saved'), results };
+      });
+      const result = await saver({ changes: pendingAction.changes, confirmation });
+      setSaveResults(result.results || {});
+      setDrafts((previous) => {
+        const next = { ...previous };
+        for (const change of pendingAction.changes) {
+          if (result.results?.[change.key]?.status === 'failed') next[change.key] = change.value;
+        }
+        return next;
+      });
+      closeConfirmation();
+      return;
+    } else {
+      const payload = { key: pendingAction.credential.key, confirmation };
+      ok = await deleteCredential(payload);
+    }
     if (ok) closeConfirmation();
   };
 
   return (
     <section className="admin-panel credentials-panel">
+      <div className="credentials-global-actions">
+        <SaveAllButton
+          disabled={credentialsStatus !== 'idle' || dirtyChanges.length === 0}
+          onClick={openSaveAll}
+          placement="top"
+        />
+        <small className="summary-help">
+          {dirtyChanges.length ? `${dirtyChanges.length} campo(s) pendente(s).` : 'Nenhuma alteração pendente.'}
+        </small>
+      </div>
+
       {['api', 'profile'].map((groupKey) => (
         <div className="summary-card credentials-group" key={groupKey}>
           <div className="credentials-group-header">
@@ -99,15 +145,6 @@ export function CredentialsPanel({
 
                 <div className="credential-actions">
                   <button
-                    className="share-quick-btn"
-                    type="button"
-                    onClick={() => openSave(credential)}
-                    disabled={!String(drafts[credential.key] || '').trim()}
-                  >
-                    <Save size={14} />
-                    Salvar
-                  </button>
-                  <button
                     className="share-quick-btn share-quick-btn-danger"
                     type="button"
                     onClick={() => openDelete(credential)}
@@ -118,6 +155,14 @@ export function CredentialsPanel({
                   </button>
                 </div>
 
+                {saveResults[credential.key] ? (
+                  <small className={`summary-help credential-result ${saveResults[credential.key].status}`}>
+                    {saveResults[credential.key].status === 'saved'
+                      ? 'Salvo.'
+                      : saveResults[credential.key].error || 'Falha ao salvar.'}
+                  </small>
+                ) : null}
+
                 {credential.updatedAt ? (
                   <small className="summary-help">Atualizado em {new Date(credential.updatedAt).toLocaleString('pt-BR')}</small>
                 ) : null}
@@ -127,13 +172,26 @@ export function CredentialsPanel({
         </div>
       ))}
 
+      <div className="credentials-global-actions bottom">
+        <SaveAllButton
+          disabled={credentialsStatus !== 'idle' || dirtyChanges.length === 0}
+          onClick={openSaveAll}
+          placement="bottom"
+        />
+      </div>
+
       {pendingAction ? (
         <div className="account-modal-backdrop" role="presentation">
           <section className="account-modal" role="dialog" aria-modal="true" aria-labelledby="credential-confirmation-title">
             <header className="account-modal-header">
               <div>
                 <h2 id="credential-confirmation-title">Confirmar alteração</h2>
-                <small>Digite a senha administrativa para {pendingAction.type === 'save' ? 'salvar' : 'deletar'} este dado.</small>
+                <small>
+                  Digite a senha administrativa para{' '}
+                  {pendingAction.type === 'saveAll'
+                    ? `salvar ${pendingAction.changes.length} alteração(ões)`
+                    : 'deletar este dado'}.
+                </small>
               </div>
               <button type="button" className="account-icon-button" onClick={closeConfirmation} aria-label="Fechar">
                 <X size={18} />

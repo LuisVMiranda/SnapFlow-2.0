@@ -5,13 +5,14 @@ function createSessionRepo({ pool, query, withTransaction }) {
     return withTransaction(pool, async (client) => {
       const result = await client.query(
         `insert into sessions
-          (id, amount_cents, photo_count, package_type, phone, status, payment_method, payment_id, share_token, delivery_status)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          (id, amount_cents, photo_count, package_type, phone, client_name, status, payment_method, payment_id, share_token, delivery_status)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          on conflict (id) do update set
           amount_cents = excluded.amount_cents,
           photo_count = excluded.photo_count,
           package_type = excluded.package_type,
           phone = excluded.phone,
+          client_name = excluded.client_name,
           status = excluded.status,
           payment_method = excluded.payment_method,
           payment_id = excluded.payment_id,
@@ -23,6 +24,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
           session.photoCount,
           session.packageType || 'eventos',
           session.phone || '',
+          session.clientName || '',
           session.status || 'pending',
           session.paymentMethod || null,
           session.paymentId || null,
@@ -124,20 +126,58 @@ function createSessionRepo({ pool, query, withTransaction }) {
     );
     const s = statsResult.rows[0] || {};
     const recentResult = await query(
-      `select * from sessions
-       where status = 'approved' or created_at >= now() - interval '2 hours'
-       order by created_at desc
+      `select sessions.*, delivery_jobs.id as delivery_job_id
+       from sessions
+       left join lateral (
+         select id
+         from delivery_jobs
+         where delivery_jobs.session_id = sessions.id
+         order by updated_at desc, id desc
+         limit 1
+       ) delivery_jobs on true
+       where sessions.status = 'approved' or sessions.created_at >= now() - interval '2 hours'
+       order by sessions.created_at desc
        limit 5`
     );
     const shareResult = await query(
-      `select *, case
+      `select share_rows.*, case
         when revoked_at is not null then 'revoked'
         when expires_at <= now() then 'expired'
         when access_granted_at is not null then 'opened'
         else status
        end as computed_status
-       from share_sessions
-       where deleted_at is null
+       from (
+         select ss.token,
+                ss.gallery_id,
+                ss.access_code_hash,
+                ss.access_code,
+                ss.phone,
+                ss.client_name,
+                ss.package_type,
+                coalesce(photo_counts.photo_count, ss.photo_count, 0)::int as photo_count,
+                ss.total_cents,
+                ss.created_at,
+                ss.expires_at,
+                ss.revoked_at,
+                ss.status,
+                ss.access_granted_at,
+                ss.extends_count,
+                ss.retention_expires_at,
+                ss.link,
+                ss.deleted_at
+         from share_sessions ss
+         left join (
+           select share_token, count(*)::int as photo_count
+           from photos
+           where deleted_at is null
+           group by share_token
+         ) photo_counts on photo_counts.share_token = ss.token
+         where ss.deleted_at is null
+           and (
+             coalesce(photo_counts.photo_count, 0) > 0
+             or (ss.revoked_at is null and ss.expires_at > now())
+           )
+       ) share_rows
        order by created_at desc
        limit 8`
     );
@@ -159,8 +199,14 @@ function createSessionRepo({ pool, query, withTransaction }) {
     };
   }
 
+  async function clearSalesStats() {
+    const result = await query('delete from sessions returning id');
+    return { deletedSessions: result.rowCount };
+  }
+
   return {
     approveSession,
+    clearSalesStats,
     createSession,
     dashboard,
     getSession,

@@ -31,34 +31,46 @@ const credentialsData = {
 };
 
 describe('CredentialsPanel', () => {
-  it('masks sensitive values and requires confirmation before saving', async () => {
+  it('masks sensitive values and saves multiple changes after one confirmation', async () => {
     const user = userEvent.setup();
-    const saveCredential = vi.fn(async () => true);
+    const saveCredentialsBatch = vi.fn(async () => ({
+      ok: true,
+      results: {
+        mpAccessToken: { status: 'saved' },
+        photographerName: { status: 'saved' },
+      },
+    }));
 
     render(
       <CredentialsPanel
         credentialsData={credentialsData}
         credentialsStatus="idle"
         deleteCredential={vi.fn()}
-        saveCredential={saveCredential}
+        saveCredential={vi.fn()}
+        saveCredentialsBatch={saveCredentialsBatch}
       />
     );
 
     expect(screen.getByText('••••1234')).toBeInTheDocument();
     expect(screen.queryByText('secret-live-token-1234')).not.toBeInTheDocument();
 
-    const tokenInput = screen.getByLabelText('Novo valor', { selector: 'input[type="password"]' });
-    await user.type(tokenInput, 'secret-live-token-1234');
-    await user.click(screen.getAllByRole('button', { name: /Salvar/i })[0]);
+    await user.type(screen.getByLabelText('Novo valor', { selector: 'input[type="password"]' }), 'secret-live-token-1234');
+    const nameInput = screen.getByLabelText('Novo valor', { selector: 'input[type="text"]' });
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Ana Souza');
+    expect(screen.getAllByRole('button', { name: /Salvar alterações/i })).toHaveLength(2);
+    await user.click(screen.getAllByRole('button', { name: /Salvar alterações/i })[0]);
 
     expect(screen.getByRole('dialog', { name: 'Confirmar alteração' })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Senha administrativa'), 'admin123');
     await user.click(screen.getByRole('button', { name: 'Confirmar' }));
 
-    expect(saveCredential).toHaveBeenCalledWith({
-      key: 'mpAccessToken',
-      value: 'secret-live-token-1234',
+    expect(saveCredentialsBatch).toHaveBeenCalledWith({
       confirmation: 'admin123',
+      changes: [
+        { key: 'mpAccessToken', label: 'Token de acesso Mercado Pago', value: 'secret-live-token-1234' },
+        { key: 'photographerName', label: 'Nome do fotógrafo', value: 'Ana Souza' },
+      ],
     });
   });
 });

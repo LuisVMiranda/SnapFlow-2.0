@@ -1,5 +1,6 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
+const { validateBrazilPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
 const { publicBaseUrlForRequest, toPhotoIds } = require('./helpers');
 
@@ -10,6 +11,13 @@ function normalizeAccessCode(value) {
     .slice(0, 4);
 }
 
+function normalizeClientName(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+}
+
 async function resolvePublicBaseUrl(req, config, credentials) {
   const savedUrl = typeof credentials?.getSecretValue === 'function'
     ? await credentials.getSecretValue('publicBaseUrl')
@@ -17,7 +25,40 @@ async function resolvePublicBaseUrl(req, config, credentials) {
   return savedUrl || publicBaseUrlForRequest(req, config);
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsappTemplates }) {
+function adminPhotoPayload(photo) {
+  return {
+    id: photo.id,
+    url: `/api/media/${photo.id}/preview`,
+    thumbUrl: `/api/media/${photo.id}/thumb`,
+    createdAt: photo.createdAt,
+    sizeBytes: Number(photo.sizeBytes || 0),
+  };
+}
+
+async function adminShareDetails(repos, token) {
+  const share = await repos.getShareSession(token, { includeAccessCode: true });
+  if (!share) return null;
+  const photos = await repos.listPhotosForShare(share.token);
+  return {
+    ...share,
+    photoCount: photos.length,
+    photos: photos.map(adminPhotoPayload),
+  };
+}
+
+async function sendShareLinkMessage({ whatsapp, phone, message }) {
+  if (!whatsapp || typeof whatsapp.sendText !== 'function') {
+    return { whatsappSent: false, whatsappStatus: 'unavailable', whatsappError: 'WhatsApp indisponivel.' };
+  }
+  try {
+    await whatsapp.sendText(phone, message);
+    return { whatsappSent: true, whatsappStatus: 'sent' };
+  } catch (error) {
+    return { whatsappSent: false, whatsappStatus: 'failed', whatsappError: error.message || 'Falha ao enviar WhatsApp.' };
+  }
+}
+
+function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates }) {
   const router = express.Router();
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -57,11 +98,14 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
+      const phone = validateBrazilPhone(req.body.phone);
+      if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const pix = await payment.createPixPayment({
         total: req.body.total,
         count: req.body.count,
         sessionId: req.body.sessionId,
-        phone: req.body.phone,
+        phone: phone.normalized,
+        clientName: normalizeClientName(req.body.clientName),
         packageType: req.body.packageType,
         photoIds,
       });
@@ -74,24 +118,29 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
-      const isShareSession = Boolean(req.body.isShareSession || req.body.shareToken);
-      const status = isShareSession ? 'pending' : 'approved';
+      const phone = validateBrazilPhone(req.body.phone);
+      if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const session = await repos.createSession(
         {
           id: req.body.sessionId,
           amount: req.body.total,
           photoCount: req.body.count,
           packageType: req.body.packageType,
-          phone: req.body.phone,
-          status,
+          phone: phone.normalized,
+          clientName: normalizeClientName(req.body.clientName),
+          status: 'pending',
           paymentMethod: 'Dinheiro/Cartão',
           shareToken: req.body.shareToken || null,
-          deliveryStatus: isShareSession ? 'idle' : 'queued',
+          deliveryStatus: 'idle',
         },
         photoIds
       );
-      if (!isShareSession) await deliveryQueue.enqueue(session.id);
-      res.json({ status: session.status, deliveryStatus: session.deliveryStatus, paymentMethod: session.paymentMethod });
+      res.json({
+        sessionId: session.id,
+        status: session.status,
+        deliveryStatus: session.deliveryStatus,
+        paymentMethod: session.paymentMethod,
+      });
     })
   );
 
@@ -99,8 +148,13 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     '/approve-manual-session/:id',
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
+      const current = await repos.getSession(req.params.id);
+      if (!current) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+      if (current.status === 'approved') {
+        res.json({ success: true, alreadyApproved: true, session: current });
+        return;
+      }
       const session = await repos.approveSession(req.params.id);
-      if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
       await deliveryQueue.enqueue(session.id);
       res.json({ success: true, session });
     })
@@ -112,9 +166,9 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       if (!photoIds.length) throw new HttpError(400, 'Selecione ao menos uma foto para compartilhar.', 'photos_required');
-      if (!req.body.phone || String(req.body.phone).replace(/\D/g, '').length < 10) {
-        throw new HttpError(400, 'Informe o WhatsApp do cliente.', 'phone_required');
-      }
+      const phone = validateBrazilPhone(req.body.phone);
+      if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
+      const clientName = normalizeClientName(req.body.clientName);
 
       const safeMinutes = Math.min(180, Math.max(5, Number(req.body.expiresMinutes) || 30));
       const now = new Date();
@@ -128,7 +182,8 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         token,
         accessCodeHash: hashValue(accessCode),
         accessCode,
-        phone: req.body.phone,
+        phone: phone.normalized,
+        clientName,
         packageType: req.body.packageType || 'eventos',
         photoCount: Number(req.body.count) || photoIds.length,
         total: Number(req.body.total) || 0,
@@ -138,12 +193,17 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         photoIds,
       });
 
+      const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
+      const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.normalized, message: whatsappMessage });
+
       res.json({
         token,
         accessCode,
         expiresAt,
         link,
-        whatsappMessage: await whatsappTemplates.renderShareLinkMessage({ link, accessCode, expiresMinutes: safeMinutes }),
+        whatsappMessage,
+        clientName,
+        ...whatsappResult,
       });
     })
   );
@@ -172,43 +232,96 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     '/share-sessions/:token/recreate',
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
-      const original = await repos.getShareSession(req.params.token, { includeSensitive: true });
+      let original = await repos.getShareSession(req.params.token, { includeSensitive: true });
       if (!original) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
-      const photos = await repos.listPhotosForShare(original.token);
+      let photos = await repos.listPhotosForShare(original.token);
+      if (!photos.length && typeof repos.findShareWithMatchingMetadata === 'function') {
+        const matched = await repos.findShareWithMatchingMetadata(original);
+        if (matched) {
+          await repos.deleteShareSession(original.token);
+          original = matched;
+          photos = await repos.listPhotosForShare(original.token);
+        }
+      }
       if (!photos.length) throw new HttpError(400, 'Esta galeria não possui fotos para recriar.', 'share_photos_missing');
-
       const createdAt = new Date(original.createdAt).getTime();
       const expiresAt = new Date(original.expiresAt).getTime();
       const originalMinutes = Math.round((expiresAt - createdAt) / 60_000);
       const safeMinutes = Math.min(180, Math.max(5, Number.isFinite(originalMinutes) ? originalMinutes : 30));
       const now = new Date();
-      const token = randomToken(12);
       const accessCode = original.accessCode || generateAccessCode(4);
       const newExpiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
-      const link = new URL(`/s/${token}`, await resolvePublicBaseUrl(req, config, credentials)).toString();
+      const link = original.link || new URL(`/s/${original.token}`, await resolvePublicBaseUrl(req, config, credentials)).toString();
 
-      await repos.createShareSession({
-        token,
+      const updated = await repos.reactivateShareSession(original.token, {
         accessCodeHash: original.accessCodeHash || hashValue(accessCode),
         accessCode,
-        phone: original.phone,
-        packageType: original.packageType,
-        photoCount: original.photoCount,
-        total: original.total,
         expiresAt: newExpiresAt,
         retentionExpiresAt,
         link,
-        photoIds: photos.map((photo) => photo.id),
       });
+      if (typeof repos.deleteDetachedShareDuplicates === 'function') {
+        await repos.deleteDetachedShareDuplicates(updated);
+      }
 
       res.json({
-        token,
+        token: updated.token,
+        galleryId: updated.galleryId,
         accessCode,
         expiresAt: newExpiresAt,
         link,
-        whatsappMessage: await whatsappTemplates.renderShareLinkMessage({ link, accessCode, expiresMinutes: safeMinutes }),
+        whatsappMessage: await whatsappTemplates.renderShareLinkMessage({
+          link,
+          accessCode,
+          expiresMinutes: safeMinutes,
+          name: original.clientName || '',
+          clientName: original.clientName || '',
+        }),
       });
+    })
+  );
+
+  router.get(
+    '/share-sessions/:token',
+    auth.requireAdmin,
+    asyncHandler(async (req, res) => {
+      const details = await adminShareDetails(repos, req.params.token);
+      if (!details) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      res.json(details);
+    })
+  );
+
+  router.post(
+    '/share-sessions/:token/photos',
+    auth.requireAdmin,
+    upload.photos,
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token, { includeAccessCode: true });
+      if (!share) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      const retentionExpiresAt = share.retentionExpiresAt || addDays(new Date(), config.defaultGalleryRetentionDays);
+      const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt);
+      await repos.createPhotos(processed.map((photo) => ({ ...photo, shareToken: share.token })));
+      await repos.refreshSharePhotoCount(share.token);
+      res.json(await adminShareDetails(repos, share.token));
+    })
+  );
+
+  router.delete(
+    '/share-sessions/:token/photos/:photoId',
+    auth.requireAdmin,
+    asyncHandler(async (req, res) => {
+      const photo = await repos.getPhoto(req.params.photoId);
+      if (!photo || photo.shareToken !== req.params.token) {
+        throw new HttpError(404, 'Foto não encontrada nesta galeria.', 'photo_not_found');
+      }
+      const removal = await media.removeOrArchive(photo, false);
+      if (removal.errors.length) {
+        throw new HttpError(500, 'Não foi possível remover todos os arquivos da foto.', 'photo_delete_failed', { errors: removal.errors });
+      }
+      const deleted = await repos.deletePhotoFromShare(req.params.token, req.params.photoId);
+      await repos.refreshSharePhotoCount(req.params.token);
+      res.json({ success: true, photoId: deleted?.id || req.params.photoId });
     })
   );
 
@@ -231,6 +344,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         : null;
 
       const updated = await repos.updateShareSession(req.params.token, {
+        clientName: body.clientName === undefined ? undefined : normalizeClientName(body.clientName),
         phone: body.phone ? String(body.phone) : undefined,
         packageType: body.packageType ? String(body.packageType) : undefined,
         total: body.total === undefined ? undefined : Number(body.total),
@@ -277,6 +391,23 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     res.json(await whatsappTemplates.updateSettings(req.body || {}));
   }));
 
+  router.get('/whatsapp/status', auth.requireAdmin, (req, res) => {
+    res.json(whatsapp?.getStatus ? whatsapp.getStatus() : { ready: false, status: 'unavailable', lastError: 'Cliente WhatsApp indisponível.' });
+  });
+
+  router.post('/whatsapp/reconnect', auth.requireAdmin, asyncHandler(async (req, res) => {
+    if (!whatsapp?.reconnect) throw new HttpError(503, 'Cliente WhatsApp indisponível.', 'whatsapp_unavailable');
+    whatsapp.reconnect().catch((error) => {
+      console.warn(`Reconexão manual do WhatsApp falhou: ${error.message}`);
+    });
+    res.status(202).json(whatsapp.getStatus());
+  }));
+
+  router.post('/whatsapp/reset-auth', auth.requireAdmin, asyncHandler(async (req, res) => {
+    if (!whatsapp?.resetAuth) throw new HttpError(503, 'Cliente WhatsApp indisponível.', 'whatsapp_unavailable');
+    res.status(202).json(await whatsapp.resetAuth());
+  }));
+
   router.post('/cleanup/preview', auth.requireAdmin, asyncHandler(async (req, res) => {
     res.json(await retention.preview());
   }));
@@ -289,6 +420,22 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     const job = await repos.retryDeliveryJob(req.params.id);
     if (!job) throw new HttpError(404, 'Entrega não encontrada.', 'delivery_job_not_found');
     res.json(job);
+  }));
+
+  router.post('/sessions/:sessionId/retry-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {
+    const session = await repos.getSession(req.params.sessionId);
+    if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+    if (session.status !== 'approved') {
+      throw new HttpError(409, 'A sessão ainda não foi aprovada para envio.', 'session_not_approved');
+    }
+    const job = await repos.retryDeliveryForSession(session.id);
+    await repos.updateDeliveryStatus(session.id, 'queued', null);
+    if (typeof deliveryQueue.processOnce === 'function') await deliveryQueue.processOnce();
+    res.json({ success: true, job, session: await repos.getSession(session.id) });
+  }));
+
+  router.post('/stats/clear', auth.requireAdmin, asyncHandler(async (req, res) => {
+    res.json(await repos.clearSalesStats());
   }));
 
   router.get('/session/:sessionId', auth.requireAdmin, asyncHandler(async (req, res) => {

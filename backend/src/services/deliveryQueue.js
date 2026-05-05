@@ -15,12 +15,15 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
       if (!job) return;
       const session = await repos.getSession(job.session_id);
       const sessionPhotos = await repos.listPhotosForSession(job.session_id);
+      if (!sessionPhotos.length) throw new Error('Nenhuma foto encontrada para esta venda. Verifique se a galeria ainda possui fotos antes de reenviar.');
       await repos.updateDeliveryStatus(job.session_id, 'sending');
       const message = whatsappTemplates
         ? await whatsappTemplates.renderDeliveryThanksMessage({
             count: sessionPhotos.length,
             phone: session.phone,
             sessionId: session.id,
+            name: session.clientName || '',
+            clientName: session.clientName || '',
           })
         : undefined;
       await whatsapp.sendPhotos(session.phone, sessionPhotos, media.storageRoot, message);

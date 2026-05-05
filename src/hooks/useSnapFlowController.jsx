@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, readJsonResponse } from '../lib/apiClient';
-import { formatMoney } from '../lib/formatters';
 import { resolveInitialScreen } from '../lib/navigation';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
+import { NoticeBanner } from '../components/NoticeBanner';
 import { useAdminAccess } from './useAdminAccess';
+import { useDashboardPolling } from './useDashboardPolling';
 import { useCredentialsSettings } from './useCredentialsSettings';
 import { usePackageSettings } from './usePackageSettings';
 import { useSnapFlowActions } from './useSnapFlowActions';
@@ -53,6 +54,7 @@ export function useSnapFlowController() {
   const [selected, setSelected] = useState(() => Array.isArray(initialSelected) ? initialSelected : []);
   
   const [clientPhone, setClientPhone] = useState(() => getSavedState('clientPhone', ''));
+  const [clientName, setClientName] = useState(() => getSavedState('clientName', ''));
   const [sessionId, setSessionId] = useState(() => getSavedState('sessionId', ''));
   const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedState('qrCodeBase64', ''));
   const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedState('pixCopyPaste', ''));
@@ -128,6 +130,7 @@ export function useSnapFlowController() {
     deleteCredential,
     loadCredentials,
     saveCredential,
+    saveCredentialsBatch,
   } = useCredentialsSettings({
     adminJsonHeaders,
     isAdminUnlocked,
@@ -152,6 +155,7 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'type', JSON.stringify(type));
         window.localStorage.setItem(prefix + 'selected', JSON.stringify(selected));
         window.localStorage.setItem(prefix + 'clientPhone', JSON.stringify(clientPhone));
+        window.localStorage.setItem(prefix + 'clientName', JSON.stringify(clientName));
         window.localStorage.setItem(prefix + 'sessionId', JSON.stringify(sessionId));
         window.localStorage.setItem(prefix + 'qrCodeBase64', JSON.stringify(qrCodeBase64));
         window.localStorage.setItem(prefix + 'pixCopyPaste', JSON.stringify(pixCopyPaste));
@@ -159,7 +163,7 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'liveOps', JSON.stringify(liveOps));
       } catch { /* ignore */ }
     }
-  }, [screen, type, selected, clientPhone, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
+  }, [screen, type, selected, clientPhone, clientName, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
   
   // Save photos only if shareToken exists
   useEffect(() => {
@@ -199,6 +203,7 @@ export function useSnapFlowController() {
     gallery: 'Selecionando fotos para o cliente',
     summary: 'Conferindo valor e WhatsApp',
     pix: 'Aguardando confirmação do pagamento',
+    'manual-pending': 'Aguardando aprovação manual no painel',
     confirmed: 'Acompanhando entrega final',
   }[screen];
 
@@ -285,65 +290,17 @@ export function useSnapFlowController() {
     setNotice('Limpeza de retenção executada.');
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadDashboard = async () => {
-      if (!isAdminUnlocked) return;
-      try {
-        const response = await fetch(API_BASE_URL + '/api/admin/dashboard', {
-          headers: adminHeaders(),
-        });
-        if (!response.ok) return;
-
-        const data = await response.json();
-        if (!cancelled) {
-          setDashData(data);
-
-          if (!shareToken) {
-            const pendingManual = data.recent.filter(
-              (session) => session.status === 'pending' && session.paymentMethod === 'Dinheiro/Cartão'
-            );
-
-            pendingManual.forEach((session) => {
-              if (!notifiedSessions.has(session.id)) {
-                setNotice('Novo pagamento em dinheiro! Cliente: ' + (session.phone || session.accessCode));
-
-                if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                  new Notification('SnapFlow - Pagamento Pendente', {
-                    body: 'Cliente solicitou pagamento em dinheiro. ' + session.photoCount + ' foto(s) - ' + formatMoney(session.amount),
-                    icon: '/logo-transparent.png',
-                    tag: session.id,
-                  });
-                }
-
-                setNotifiedSessions((previous) => new Set([...previous, session.id]));
-              }
-            });
-
-            setPendingManualSessions(pendingManual);
-          }
-        }
-      } catch {
-        // Background dashboard polling should stay quiet.
-      }
-    };
-
-    if (screen === 'dashboard') {
-      loadDashboard();
-    }
-
-    const interval = setInterval(() => {
-      if (!shareToken) {
-        loadDashboard();
-      }
-    }, 5000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [screen, shareToken, notifiedSessions, isAdminUnlocked, adminHeaders]);
+  useDashboardPolling({
+    adminHeaders,
+    isAdminUnlocked,
+    notifiedSessions,
+    screen,
+    setDashData,
+    setNotice,
+    setNotifiedSessions,
+    setPendingManualSessions,
+    shareToken,
+  });
 
   useEffect(() => {
     if (screen === 'dashboard' && isAdminUnlocked) {
@@ -416,7 +373,7 @@ export function useSnapFlowController() {
   }, [photos, viewerIndex]);
 
   useEffect(() => {
-    if (screen !== 'pix' || !sessionId) return undefined;
+    if (!['pix', 'manual-pending'].includes(screen) || !sessionId) return undefined;
 
     const interval = setInterval(async () => {
       try {
@@ -436,7 +393,9 @@ export function useSnapFlowController() {
 
         if (data.status === 'approved') {
           if (liveOps.paymentStatus !== 'approved') {
-            setNotice('Pagamento confirmado e fotos liberadas.');
+            setNotice(data.paymentMethod === 'PIX'
+              ? 'Pix confirmado pelo Mercado Pago. Fotos liberadas para entrega.'
+              : 'Pagamento confirmado e fotos liberadas.');
             if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               new Notification('SnapFlow', {
                 body: 'Pagamento confirmado e fotos liberadas.',
@@ -468,11 +427,14 @@ export function useSnapFlowController() {
   } = useSnapFlowActions({
     adminHeaders,
     adminJsonHeaders,
+    clientName,
     clientPhone,
     count,
+    fetchDashboard,
     selectedPhotoItems,
     sessionId,
     setBrokenPhotoIds,
+    setClientName,
     setClientPhone,
     setIsGeneratingPix,
     setIsUploading,
@@ -502,7 +464,7 @@ export function useSnapFlowController() {
 
   const currentPhoto = viewerIndex !== null ? photos[viewerIndex] : null;
   const hasActiveSession = photos.length > 0 || Boolean(sessionId);
-  const noticeBanner = notice ? <div className="floating-notice">{notice}</div> : null;
+  const noticeBanner = notice ? <NoticeBanner notice={notice} onClose={() => setNotice(null)} /> : null;
 
   return {
     activeStage,
@@ -516,6 +478,7 @@ export function useSnapFlowController() {
     allPhotosSelected,
     brokenPhotoIds,
     cleanupPreview,
+    clientName,
     clientPhone,
     count,
     currentPhoto,
@@ -554,13 +517,16 @@ export function useSnapFlowController() {
     retentionSettings,
     runCleanup,
     saveCredential,
+    saveCredentialsBatch,
     saveRetentionSettings,
     savePackageSettings,
     saveWhatsAppTemplates,
     screen,
     selected,
     selectedPhotoItems,
+    sessionId,
     setClientPhone,
+    setClientName,
     setNotice,
     setPeriod,
     setPixCopyPaste,
@@ -585,5 +551,6 @@ export function useSnapFlowController() {
     unit,
     whatsAppTemplateStatus,
     whatsAppTemplates,
+    withAdminMediaToken,
   };
 }

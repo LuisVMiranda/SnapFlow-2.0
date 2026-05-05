@@ -12,7 +12,7 @@ test('delivery queue uses the configured WhatsApp thank-you message', async () =
       return { id: 7, session_id: 'sess_1' };
     },
     async getSession() {
-      return { id: 'sess_1', phone: '11999999999' };
+      return { id: 'sess_1', phone: '11999999999', clientName: 'Ana Cliente' };
     },
     async listPhotosForSession() {
       return [{ id: 'photo_1' }, { id: 'photo_2' }];
@@ -23,7 +23,7 @@ test('delivery queue uses the configured WhatsApp thank-you message', async () =
   };
   const whatsappTemplates = {
     async renderDeliveryThanksMessage(variables) {
-      return `Obrigado pela compra de ${variables.count} foto(s)!`;
+      return `Obrigado ${variables.name}, pela compra de ${variables.count} foto(s)!`;
     },
   };
   const whatsapp = {
@@ -44,5 +44,5 @@ test('delivery queue uses the configured WhatsApp thank-you message', async () =
 
   await queue.processOnce();
 
-  assert.equal(sentMessage, 'Obrigado pela compra de 2 foto(s)!');
+  assert.equal(sentMessage, 'Obrigado Ana Cliente, pela compra de 2 foto(s)!');
 });

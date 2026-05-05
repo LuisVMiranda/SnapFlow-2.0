@@ -1,16 +1,27 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
 const request = require('supertest');
 const { createApp } = require('../src/app');
 const { hashValue } = require('../src/tokens');
 
-function createTestApp() {
+function createTestApp({
+  deliveryQueue = { enqueue: async () => null },
+  whatsapp = {
+    getStatus: () => ({ ready: true, status: 'ready', lastError: null }),
+    reconnect: async () => ({ ready: true, status: 'ready', lastError: null }),
+    resetAuth: async () => ({ ready: false, status: 'initializing', lastError: null }),
+    sendText: async () => {},
+  },
+} = {}) {
   let share = {
     token: 'share_1',
+    galleryId: 'gallery_1',
     accessCodeHash: hashValue('1234'),
     accessCode: '1234',
     packageType: 'eventos',
     phone: '11999999999',
+    clientName: 'Ana Cliente',
     photoCount: 1,
     total: 10,
     createdAt: new Date().toISOString(),
@@ -21,6 +32,8 @@ function createTestApp() {
   };
   let deletedShareToken = null;
   let recreatedShare = null;
+  const sessions = new Map();
+  let photos = [{ id: 'photo_1', shareToken: 'share_1', sizeBytes: 100 }];
   let whatsappTemplateSettings = {
     shareLink: {
       label: 'Link da galeria',
@@ -53,7 +66,13 @@ function createTestApp() {
         anual: [],
       },
       recent: [],
-      shareRecent: deletedShareToken ? [] : [{ token: 'share_1', photoCount: 1, status: 'active', accessCode: share.accessCode }],
+      shareRecent: deletedShareToken ? [] : [{
+        token: 'share_1',
+        photoCount: 1,
+        status: 'active',
+        accessCode: share.accessCode,
+        clientName: share.clientName,
+      }],
     }),
     getShareSession: async (token, options = {}) => {
       const target = token === 'share_1' ? share : recreatedShare?.token === token ? recreatedShare : null;
@@ -61,14 +80,21 @@ function createTestApp() {
       return options.includeSensitive ? target : { ...target, accessCodeHash: undefined };
     },
     markShareAccessGranted: async () => share,
-    listPhotosForShare: async () => [{ id: 'photo_1', shareToken: 'share_1' }],
+    listPhotosForShare: async (token) => photos.filter((photo) => photo.shareToken === token && !photo.deletedAt),
+    getPhoto: async (photoId) => photos.find((photo) => photo.id === photoId && !photo.deletedAt) || null,
+    createPhotos: async (payload) => {
+      photos = [...photos, ...payload];
+      return payload;
+    },
     createShareSession: async (payload) => {
       recreatedShare = {
         token: payload.token,
+        galleryId: payload.galleryId || payload.token,
         accessCodeHash: payload.accessCodeHash,
         accessCode: payload.accessCode,
         packageType: payload.packageType,
         phone: payload.phone,
+        clientName: payload.clientName || '',
         photoCount: payload.photoCount,
         total: payload.total,
         createdAt: new Date().toISOString(),
@@ -79,10 +105,41 @@ function createTestApp() {
       };
       return recreatedShare;
     },
+    reactivateShareSession: async (token, updates) => {
+      if (token !== 'share_1') return null;
+      share = {
+        ...share,
+        accessCodeHash: updates.accessCodeHash || share.accessCodeHash,
+        accessCode: updates.accessCode || share.accessCode,
+        expiresAt: updates.expiresAt.toISOString(),
+        retentionExpiresAt: updates.retentionExpiresAt?.toISOString?.() || updates.retentionExpiresAt || share.retentionExpiresAt,
+        revokedAt: null,
+        status: 'active',
+        link: share.link || updates.link,
+        photoCount: photos.filter((photo) => photo.shareToken === token && !photo.deletedAt).length,
+      };
+      return share;
+    },
+    findShareWithMatchingMetadata: async () => null,
+    deleteDetachedShareDuplicates: async () => [],
     deleteShareSession: async (token) => {
       if (token !== 'share_1') return null;
       deletedShareToken = token;
       share = { ...share, deletedAt: new Date().toISOString() };
+      return share;
+    },
+    deletePhotoFromShare: async (token, photoId) => {
+      const photo = photos.find((item) => item.shareToken === token && item.id === photoId && !item.deletedAt);
+      if (!photo) return null;
+      photo.deletedAt = new Date().toISOString();
+      return photo;
+    },
+    refreshSharePhotoCount: async (token) => {
+      if (token !== 'share_1') return null;
+      share = {
+        ...share,
+        photoCount: photos.filter((photo) => photo.shareToken === token && !photo.deletedAt).length,
+      };
       return share;
     },
     updateShareSession: async (token, updates) => {
@@ -90,6 +147,7 @@ function createTestApp() {
       share = {
         ...share,
         phone: updates.phone || share.phone,
+        clientName: updates.clientName === undefined ? share.clientName : updates.clientName,
         packageType: updates.packageType || share.packageType,
         total: updates.total === undefined ? share.total : updates.total,
         expiresAt: updates.expiresAt ? updates.expiresAt.toISOString() : share.expiresAt,
@@ -100,11 +158,42 @@ function createTestApp() {
       };
       return share;
     },
-    createSession: async (session) => ({
-      status: session.status,
-      deliveryStatus: session.deliveryStatus,
-      paymentMethod: session.paymentMethod,
-    }),
+    createSession: async (session) => {
+      const stored = {
+        id: session.id,
+        amount: session.amount,
+        photoCount: session.photoCount,
+        packageType: session.packageType,
+        phone: session.phone,
+        clientName: session.clientName || '',
+        status: session.status,
+        paymentMethod: session.paymentMethod,
+        deliveryStatus: session.deliveryStatus,
+      };
+      sessions.set(stored.id, stored);
+      return stored;
+    },
+    clearSalesStats: async () => {
+      const deletedSessions = sessions.size;
+      sessions.clear();
+      return { deletedSessions };
+    },
+    approveSession: async (sessionId) => {
+      const session = sessions.get(sessionId);
+      if (!session) return null;
+      session.status = 'approved';
+      session.deliveryStatus = 'queued';
+      return session;
+    },
+    getSession: async (sessionId) => sessions.get(sessionId) || null,
+    retryDeliveryForSession: async (sessionId) => ({ id: 77, session_id: sessionId, status: 'pending' }),
+    updateDeliveryStatus: async (sessionId, status, error = null) => {
+      const session = sessions.get(sessionId);
+      if (!session) return null;
+      session.deliveryStatus = status;
+      session.deliveryError = error;
+      return session;
+    },
   };
   const retention = {
     getSettings: async () => ({
@@ -180,7 +269,7 @@ function createTestApp() {
       };
       return whatsappTemplateSettings;
     },
-    renderShareLinkMessage: async ({ link, accessCode }) => `Abra galeria: ${link}\nCódigo ${accessCode}`,
+    renderShareLinkMessage: async ({ link, accessCode, name }) => `Abra ${name || 'cliente'}: ${link}\nCódigo ${accessCode}`,
     renderPaymentWaitingMessage: async () => 'Aguardando pagamento.',
     renderDeliveryThanksMessage: async () => 'Obrigado pela compra!',
   };
@@ -198,13 +287,26 @@ function createTestApp() {
       tempDir: () => __dirname,
       maxUploadBytes: 1024,
       allowedMimeTypes: new Set(['image/jpeg']),
-      processUploadedFiles: async () => [],
+      processUploadedFiles: async (files, retentionExpiresAt) => {
+        await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => {})));
+        return files.map((file, index) => ({
+          id: `uploaded_${index + 1}`,
+          originalPath: `originals/uploaded_${index + 1}.jpg`,
+          thumbPath: `thumbs/uploaded_${index + 1}.jpg`,
+          previewPath: `previews/uploaded_${index + 1}.jpg`,
+          mimeType: file.mimetype,
+          sizeBytes: file.size || 10,
+          retentionExpiresAt,
+        }));
+      },
+      removeOrArchive: async () => ({ bytes: 300, errors: [] }),
     },
     payment,
     credentials,
-    deliveryQueue: {},
+    deliveryQueue,
     packages,
     retention,
+    whatsapp,
     whatsappTemplates,
   });
 }
@@ -271,6 +373,210 @@ test('admin dashboard accepts bearer token and does not expose managementKey', a
   assert.ok(response.body.chartSeries);
 });
 
+test('admin manual cash/card payment stays pending until explicit approval', async () => {
+  const enqueued = [];
+  const app = createTestApp({ deliveryQueue: { enqueue: async (id) => enqueued.push(id) } });
+
+  const pending = await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_1',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  assert.equal(pending.status, 200);
+  assert.equal(pending.body.sessionId, 'manual_1');
+  assert.equal(pending.body.status, 'pending');
+  assert.equal(pending.body.deliveryStatus, 'idle');
+  assert.deepEqual(enqueued, []);
+  const storedPending = await request(app)
+    .get('/api/admin/session/manual_1')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(storedPending.body.clientName, 'Ana Cliente');
+
+  const approved = await request(app)
+    .post('/api/admin/approve-manual-session/manual_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(approved.status, 200);
+  assert.equal(approved.body.session.status, 'approved');
+  assert.deepEqual(enqueued, ['manual_1']);
+
+  const duplicate = await request(app)
+    .post('/api/admin/approve-manual-session/manual_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(duplicate.status, 200);
+  assert.equal(duplicate.body.alreadyApproved, true);
+  assert.deepEqual(enqueued, ['manual_1']);
+});
+
+test('admin share link creation sends WhatsApp and returns send metadata', async () => {
+  const sends = [];
+  const app = createTestApp({ whatsapp: { sendText: async (phone, message) => sends.push({ phone, message }) } });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.whatsappSent, true);
+  assert.equal(response.body.whatsappStatus, 'sent');
+  assert.equal(response.body.clientName, 'Ana Cliente');
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].phone, '5511999999999');
+  assert.match(sends[0].message, /Ana Cliente/);
+  assert.match(sends[0].message, /Código/);
+});
+
+test('admin share link creation keeps link when WhatsApp send fails', async () => {
+  const app = createTestApp({
+    whatsapp: {
+      sendText: async () => {
+        throw new Error('WhatsApp offline');
+      },
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.token);
+  assert.equal(response.body.whatsappSent, false);
+  assert.equal(response.body.whatsappStatus, 'failed');
+  assert.match(response.body.whatsappError, /WhatsApp offline/);
+});
+
+test('admin can inspect and request WhatsApp reconnect', async () => {
+  let reconnects = 0;
+  const app = createTestApp({
+    whatsapp: {
+      getStatus: () => ({ ready: false, status: reconnects ? 'initializing' : 'failed', lastError: 'context lost', hasQr: true, qr: 'pairing-payload' }),
+      reconnect: async () => {
+        reconnects += 1;
+      },
+      resetAuth: async () => ({ ready: false, status: 'initializing', lastError: null }),
+      sendText: async () => {},
+    },
+  });
+
+  const status = await request(app)
+    .get('/api/admin/whatsapp/status')
+    .set('Authorization', 'Bearer admin-secret');
+  const reconnect = await request(app)
+    .post('/api/admin/whatsapp/reconnect')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(status.status, 200);
+  assert.equal(status.body.status, 'failed');
+  assert.equal(status.body.qr, 'pairing-payload');
+  assert.equal(reconnect.status, 202);
+  assert.ok(['failed', 'initializing'].includes(reconnect.body.status));
+  assert.equal(reconnects, 1);
+});
+
+test('admin can reset WhatsApp local auth for re-pairing', async () => {
+  let resets = 0;
+  const app = createTestApp({
+    whatsapp: {
+      getStatus: () => ({ ready: false, status: 'failed', lastError: 'context lost' }),
+      reconnect: async () => {},
+      resetAuth: async () => {
+        resets += 1;
+        return { ready: false, status: 'initializing', lastError: null };
+      },
+      sendText: async () => {},
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/whatsapp/reset-auth')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 202);
+  assert.equal(response.body.status, 'initializing');
+  assert.equal(resets, 1);
+});
+
+test('admin can retry failed delivery for an approved session', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_retry',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+  await request(app)
+    .post('/api/admin/approve-manual-session/manual_retry')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const response = await request(app)
+    .post('/api/admin/sessions/manual_retry/retry-delivery')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.success, true);
+  assert.equal(response.body.job.session_id, 'manual_retry');
+});
+
+test('admin can clear sales statistics without deleting galleries', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_clear',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  const cleared = await request(app)
+    .post('/api/admin/stats/clear')
+    .set('Authorization', 'Bearer admin-secret');
+  const gallery = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.deletedSessions, 1);
+  assert.equal(gallery.status, 200);
+  assert.equal(gallery.body.token, 'share_1');
+});
+
 test('admin delete hides a shared link from dashboard lists', async () => {
   const app = createTestApp();
   const deleted = await request(app)
@@ -287,16 +593,59 @@ test('admin delete hides a shared link from dashboard lists', async () => {
   assert.equal(dashboard.body.shareRecent.length, 0);
 });
 
-test('admin recreate makes a fresh link and code from the same gallery metadata', async () => {
+test('admin recreate revalidates the same gallery link and code', async () => {
   const response = await request(createTestApp())
     .post('/api/admin/share-sessions/share_1/recreate')
     .set('Authorization', 'Bearer admin-secret');
 
   assert.equal(response.status, 200);
-  assert.notEqual(response.body.token, 'share_1');
-  assert.match(response.body.link, /^https:\/\/snapflow-tail\.example\/s\//);
+  assert.equal(response.body.token, 'share_1');
+  assert.equal(response.body.galleryId, 'gallery_1');
+  assert.equal(response.body.link, 'http://localhost:5173/s/share_1');
   assert.equal(response.body.accessCode, '1234');
   assert.match(response.body.whatsappMessage, /Código 1234/);
+});
+
+test('admin gallery details expose only that gallery photos for editing', async () => {
+  const response = await request(createTestApp())
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.token, 'share_1');
+  assert.equal(response.body.photoCount, 1);
+  assert.equal(response.body.photos.length, 1);
+  assert.equal(response.body.photos[0].id, 'photo_1');
+  assert.match(response.body.photos[0].thumbUrl, /\/api\/media\/photo_1\/thumb/);
+});
+
+test('admin can upload and delete photos inside a shared gallery', async () => {
+  const app = createTestApp();
+  const upload = await request(app)
+    .post('/api/admin/share-sessions/share_1/photos')
+    .set('Authorization', 'Bearer admin-secret')
+    .attach('photos', Buffer.from('fake-jpeg'), {
+      filename: 'nova.jpg',
+      contentType: 'image/jpeg',
+    });
+
+  assert.equal(upload.status, 200);
+  assert.equal(upload.body.photoCount, 2);
+  assert.equal(upload.body.photos.at(-1).id, 'uploaded_1');
+
+  const deleted = await request(app)
+    .delete('/api/admin/share-sessions/share_1/photos/uploaded_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.body.success, true);
+
+  const details = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(details.body.photoCount, 1);
+  assert.equal(details.body.photos.some((photo) => photo.id === 'uploaded_1'), false);
 });
 
 test('admin can edit shared gallery metadata and visible access code', async () => {
@@ -305,6 +654,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
     .set('Authorization', 'Bearer admin-secret')
     .send({
       phone: '11888888888',
+      clientName: 'Bruna Cliente',
       packageType: 'escola',
       total: 42,
       accessCode: 'ab12',
@@ -313,6 +663,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
 
   assert.equal(response.status, 200);
   assert.equal(response.body.phone, '11888888888');
+  assert.equal(response.body.clientName, 'Bruna Cliente');
   assert.equal(response.body.packageType, 'escola');
   assert.equal(response.body.total, 42);
   assert.equal(response.body.accessCode, 'AB12');
@@ -420,6 +771,7 @@ test('share metadata hides photo urls before unlock', async () => {
   const response = await request(createTestApp()).get('/api/share-session/share_1');
 
   assert.equal(response.status, 200);
+  assert.equal(response.body.clientName, 'Ana Cliente');
   assert.equal(response.body.photos, undefined);
   assert.equal(response.body.thumbUrls, undefined);
 });

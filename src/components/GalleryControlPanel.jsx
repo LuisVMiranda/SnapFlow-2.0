@@ -1,5 +1,6 @@
 import { SessionOpsCard } from './SessionOpsCard';
 import { SharedLinksPanel } from './SharedLinksPanel';
+import { WhatsAppStatusCard } from './WhatsAppStatusCard';
 
 export function GalleryControlPanel({
   activeStage,
@@ -18,6 +19,7 @@ export function GalleryControlPanel({
   startNewSession,
   total,
   type,
+  withAdminMediaToken,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
 
@@ -43,6 +45,8 @@ export function GalleryControlPanel({
           </button>
         ))}
       </div>
+
+      <WhatsAppStatusCard adminHeaders={adminHeaders} setNotice={setNotice} />
 
       {hasActiveSession ? (
         <SessionOpsCard
@@ -71,6 +75,7 @@ export function GalleryControlPanel({
         fetchDashboard={fetchDashboard}
         pricingOptions={pricingOptions}
         setNotice={setNotice}
+        withAdminMediaToken={withAdminMediaToken}
       />
     </section>
   );

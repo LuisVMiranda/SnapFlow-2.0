@@ -31,11 +31,14 @@ test('WhatsApp template renderer replaces known variables and preserves unknown 
 test('WhatsApp template settings merge saved bodies with safe defaults', () => {
   const templates = normalizeTemplates({
     shareLink: { body: 'Galeria: {link}' },
+    deliveryThanks: {
+      body: 'Obrigado pela compra! Aqui estão suas fotos profissionais em qualidade máxima.',
+    },
   });
 
   assert.equal(templates.shareLink.body, 'Galeria: {link}');
   assert.match(templates.paymentWaiting.body, /pagamento/i);
-  assert.match(templates.deliveryThanks.body, /Obrigado/i);
+  assert.equal(templates.deliveryThanks.body, 'Obrigado, {name}! Aqui estão suas fotos profissionais em qualidade máxima.');
 });
 
 test('WhatsApp template service saves and renders editable admin messages', async () => {
@@ -44,9 +47,9 @@ test('WhatsApp template service saves and renders editable admin messages', asyn
   });
 
   await service.updateSettings({
-    shareLink: { body: 'Abra {linkLabel}: {link}\nCódigo {code}' },
+    shareLink: { body: 'Abra {name}: {linkLabel}: {link}\nCódigo {code}' },
     paymentWaiting: { body: 'Pagamento pendente para {count} foto(s). {linkText}' },
-    deliveryThanks: { body: 'Obrigado pela compra de {count} foto(s)!' },
+    deliveryThanks: { body: 'Obrigado {name} pela compra de {count} foto(s)!' },
   });
 
   const shareMessage = await service.renderShareLinkMessage({
@@ -54,15 +57,16 @@ test('WhatsApp template service saves and renders editable admin messages', asyn
     expiresMinutes: 30,
     link: 'https://snap.test/s/abc',
     linkLabel: 'Clique aqui',
+    name: 'Ana',
   });
   const paymentMessage = await service.renderPaymentWaitingMessage({
     count: 2,
     link: 'https://snap.test/s/abc',
     linkLabel: 'Ver pedido',
   });
-  const deliveryMessage = await service.renderDeliveryThanksMessage({ count: 2 });
+  const deliveryMessage = await service.renderDeliveryThanksMessage({ count: 2, name: 'Ana' });
 
-  assert.equal(shareMessage, 'Abra Clique aqui: https://snap.test/s/abc\nCódigo AB12');
+  assert.equal(shareMessage, 'Abra Ana: Clique aqui: https://snap.test/s/abc\nCódigo AB12');
   assert.equal(paymentMessage, 'Pagamento pendente para 2 foto(s). Ver pedido: https://snap.test/s/abc');
-  assert.equal(deliveryMessage, 'Obrigado pela compra de 2 foto(s)!');
+  assert.equal(deliveryMessage, 'Obrigado Ana pela compra de 2 foto(s)!');
 });

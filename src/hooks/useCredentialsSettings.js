@@ -48,6 +48,34 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
     }
   }, [adminJsonHeaders, loadCredentials, setNotice]);
 
+  const saveCredentialsBatch = useCallback(async ({ changes, confirmation }) => {
+    setCredentialsStatus('saving');
+    const results = {};
+    try {
+      for (const change of changes) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/admin/credentials/${change.key}`, {
+            method: 'PUT',
+            headers: adminJsonHeaders(),
+            body: JSON.stringify({ value: change.value, confirmation }),
+          });
+          const data = await readJsonResponse(response);
+          results[change.key] = response.ok
+            ? { status: 'saved' }
+            : { status: 'failed', error: buildApiErrorMessage('Não foi possível salvar a credencial.', response, data) };
+        } catch (error) {
+          results[change.key] = { status: 'failed', error: error.message || 'Não foi possível salvar a credencial.' };
+        }
+      }
+      await loadCredentials({ silent: true });
+      const failed = Object.values(results).filter((result) => result.status === 'failed').length;
+      setNotice(failed ? `${failed} credencial(is) não foram salvas.` : 'Credenciais salvas com segurança.');
+      return { ok: failed === 0, results };
+    } finally {
+      setCredentialsStatus('idle');
+    }
+  }, [adminJsonHeaders, loadCredentials, setNotice]);
+
   const deleteCredential = useCallback(async ({ key, confirmation }) => {
     setCredentialsStatus('deleting');
     try {
@@ -79,5 +107,6 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
     deleteCredential,
     loadCredentials,
     saveCredential,
+    saveCredentialsBatch,
   };
 }

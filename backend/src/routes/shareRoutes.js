@@ -86,6 +86,7 @@ function createShareRouter({ packages, payment, repos }) {
         total: order.total,
         count: order.count,
         phone: order.share.phone,
+        clientName: order.share.clientName || '',
         packageType: order.share.packageType,
         photoIds: order.photoIds,
         shareToken: order.share.token,
@@ -106,6 +107,7 @@ function createShareRouter({ packages, payment, repos }) {
           photoCount: order.count,
           packageType: order.share.packageType,
           phone: order.share.phone,
+          clientName: order.share.clientName || '',
           status: 'pending',
           paymentMethod: 'Dinheiro/Cartão',
           shareToken: order.share.token,
@@ -113,7 +115,12 @@ function createShareRouter({ packages, payment, repos }) {
         },
         order.photoIds
       );
-      res.json({ status: session.status, deliveryStatus: session.deliveryStatus, paymentMethod: session.paymentMethod });
+      res.json({
+        sessionId: session.id,
+        status: session.status,
+        deliveryStatus: session.deliveryStatus,
+        paymentMethod: session.paymentMethod,
+      });
     })
   );
 

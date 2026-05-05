@@ -1,5 +1,5 @@
-const ADMIN_SCREENS = new Set(['dashboard', 'gallery', 'summary', 'pix', 'confirmed']);
-const SHARE_UNLOCKED_SCREENS = new Set(['gallery', 'summary', 'pix', 'confirmed']);
+const ADMIN_SCREENS = new Set(['dashboard', 'gallery', 'summary', 'pix', 'manual-pending', 'confirmed']);
+const SHARE_UNLOCKED_SCREENS = new Set(['gallery', 'summary', 'pix', 'manual-pending', 'confirmed']);
 
 export function resolveInitialScreen({ savedScreen, savedShareAccess = null, shareToken = '' }) {
   if (shareToken) {

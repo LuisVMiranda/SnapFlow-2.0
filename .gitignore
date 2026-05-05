@@ -29,8 +29,10 @@ backend/storage/
 backend/tmp/
 backend/.wwebjs_auth/
 backend/.wwebjs_cache/
+backend/.wwebjs_client_id
 .wwebjs_auth/
 .wwebjs_cache/
+.wwebjs_client_id
 uploads/
 storage/
 media/
@@ -39,6 +41,21 @@ videos/
 captures/
 sessions/
 exports/
+# Personal/local media should stay out of cloud history by default.
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.heic
+*.tif
+*.tiff
+*.bmp
+*.raw
+*.cr2
+*.nef
+*.arw
+*.dng
 tmp/
 temp/
 *.dump

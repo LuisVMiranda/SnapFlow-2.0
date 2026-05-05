@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ShareCountdown } from './ShareCountdown';
+import { ShareGalleryEditor } from './ShareGalleryEditor';
 import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
@@ -18,11 +19,19 @@ function shareLink(shareSession) {
 function draftFromShare(shareSession) {
   return {
     accessCode: shareSession.accessCode || '',
+    clientName: shareSession.clientName || '',
     expiresMinutes: '',
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
     total: String(shareSession.total ?? ''),
   };
+}
+
+function galleryRouteErrorMessage(prefix, response, data) {
+  const message = buildApiErrorMessage(prefix, response, data);
+  return data?.code === 'api_route_not_found'
+    ? `${message} Backend desatualizado. Reinicie o servidor para carregar as rotas de galeria.`
+    : message;
 }
 
 export function SharedLinksPanel({
@@ -32,9 +41,46 @@ export function SharedLinksPanel({
   fetchDashboard,
   pricingOptions,
   setNotice,
+  withAdminMediaToken = (url) => url,
 }) {
   const [editingToken, setEditingToken] = useState('');
   const [drafts, setDrafts] = useState({});
+  const [details, setDetails] = useState({});
+  const [loadingDetailsToken, setLoadingDetailsToken] = useState('');
+  const [photoActionToken, setPhotoActionToken] = useState('');
+
+  const normalizeDetails = (data) => ({
+    ...data,
+    photos: Array.isArray(data.photos)
+      ? data.photos.map((photo) => ({
+          ...photo,
+          url: withAdminMediaToken(photo.url),
+          thumbUrl: withAdminMediaToken(photo.thumbUrl || photo.url),
+        }))
+      : [],
+  });
+
+  const loadShareDetails = async (shareSession) => {
+    setLoadingDetailsToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(galleryRouteErrorMessage('Não foi possível carregar a galeria.', response, data));
+        return null;
+      }
+      const normalized = normalizeDetails(data);
+      setDetails((previous) => ({ ...previous, [shareSession.token]: normalized }));
+      return normalized;
+    } catch {
+      setNotice('Não foi possível carregar a galeria.');
+      return null;
+    } finally {
+      setLoadingDetailsToken('');
+    }
+  };
 
   const updateDraft = (token, field, value) => {
     setDrafts((previous) => ({
@@ -46,12 +92,14 @@ export function SharedLinksPanel({
     }));
   };
 
-  const startEditing = (shareSession) => {
-    setEditingToken((current) => (current === shareSession.token ? '' : shareSession.token));
+  const startEditing = async (shareSession) => {
+    const isClosing = editingToken === shareSession.token;
+    setEditingToken(isClosing ? '' : shareSession.token);
     setDrafts((previous) => ({
       ...previous,
       [shareSession.token]: previous[shareSession.token] || draftFromShare(shareSession),
     }));
+    if (!isClosing) await loadShareDetails(shareSession);
   };
 
   const copyShare = async (shareSession) => {
@@ -78,7 +126,7 @@ export function SharedLinksPanel({
 
     const message = data.whatsappMessage || buildShareWhatsAppMessage(data.link, data.accessCode);
     await navigator.clipboard?.writeText(message);
-    setNotice('Galeria recriada com o mesmo código. A nova mensagem foi copiada.');
+    setNotice('Galeria revalidada com o mesmo link e código. A mensagem foi copiada.');
     fetchDashboard({ silent: true });
   };
 
@@ -115,10 +163,63 @@ export function SharedLinksPanel({
     fetchDashboard({ silent: true });
   };
 
+  const uploadPhotos = async (event, shareSession) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const formData = new FormData();
+    files.forEach((file) => formData.append('photos', file));
+
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos`, {
+        method: 'POST',
+        headers: adminHeaders(),
+        body: formData,
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(galleryRouteErrorMessage('Não foi possível adicionar fotos.', response, data));
+        return;
+      }
+      setDetails((previous) => ({ ...previous, [shareSession.token]: normalizeDetails(data) }));
+      setNotice('Fotos adicionadas à galeria.');
+      fetchDashboard({ silent: true });
+    } catch {
+      setNotice('Não foi possível adicionar fotos.');
+    } finally {
+      event.target.value = '';
+      setPhotoActionToken('');
+    }
+  };
+
+  const deletePhoto = async (shareSession, photo) => {
+    if (!window.confirm('Remover esta foto da galeria? O arquivo será excluído do armazenamento local.')) return;
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos/${photo.id}`, {
+        method: 'DELETE',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(galleryRouteErrorMessage('Não foi possível remover a foto.', response, data));
+        return;
+      }
+      await loadShareDetails(shareSession);
+      setNotice('Foto removida da galeria.');
+      fetchDashboard({ silent: true });
+    } catch {
+      setNotice('Não foi possível remover a foto.');
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
   const saveShare = async (event, shareSession) => {
     event.preventDefault();
     const draft = drafts[shareSession.token] || draftFromShare(shareSession);
     const body = {
+      clientName: draft.clientName,
       packageType: draft.packageType,
       phone: draft.phone,
       total: draft.total === '' ? undefined : Number(draft.total),
@@ -137,7 +238,7 @@ export function SharedLinksPanel({
       return;
     }
     setNotice('Galeria atualizada.');
-    setEditingToken('');
+    await loadShareDetails(shareSession);
     fetchDashboard({ silent: true });
   };
 
@@ -154,12 +255,13 @@ export function SharedLinksPanel({
         const isEditing = editingToken === shareSession.token;
 
         return (
-          <div key={shareSession.token} className="session-item share-session-item">
+          <div key={shareSession.galleryId || shareSession.token} className="session-item share-session-item">
             <div className="session-info">
               <strong>{packageLabel(shareSession.packageType, pricingOptions)}</strong>
               <small>
                 {shareSession.photoCount} foto(s) • código {shareSession.accessCode || 'não definido'}
               </small>
+              {shareSession.clientName ? <small>Cliente: {shareSession.clientName}</small> : null}
               <small>
                 Expira em <ShareCountdown isoDate={shareSession.expiresAt} />
               </small>
@@ -183,66 +285,19 @@ export function SharedLinksPanel({
             </div>
 
             {isEditing ? (
-              <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
-                <label>
-                  Código de acesso
-                  <input
-                    className="phone-input"
-                    maxLength={4}
-                    value={draft.accessCode}
-                    onChange={(event) => updateDraft(shareSession.token, 'accessCode', event.target.value)}
-                    placeholder="1234"
-                  />
-                </label>
-                <label>
-                  WhatsApp
-                  <input
-                    className="phone-input"
-                    value={draft.phone}
-                    onChange={(event) => updateDraft(shareSession.token, 'phone', event.target.value)}
-                    placeholder="DDD + número"
-                  />
-                </label>
-                <label>
-                  Pacote
-                  <select
-                    className="phone-input"
-                    value={draft.packageType}
-                    onChange={(event) => updateDraft(shareSession.token, 'packageType', event.target.value)}
-                  >
-                    {Object.entries(pricingOptions).map(([key, option]) => (
-                      <option key={key} value={key}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Total
-                  <input
-                    className="phone-input"
-                    min="0"
-                    step="0.01"
-                    type="number"
-                    value={draft.total}
-                    onChange={(event) => updateDraft(shareSession.token, 'total', event.target.value)}
-                  />
-                </label>
-                <label>
-                  Reabrir por minutos
-                  <input
-                    className="phone-input"
-                    min="5"
-                    max="180"
-                    type="number"
-                    value={draft.expiresMinutes}
-                    onChange={(event) => updateDraft(shareSession.token, 'expiresMinutes', event.target.value)}
-                    placeholder="Deixe vazio para manter"
-                  />
-                </label>
-                <div className="share-edit-actions">
-                  <button className="btn-primary" type="submit">Salvar galeria</button>
-                  <button className="btn-manual btn-manual-card" type="button" onClick={() => setEditingToken('')}>Cancelar</button>
-                </div>
-              </form>
+              <ShareGalleryEditor
+                closeEditor={() => setEditingToken('')}
+                deletePhoto={deletePhoto}
+                detail={details[shareSession.token]}
+                draft={draft}
+                isLoading={loadingDetailsToken === shareSession.token}
+                isPhotoBusy={photoActionToken === shareSession.token}
+                pricingOptions={pricingOptions}
+                saveShare={saveShare}
+                shareSession={shareSession}
+                updateDraft={updateDraft}
+                uploadPhotos={uploadPhotos}
+              />
             ) : null}
           </div>
         );

@@ -47,11 +47,33 @@ function createDeliveryJobRepo({ query }) {
     return result.rows[0] || null;
   }
 
+  async function retryDeliveryForSession(sessionId) {
+    const updated = await query(
+      `update delivery_jobs
+       set status = 'pending',
+           attempts = 0,
+           next_attempt_at = now(),
+           last_error = null,
+           updated_at = now()
+       where id = (
+         select id from delivery_jobs
+         where session_id = $1 and status <> 'sent'
+         order by updated_at desc, id desc
+         limit 1
+       )
+       returning *`,
+      [sessionId]
+    );
+    if (updated.rows[0]) return updated.rows[0];
+    return enqueueDelivery(sessionId);
+  }
+
   return {
     claimDeliveryJob,
     completeDeliveryJob,
     enqueueDelivery,
     failDeliveryJob,
+    retryDeliveryForSession,
     retryDeliveryJob,
   };
 }

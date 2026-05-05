@@ -54,6 +54,17 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     return result.rows.map((row) => rowToPhoto(row, config));
   }
 
+  async function deletePhotoFromShare(shareToken, photoId) {
+    const result = await query(
+      `update photos
+       set deleted_at = coalesce(deleted_at, now())
+       where share_token = $1 and id = $2 and deleted_at is null
+       returning *`,
+      [shareToken, photoId]
+    );
+    return rowToPhoto(result.rows[0], config);
+  }
+
   async function listPhotosForSession(sessionId) {
     const result = await query('select * from photos where session_id = $1 and deleted_at is null order by created_at', [sessionId]);
     return result.rows.map((row) => rowToPhoto(row, config));
@@ -67,6 +78,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
   return {
     attachPhotosToSession,
     createPhotos,
+    deletePhotoFromShare,
     getPhoto,
     listPhotosByIds,
     listPhotosForSession,

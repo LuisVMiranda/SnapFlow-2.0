@@ -38,9 +38,11 @@ export function DashboardScreen({
   retentionSettings,
   runCleanup,
   saveCredential,
+  saveCredentialsBatch,
   savePackageSettings,
   saveRetentionSettings,
   saveWhatsAppTemplates,
+  sessionId,
   setNotice,
   setPeriod,
   setRetentionSettings,
@@ -48,6 +50,7 @@ export function DashboardScreen({
   startNewSession,
   total,
   type,
+  withAdminMediaToken,
   whatsAppTemplateStatus,
   whatsAppTemplates,
 }) {
@@ -67,6 +70,8 @@ export function DashboardScreen({
           liveOps={liveOps}
           period={period}
           pricingOptions={pricingOptions}
+          sessionId={sessionId}
+          setNotice={setNotice}
           setPeriod={setPeriod}
           total={total}
           type={type}
@@ -102,6 +107,7 @@ export function DashboardScreen({
           credentialsStatus={credentialsStatus}
           deleteCredential={deleteCredential}
           saveCredential={saveCredential}
+          saveCredentialsBatch={saveCredentialsBatch}
         />
       );
     }
@@ -124,6 +130,7 @@ export function DashboardScreen({
         startNewSession={startNewSession}
         total={total}
         type={type}
+        withAdminMediaToken={withAdminMediaToken}
       />
     );
   };

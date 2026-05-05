@@ -1,11 +1,13 @@
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
 import { formatMoney } from '../lib/formatters';
+import { phoneDigits, validateBrazilPhone } from '../lib/phone';
 import { DEFAULT_PRICING } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
 
 export function SummaryScreen({
   activeStage,
+  clientName,
   clientPhone,
   count,
   handleCreateShareSession,
@@ -19,6 +21,7 @@ export function SummaryScreen({
   pricingOptions = DEFAULT_PRICING,
   resetSession,
   selectedPhotoItems,
+  setClientName,
   setClientPhone,
   setScreen,
   setShareDurationMinutes,
@@ -31,6 +34,14 @@ export function SummaryScreen({
   unit,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
+  const phoneValidation = validateBrazilPhone(clientPhone);
+  const canSubmitPhone = phoneValidation.valid;
+  const shareMessage = shareAccess
+    ? shareAccess.whatsappMessage || buildShareWhatsAppMessage(shareAccess.link, shareAccess.code)
+    : '';
+  const manualWhatsAppUrl = shareAccess && phoneValidation.valid
+    ? `https://wa.me/${phoneValidation.normalized}?text=${encodeURIComponent(shareMessage)}`
+    : '';
 
   return (
     <div className="screen center-screen">
@@ -47,6 +58,7 @@ export function SummaryScreen({
         stage={activeStage}
         count={count}
         total={total}
+        clientName={clientName}
         phone={clientPhone}
         packageType={type}
         pricingOptions={pricingOptions}
@@ -77,14 +89,31 @@ export function SummaryScreen({
       </div>
 
       <div className="summary-card" style={{ marginTop: '16px' }}>
-        <div className="summary-label">WhatsApp do cliente</div>
+        <div className="summary-label">Cliente</div>
+        <input
+          type="text"
+          placeholder="Nome de quem vai acessar e pagar"
+          value={clientName}
+          onChange={(event) => setClientName(event.target.value.replace(/\s+/g, ' ').slice(0, 80))}
+          className="phone-input"
+        />
+        <small className="summary-help">
+          Esse nome pode ser usado nos modelos de WhatsApp com {'{name}'}.
+        </small>
+
+        <div className="summary-label summary-label-spaced">WhatsApp do cliente</div>
         <input
           type="tel"
           placeholder="(11) 99999-9999"
           value={clientPhone}
-          onChange={(event) => setClientPhone(event.target.value.replace(/\D/g, ''))}
+          onChange={(event) => setClientPhone(phoneDigits(event.target.value).slice(0, 13))}
           className="phone-input"
         />
+        <small className={`summary-help ${phoneValidation.valid ? 'success' : 'danger'}`}>
+          {phoneValidation.valid
+            ? `Número validado para envio: ${phoneValidation.formatted}`
+            : phoneValidation.message}
+        </small>
         <small className="summary-help">
           Assim que o pagamento for confirmado por você no painel, as imagens serão disparadas para ele em formato de documento, sem compressão.
         </small>
@@ -93,14 +122,14 @@ export function SummaryScreen({
       <div className="action-stack">
         <button
           className="btn-primary"
-          disabled={isGeneratingPix || clientPhone.length < 10}
+          disabled={isGeneratingPix || !canSubmitPhone}
           onClick={handleGeneratePix}
         >
           {isGeneratingPix ? 'Conectando ao banco...' : 'Gerar QR Code'}
         </button>
         <button
           className="btn-manual btn-manual-cash"
-          disabled={isGeneratingPix || clientPhone.length < 10}
+          disabled={isGeneratingPix || !canSubmitPhone}
           onClick={() => handleManualPayment('manual')}
         >
           {shareToken ? 'Solicitar Pagto em Dinheiro/Cartão' : 'Pagamento Dinheiro/Cartão'}
@@ -156,7 +185,7 @@ export function SummaryScreen({
           <div className="action-stack" style={{ padding: '14px 0 0' }}>
             <button
               className="btn-manual btn-manual-cash"
-              disabled={shareActionLoading || selectedPhotoItems.length === 0}
+              disabled={shareActionLoading || selectedPhotoItems.length === 0 || !canSubmitPhone}
               onClick={handleCreateShareSession}
             >
               {shareActionLoading ? 'Gerando e enviando...' : 'Criar link e enviar WhatsApp'}
@@ -182,14 +211,16 @@ export function SummaryScreen({
               <div className="share-actions">
                 <button
                   className="btn-manual btn-manual-card"
-                  onClick={() =>
-                    navigator.clipboard?.writeText(
-                      shareAccess.whatsappMessage ||
-                        buildShareWhatsAppMessage(shareAccess.link, shareAccess.code)
-                    )
-                  }
+                  onClick={() => navigator.clipboard?.writeText(shareMessage)}
                 >
                   Copiar mensagem WhatsApp
+                </button>
+                <button
+                  className="btn-manual btn-manual-card"
+                  onClick={() => window.open(manualWhatsAppUrl, '_blank', 'noopener,noreferrer')}
+                  disabled={!manualWhatsAppUrl}
+                >
+                  Abrir WhatsApp manual
                 </button>
                 <button
                   className="btn-manual btn-manual-card"
@@ -207,8 +238,7 @@ export function SummaryScreen({
                 </button>
               </div>
               <small className="summary-help" style={{ marginTop: '12px' }}>
-                {shareAccess.whatsappMessage ||
-                  buildShareWhatsAppMessage(shareAccess.link, shareAccess.code)}
+                {shareMessage}
               </small>
             </div>
           ) : null}

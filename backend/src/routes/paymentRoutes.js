@@ -17,6 +17,7 @@ function createPaymentRouter({ auth, payment, repos }) {
         status: refreshed.status,
         deliveryStatus: refreshed.deliveryStatus,
         deliveryError: refreshed.deliveryError,
+        paymentMethod: refreshed.paymentMethod,
       });
     })
   );

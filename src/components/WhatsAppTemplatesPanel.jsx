@@ -21,6 +21,10 @@ const TEMPLATE_ITEMS = [
 
 const PLACEHOLDERS = [
   {
+    token: '{name}',
+    help: 'Nome do cliente informado na criação ou edição da galeria. Se ficar vazio, o envio usa "cliente".',
+  },
+  {
     token: '{link}',
     help: 'URL completa da galeria ou do pedido. No WhatsApp, precisa aparecer para ficar clicável.',
   },
