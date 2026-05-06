@@ -80,6 +80,26 @@ Se `docker compose` responder que não consegue conectar ao Docker API, abra o D
 
 ## Configuração inicial
 
+### Opção recomendada: instalador guiado
+
+Depois de baixar o projeto, rode:
+
+```powershell
+.\INSTALAR_SNAPFLOW.bat
+```
+
+O instalador verifica Git, Node.js, npm, Docker e Docker Compose; instala dependências ausentes via `winget` quando possível; cria `.env` e `backend\.env.local`; instala pacotes npm; sobe o PostgreSQL; roda migrações; e pode iniciar o backend e o painel.
+
+Todos os prompts mostram o padrão entre parênteses. Os segredos locais ficam em arquivos ignorados pelo Git.
+
+Para verificar o ambiente sem instalar ou alterar arquivos:
+
+```powershell
+.\INSTALAR_SNAPFLOW.bat --verificar
+```
+
+### Opção manual
+
 1. Baixe o projeto e entre na pasta:
 
 ```powershell
@@ -114,21 +134,33 @@ PORT=3000
 STORAGE_ROOT=./storage
 ```
 
+5. Crie ou edite o arquivo `.env` na raiz para o Docker Compose. Use a mesma senha configurada em `DATABASE_URL`:
+
+```env
+POSTGRES_DB=snapflow
+POSTGRES_USER=snapflow
+POSTGRES_PASSWORD=sua-senha-local
+POSTGRES_PORT=55432
+SNAPFLOW_DEV_HOST=127.0.0.1
+SNAPFLOW_DEV_PORT=5173
+SNAPFLOW_ALLOWED_HOSTS=
+```
+
 Para testar o sistema sem Pix real, mantenha valores de exemplo em `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET`; Pix real só funciona depois de configurar Mercado Pago e webhook público. Pagamento manual, edição de galerias, upload e administração continuam úteis localmente.
 
-5. Suba o PostgreSQL:
+6. Suba o PostgreSQL:
 
 ```powershell
 cmd /c npm.cmd run db:up
 ```
 
-6. Rode as migrações:
+7. Rode as migrações:
 
 ```powershell
 cmd /c npm.cmd run db:migrate
 ```
 
-7. Inicie backend e painel:
+8. Inicie backend e painel:
 
 ```powershell
 .\INICIAR_TUDO.bat
