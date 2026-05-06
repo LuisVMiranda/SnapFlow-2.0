@@ -57,28 +57,50 @@ SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso p
 
 ## Requisitos
 
-- Node.js e npm.
-- Docker Desktop para subir o PostgreSQL local com `docker compose`.
+- Windows com PowerShell ou Windows Terminal.
+- Git para baixar o projeto do repositório.
+- Node.js `20.19+` ou `22+` com npm. Node 18 não é suficiente para as ferramentas atuais de frontend.
+- Docker Desktop aberto e com o motor Linux rodando para subir o PostgreSQL local com `docker compose`.
+- Internet na instalação inicial para baixar pacotes npm, a imagem `postgres:16-alpine` e o Chromium usado pelo WhatsApp Web.
 - Um token administrativo forte para proteger o painel.
 - Conta Mercado Pago com token de acesso, se for usar Pix real.
 - WhatsApp no celular para parear o cliente WhatsApp Web usado pelo backend.
 
-## Configuração inicial
-
-1. Instale as dependências:
+Verifique os programas antes de instalar:
 
 ```powershell
-npm install
-npm --prefix backend install
+git --version
+node --version
+cmd /c npm.cmd --version
+docker --version
+docker compose version
 ```
 
-2. Crie o arquivo local de ambiente do backend:
+Se `docker compose` responder que não consegue conectar ao Docker API, abra o Docker Desktop e aguarde o status indicar que o engine está pronto.
+
+## Configuração inicial
+
+1. Baixe o projeto e entre na pasta:
+
+```powershell
+git clone https://github.com/LuisVMiranda/SnapFlow-2.0.git
+cd SnapFlow-2.0
+```
+
+2. Instale as dependências:
+
+```powershell
+cmd /c npm.cmd install
+cmd /c npm.cmd --prefix backend install
+```
+
+3. Crie o arquivo local de ambiente do backend:
 
 ```powershell
 copy backend\.env.example backend\.env.local
 ```
 
-3. Edite `backend\.env.local` com valores reais ou locais:
+4. Edite `backend\.env.local` com valores reais ou locais:
 
 ```env
 DATABASE_URL=postgres://snapflow:sua-senha-local@127.0.0.1:55432/snapflow
@@ -92,16 +114,24 @@ PORT=3000
 STORAGE_ROOT=./storage
 ```
 
-4. Suba o PostgreSQL:
+Para testar o sistema sem Pix real, mantenha valores de exemplo em `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET`; Pix real só funciona depois de configurar Mercado Pago e webhook público. Pagamento manual, edição de galerias, upload e administração continuam úteis localmente.
+
+5. Suba o PostgreSQL:
 
 ```powershell
 cmd /c npm.cmd run db:up
 ```
 
-5. Rode as migrações:
+6. Rode as migrações:
 
 ```powershell
 cmd /c npm.cmd run db:migrate
+```
+
+7. Inicie backend e painel:
+
+```powershell
+.\INICIAR_TUDO.bat
 ```
 
 ## Como rodar localmente
@@ -122,13 +152,13 @@ Terminal 1, backend:
 
 ```powershell
 cd backend
-npm run start
+cmd /c npm.cmd run start
 ```
 
 Terminal 2, frontend:
 
 ```powershell
-npm run dev -- --host 127.0.0.1 --port 5173
+cmd /c npm.cmd run dev -- --host 127.0.0.1 --port 5173
 ```
 
 Depois acesse:
@@ -152,10 +182,19 @@ HOST=0.0.0.0
 ```powershell
 $env:SNAPFLOW_DEV_HOST="0.0.0.0"
 $env:SNAPFLOW_ALLOWED_HOSTS="seu-host-publico.example"
-npm run dev -- --host 0.0.0.0 --port 5173
+cmd /c npm.cmd run dev -- --host 0.0.0.0 --port 5173
 ```
 
 Use essa opção somente com `ADMIN_ACCESS_TOKEN` forte, firewall configurado e `PUBLIC_BASE_URL` apontando para a URL confiável.
+
+## Primeiro acesso
+
+1. Abra `http://localhost:5173`.
+2. Clique em `Conta`.
+3. Digite o mesmo valor configurado em `ADMIN_ACCESS_TOKEN`.
+4. Vá em `Vendas` ou `Galerias` para acompanhar sessões, WhatsApp, pagamentos e galerias compartilhadas.
+
+O backend só carrega `.env` e `.env.local` dentro da pasta `backend`. O arquivo `backend\.env.local` é local, ignorado pelo Git e não deve ser enviado para o repositório.
 
 ## Comandos úteis
 
@@ -197,9 +236,13 @@ Quando o Mercado Pago avisar que o pagamento foi aprovado, o backend aprova a se
 
 Importante: essa automação vale para pagamentos gerados pelo Mercado Pago. Uma transferência bancária avulsa que não esteja vinculada a um pagamento Mercado Pago não necessariamente entra nesse webhook.
 
+Em desenvolvimento local, `http://localhost:3000/api/webhook` não é acessível pelo Mercado Pago pela internet. Para Pix real, use HTTPS público com domínio, proxy reverso, ngrok, túnel seguro ou infraestrutura equivalente, configure `PUBLIC_BASE_URL` com essa URL pública e mantenha `MP_WEBHOOK_SECRET` forte.
+
 ## WhatsApp
 
 O envio usa `whatsapp-web.js` no backend.
+
+Na primeira instalação, o pacote do backend também instala o Chromium usado pelo WhatsApp Web. Esse download pode demorar e pode ser bloqueado por antivírus, proxy corporativo ou firewall. Depois de parear, a sessão fica em diretórios locais ignorados pelo Git.
 
 Como parear:
 
@@ -322,6 +365,15 @@ cmd /c npm.cmd run build
 ```
 
 O projeto também tem testes de propriedades com `fast-check` para normalização de códigos, telefones, credenciais e comportamento do WhatsApp.
+
+## Solução de problemas inicial
+
+- `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `cmd /c npm.cmd run db:up`.
+- `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
+- `DATABASE_URL ausente`: confirme se `backend\.env.local` existe e se o comando está sendo rodado a partir da pasta correta.
+- `ADMIN_ACCESS_TOKEN ausente`: defina um token longo em `backend\.env.local` e reinicie o backend.
+- WhatsApp não mostra QR Code: aguarde o backend terminar de iniciar, clique em `Atualizar` no cartão `WhatsApp de envio` e, se necessário, use `Parear novamente`.
+- Pix não aprova sozinho em localhost: configure um webhook HTTPS público no Mercado Pago ou use o fluxo manual enquanto estiver testando localmente.
 
 ## Observações de produção
 
