@@ -106,7 +106,12 @@ if /i not "%RODAR_INSTALADOR%"=="S" exit /b 1
 
 set "SNAPFLOW_SKIP_FINAL_START=S"
 call "%ROOT%\INSTALAR_SNAPFLOW.bat"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo.
+  echo O instalador não concluiu a configuração local.
+  echo Sem backend\.env.local o servidor não consegue iniciar.
+  exit /b 1
+)
 if exist "%ROOT%\backend\.env.local" exit /b 0
 echo ERRO: backend\.env.local ainda não existe depois do instalador.
 exit /b 1

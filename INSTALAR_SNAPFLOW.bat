@@ -206,15 +206,37 @@ call :perguntar_sn ABRIR_DOCKER "Abrir o Docker Desktop agora" "S"
 if /i "%ABRIR_DOCKER%"=="S" (
   if exist "%ProgramFiles%\Docker\Docker\Docker Desktop.exe" start "" "%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
 )
-echo Aguarde o Docker Desktop indicar que está pronto.
-pause
+call :aguardar_docker_engine
+exit /b %ERRORLEVEL%
+
+:aguardar_docker_engine
+set "DOCKER_TENTATIVA=0"
+echo Aguardando o Docker Desktop ficar pronto. Isso pode levar alguns minutos na primeira inicialização.
+
+:aguardar_docker_loop
 docker info >nul 2>nul
-if errorlevel 1 (
-  echo O Docker ainda não está pronto.
-  exit /b 1
+if not errorlevel 1 (
+  echo.
+  echo Docker Desktop está rodando.
+  exit /b 0
 )
-echo Docker Desktop está rodando.
-exit /b 0
+set /a DOCKER_TENTATIVA+=1
+if %DOCKER_TENTATIVA% GEQ 40 goto docker_timeout
+<nul set /p "=."
+timeout /t 3 /nobreak >nul
+goto aguardar_docker_loop
+
+:docker_timeout
+echo.
+echo O Docker Desktop ainda não respondeu.
+echo Confira se o Docker Desktop está aberto, sem tela de instalação pendente, e com status indicando que o engine está rodando.
+call :perguntar_sn AGUARDAR_DOCKER_MAIS "Aguardar mais 2 minutos pelo Docker Desktop" "S"
+if /i "%AGUARDAR_DOCKER_MAIS%"=="S" (
+  set "DOCKER_TENTATIVA=0"
+  goto aguardar_docker_loop
+)
+echo Abra o Docker Desktop, aguarde o status ficar pronto, e rode INSTALAR_SNAPFLOW.bat novamente.
+exit /b 1
 
 :instalar_winget
 echo Instalando %~1 via winget...

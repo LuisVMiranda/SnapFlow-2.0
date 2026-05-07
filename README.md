@@ -408,6 +408,7 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - `Cannot find module 'dotenv'`: as dependências do backend não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd --prefix backend install`.
 - Se `INICIAR_TUDO.bat`, `INICIAR_PAINEL.bat` ou `INICIAR_SERVIDOR.bat` detectarem dependências ausentes, eles oferecem instalar os pacotes locais antes de continuar.
 - `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `cmd /c npm.cmd run db:up`.
+- `Docker Desktop foi encontrado, mas o engine não respondeu`: abra o Docker Desktop e aguarde o status indicar que está pronto. Na primeira abertura após instalação ou atualização isso pode levar alguns minutos.
 - `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
 - `DATABASE_URL ausente`: confirme se `backend\.env.local` existe e se o comando está sendo rodado a partir da pasta correta.
 - `ADMIN_ACCESS_TOKEN ausente`: defina um token longo em `backend\.env.local` e reinicie o backend.
