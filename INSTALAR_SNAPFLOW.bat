@@ -72,6 +72,9 @@ echo.
 echo Scripts npm disponíveis no backend:
 cmd /c npm.cmd --prefix backend run
 echo.
+echo Dependências locais do projeto:
+call :verificar_dependencias_projeto
+echo.
 echo Verificação concluída.
 exit /b 0
 
@@ -292,14 +295,121 @@ echo.
 echo [4/7] Instalando dependências npm...
 call :perguntar_sn INSTALAR_NPM "Rodar npm install na raiz e no backend" "S"
 if /i not "%INSTALAR_NPM%"=="S" (
-  echo Instalação de dependências ignorada por escolha do usuário.
-  exit /b 0
+  call :verificar_dependencias_projeto
+  if /i "%PROJETO_OK%"=="S" (
+    echo Instalação de dependências ignorada porque os pacotes locais já estão presentes.
+    exit /b 0
+  )
+  echo.
+  echo ERRO: as dependências locais obrigatórias não estão instaladas.
+  echo Sem elas o painel exibirá erro de Vite ausente e o backend exibirá módulos como dotenv ausentes.
+  echo Rode este instalador novamente e aceite a etapa de npm install.
+  exit /b 1
 )
 cmd /c npm.cmd install
 if errorlevel 1 exit /b 1
 cmd /c npm.cmd --prefix backend install
 if errorlevel 1 exit /b 1
+call :verificar_dependencias_projeto_obrigatorio
+if errorlevel 1 exit /b 1
 exit /b 0
+
+:verificar_dependencias_projeto
+set "PROJETO_OK=S"
+if exist "%ROOT%\node_modules\.bin\vite.cmd" (
+  echo Vite local do painel: OK.
+) else (
+  echo Vite local do painel: ausente. Rode npm install na raiz.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\node_modules\react" (
+  echo React do painel: OK.
+) else (
+  echo React do painel: ausente. Rode npm install na raiz.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\node_modules\react-dom" (
+  echo React DOM do painel: OK.
+) else (
+  echo React DOM do painel: ausente. Rode npm install na raiz.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\node_modules\qrcode" (
+  echo QR Code do painel: OK.
+) else (
+  echo QR Code do painel: ausente. Rode npm install na raiz.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\node_modules\lucide-react" (
+  echo Ícones do painel: OK.
+) else (
+  echo Ícones do painel: ausentes. Rode npm install na raiz.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\dotenv" (
+  echo dotenv do backend: OK.
+) else (
+  echo dotenv do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\express" (
+  echo Express do backend: OK.
+) else (
+  echo Express do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\cors" (
+  echo CORS do backend: OK.
+) else (
+  echo CORS do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\pg" (
+  echo PostgreSQL client do backend: OK.
+) else (
+  echo PostgreSQL client do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\multer" (
+  echo Upload do backend: OK.
+) else (
+  echo Upload do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\mercadopago" (
+  echo Mercado Pago do backend: OK.
+) else (
+  echo Mercado Pago do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\whatsapp-web.js" (
+  echo whatsapp-web.js do backend: OK.
+) else (
+  echo whatsapp-web.js do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\puppeteer" (
+  echo Puppeteer/Chromium do backend: OK.
+) else (
+  echo Puppeteer/Chromium do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if exist "%ROOT%\backend\node_modules\sharp" (
+  echo Sharp do backend: OK.
+) else (
+  echo Sharp do backend: ausente. Rode npm --prefix backend install.
+  set "PROJETO_OK=N"
+)
+if /i "%PROJETO_OK%"=="S" echo Dependências locais do SnapFlow: OK.
+exit /b 0
+
+:verificar_dependencias_projeto_obrigatorio
+call :verificar_dependencias_projeto
+if /i "%PROJETO_OK%"=="S" exit /b 0
+echo.
+echo ERRO: uma ou mais dependências locais continuam ausentes depois do npm install.
+echo Verifique sua conexão com a internet, permissões da pasta e mensagens do npm acima.
+exit /b 1
 
 :preparar_banco
 echo.
@@ -354,6 +464,10 @@ exit /b %ERRORLEVEL%
 
 :iniciar_opcional
 echo.
+if /i "%SNAPFLOW_SKIP_FINAL_START%"=="S" (
+  echo Inicialização automática ignorada porque o instalador foi chamado por um script de início.
+  exit /b 0
+)
 call :perguntar_sn INICIAR_APP "Iniciar backend e painel agora" "S"
 if /i "%INICIAR_APP%"=="S" (
   call "%ROOT%\INICIAR_TUDO.bat"

@@ -59,7 +59,7 @@ SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso p
 
 - Windows com PowerShell ou Windows Terminal.
 - Git para baixar o projeto do repositório.
-- Node.js `20.19+` ou `22+` com npm. Node 18 não é suficiente para as ferramentas atuais de frontend.
+- Node.js `20.19+`, `22.13+` ou `24+` com npm. Node 18 não é suficiente para as ferramentas atuais de frontend.
 - Docker Desktop aberto e com o motor Linux rodando para subir o PostgreSQL local com `docker compose`.
 - Internet na instalação inicial para baixar pacotes npm, a imagem `postgres:16-alpine` e o Chromium usado pelo WhatsApp Web.
 - Um token administrativo forte para proteger o painel.
@@ -88,7 +88,7 @@ Depois de baixar o projeto, rode:
 .\INSTALAR_SNAPFLOW.bat
 ```
 
-O instalador verifica Git, Node.js, npm, Docker e Docker Compose; instala dependências ausentes via `winget` quando possível; cria `.env` e `backend\.env.local`; instala pacotes npm; sobe o PostgreSQL; roda migrações; e pode iniciar o backend e o painel.
+O instalador verifica Git, Node.js, npm, Docker e Docker Compose; instala dependências ausentes via `winget` quando possível; cria `.env` e `backend\.env.local`; instala pacotes npm da raiz e do backend; sobe o PostgreSQL; roda migrações; e pode iniciar o backend e o painel.
 
 Todos os prompts mostram o padrão entre parênteses. Os segredos locais ficam em arquivos ignorados pelo Git.
 
@@ -97,6 +97,10 @@ Para verificar o ambiente sem instalar ou alterar arquivos:
 ```powershell
 .\INSTALAR_SNAPFLOW.bat --verificar
 ```
+
+Esse modo também confere se as dependências locais já existem em `node_modules`, incluindo `vite` no painel e `dotenv`, `express`, `whatsapp-web.js` e `sharp` no backend.
+
+`vite` não precisa ser instalado globalmente na máquina. Ele é uma dependência local do projeto e é instalado por `cmd /c npm.cmd install` na raiz.
 
 ### Opção manual
 
@@ -400,6 +404,9 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 
 ## Solução de problemas inicial
 
+- `'vite' não é reconhecido`: as dependências do painel não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd install` na raiz.
+- `Cannot find module 'dotenv'`: as dependências do backend não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd --prefix backend install`.
+- Se `INICIAR_TUDO.bat`, `INICIAR_PAINEL.bat` ou `INICIAR_SERVIDOR.bat` detectarem dependências ausentes, eles oferecem instalar os pacotes locais antes de continuar.
 - `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `cmd /c npm.cmd run db:up`.
 - `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
 - `DATABASE_URL ausente`: confirme se `backend\.env.local` existe e se o comando está sendo rodado a partir da pasta correta.
