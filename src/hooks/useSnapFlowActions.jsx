@@ -1,4 +1,9 @@
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import {
+  API_BASE_URL,
+  buildApiErrorMessage,
+  buildNetworkErrorMessage,
+  readJsonResponse,
+} from '../lib/apiClient';
 import { normalizePhotoUrl, photoIdFromUrl } from '../lib/photos';
 import { firstPackageKey } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
@@ -130,11 +135,11 @@ export function useSnapFlowActions(config) {
         });
         setScreen('gallery');
       } else {
-        setNotice('Upload concluído, mas o servidor não retornou fotos processadas.');
+        setNotice('Upload concluído, mas o servidor não retornou fotos processadas. Tente enviar novamente ou verifique o terminal do servidor.');
       }
     } catch (error) {
       console.error('Falha no upload:', error);
-      setNotice(error.message || 'Erro ao enviar fotos para o servidor.');
+      setNotice(buildNetworkErrorMessage('Erro ao enviar fotos para o servidor.', error));
     } finally {
       event.target.value = '';
       setIsUploading(false);
@@ -188,11 +193,11 @@ export function useSnapFlowActions(config) {
         });
         setScreen('pix');
       } else {
-        alert('Erro ao gerar Pix: ' + (data.error || 'Erro desconhecido'));
+        alert(buildApiErrorMessage('Não foi possível gerar o Pix.', response, data));
       }
     } catch (error) {
       console.error('Falha ao gerar Pix:', error);
-      alert('Erro no backend: a API não respondeu como esperado.');
+      alert(buildNetworkErrorMessage('Não foi possível gerar o Pix.', error));
     } finally {
       setIsGeneratingPix(false);
     }
@@ -251,15 +256,15 @@ export function useSnapFlowActions(config) {
           deliveryError: null,
           paymentMethod: 'Dinheiro/Cartão',
         });
-        setNotice('Pagamento em dinheiro/cartão aguardando liberação no painel.');
+        setNotice('Pagamento em dinheiro/cartão aguardando liberação no painel. Abra a aprovação em uma nova aba para liberar as fotos.');
         setScreen('manual-pending');
         return;
       } else {
-        alert('Não foi possível registrar o pagamento: ' + (data.error || 'Erro desconhecido'));
+        alert(buildApiErrorMessage('Não foi possível registrar o pagamento manual.', response, data));
       }
     } catch (error) {
       console.error('Falha ao registrar pagamento manual:', error);
-      alert('Não foi possível registrar o pagamento manual.');
+      alert(buildNetworkErrorMessage('Não foi possível registrar o pagamento manual.', error));
     } finally {
       setIsGeneratingPix(false);
     }
@@ -310,7 +315,7 @@ export function useSnapFlowActions(config) {
     if (!shareToken) return;
     const code = normalizeShareCode(shareCodeInput);
     if (code.length !== 4) {
-      setNotice('Digite o código de 4 caracteres.');
+      setNotice('Digite o código de 4 caracteres enviado com o link da galeria.');
       return;
     }
 
@@ -323,16 +328,16 @@ export function useSnapFlowActions(config) {
         body: JSON.stringify({ code }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Não foi possível abrir o link.');
+        throw new Error(buildApiErrorMessage('Não foi possível abrir a galeria compartilhada.', response, data));
       }
 
       applySharedSession(data);
       setNotice('Galeria compartilhada aberta.');
     } catch (error) {
-      setNotice(error.message || 'Não foi possível abrir a galeria.');
+      setNotice(buildNetworkErrorMessage('Não foi possível abrir a galeria compartilhada.', error));
     } finally {
       setShareActionLoading(false);
     }
@@ -362,10 +367,14 @@ export function useSnapFlowActions(config) {
         }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Não foi possível gerar o link.');
+        throw new Error(buildApiErrorMessage('Não foi possível gerar o link compartilhado.', response, data));
+      }
+
+      if (!data.token || !data.accessCode) {
+        throw new Error('A API criou uma resposta incompleta para o link compartilhado. Reinicie o backend e tente novamente.');
       }
 
       const link = data.link || window.location.origin + '/s/' + data.token;
@@ -384,13 +393,13 @@ export function useSnapFlowActions(config) {
         setNotice('Link criado e enviado no WhatsApp.');
       } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareRecord.whatsappMessage);
-        setNotice('Link criado, mas WhatsApp não enviou. Mensagem copiada para envio manual.');
+        setNotice('Link criado, mas o WhatsApp não enviou. A mensagem foi copiada para envio manual.');
       } else {
-        setNotice('Link criado, mas WhatsApp não enviou. Use Copiar mensagem WhatsApp para envio manual.');
+        setNotice('Link criado, mas o WhatsApp não enviou. Use Copiar mensagem WhatsApp para enviar manualmente.');
       }
       fetchDashboard?.({ silent: true });
     } catch (error) {
-      setNotice(error.message || 'Não foi possível gerar o link.');
+      setNotice(buildNetworkErrorMessage('Não foi possível gerar o link compartilhado.', error));
     } finally {
       setShareActionLoading(false);
     }
@@ -408,9 +417,9 @@ export function useSnapFlowActions(config) {
         body: JSON.stringify({ minutes: 15 }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(data.error || 'Não foi possível estender o acesso.');
+        throw new Error(buildApiErrorMessage('Não foi possível estender o acesso da galeria.', response, data));
       }
 
       setShareAccess((previous) => ({
@@ -419,7 +428,7 @@ export function useSnapFlowActions(config) {
       }));
       setNotice('Acesso estendido por mais 15 minutos.');
     } catch (error) {
-      setNotice(error.message || 'Não foi possível estender o acesso.');
+      setNotice(buildNetworkErrorMessage('Não foi possível estender o acesso da galeria.', error));
     } finally {
       setShareActionLoading(false);
     }
@@ -436,9 +445,9 @@ export function useSnapFlowActions(config) {
         headers: adminJsonHeaders(),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(data.error || 'Não foi possível revogar o acesso.');
+        throw new Error(buildApiErrorMessage('Não foi possível revogar o acesso da galeria.', response, data));
       }
 
       setNotice('Acesso revogado.');
@@ -451,7 +460,7 @@ export function useSnapFlowActions(config) {
           : previous
       );
     } catch (error) {
-      setNotice(error.message || 'Não foi possível revogar o acesso.');
+      setNotice(buildNetworkErrorMessage('Não foi possível revogar o acesso da galeria.', error));
     } finally {
       setShareActionLoading(false);
     }

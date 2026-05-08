@@ -49,7 +49,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
   async function createPixPayment(payload) {
     const accessToken = await mercadoPagoAccessToken();
     if (!accessToken || accessToken.includes('your-mercado-pago-token')) {
-      throw new HttpError(500, 'Token Mercado Pago ausente.', 'mp_token_missing');
+      throw new HttpError(500, 'Token do Mercado Pago ausente. Configure MP_ACCESS_TOKEN em Credenciais ou no backend\\.env.local antes de gerar Pix.', 'mp_token_missing');
     }
 
     const response = await createPaymentClient(accessToken).create({
@@ -126,7 +126,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
   async function verifyWebhook(req) {
     const webhookSecret = await mercadoPagoWebhookSecret();
     if (!webhookSecret) {
-      throw new HttpError(500, 'MP_WEBHOOK_SECRET ausente no servidor.', 'mp_webhook_secret_missing');
+      throw new HttpError(500, 'Segredo do webhook do Mercado Pago ausente. Configure MP_WEBHOOK_SECRET em Credenciais ou no backend\\.env.local para confirmar pagamentos automaticamente.', 'mp_webhook_secret_missing');
     }
     const snapflowSignature = req.get('x-snapflow-signature') || '';
     if (snapflowSignature) {

@@ -2,7 +2,7 @@ import { SessionOpsCard } from './SessionOpsCard';
 import { WhatsAppStatusCard } from './WhatsAppStatusCard';
 import { formatMoney } from '../lib/formatters';
 import { DELIVERY_META, PAYMENT_META, packageLabel } from '../lib/pricing';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 
 const PERIODS = [
   { key: 'hoje', label: 'Diário', seriesKey: 'diario' },
@@ -62,38 +62,46 @@ export function SalesStatsPanel({
   const series = dashData.chartSeries?.[periodConfig.seriesKey] || [];
   const retryDelivery = async (targetSessionId) => {
     if (!targetSessionId) return;
-    const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/retry-delivery`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(buildApiErrorMessage('Não foi possível reenfileirar o envio.', response, data));
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/retry-delivery`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível reenfileirar o envio.', response, data));
+        return;
+      }
+      if (data.session?.deliveryStatus === 'failed') {
+        setNotice(`Envio falhou novamente: ${deliveryFailureHint(data.session.deliveryError)}`);
+      } else if (data.session?.deliveryStatus === 'sent') {
+        setNotice('Fotos reenviadas com sucesso.');
+      } else {
+        setNotice('Entrega reenfileirada. Deixe o WhatsApp pareado e aberto para concluir o envio.');
+      }
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível reenfileirar o envio.', error));
     }
-    if (data.session?.deliveryStatus === 'failed') {
-      setNotice(`Envio falhou novamente: ${deliveryFailureHint(data.session.deliveryError)}`);
-    } else if (data.session?.deliveryStatus === 'sent') {
-      setNotice('Fotos reenviadas com sucesso.');
-    } else {
-      setNotice('Entrega reenfileirada. Deixe o WhatsApp pareado e aberto para concluir o envio.');
-    }
-    fetchDashboard({ silent: true });
   };
   const clearStats = async () => {
     if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas? As galerias compartilhadas continuarão na aba Galerias.')) return;
     if (!window.confirm('Confirme novamente: esta ação apaga as sessões de venda do painel.')) return;
-    const response = await fetch(`${API_BASE_URL}/api/admin/stats/clear`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(buildApiErrorMessage('Não foi possível limpar as estatísticas.', response, data));
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/stats/clear`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível limpar as estatísticas.', response, data));
+        return;
+      }
+      setNotice(`${data.deletedSessions || 0} sessão(ões) removida(s) das estatísticas.`);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível limpar as estatísticas.', error));
     }
-    setNotice(`${data.deletedSessions || 0} sessão(ões) removida(s) das estatísticas.`);
-    fetchDashboard({ silent: true });
   };
   return (
     <section className="admin-panel">
@@ -144,12 +152,13 @@ export function SalesStatsPanel({
         fetchDashboard={fetchDashboard}
         pricingOptions={pricingOptions}
         retryDelivery={retryDelivery}
+        setNotice={setNotice}
       />
     </section>
   );
 }
 
-function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions, retryDelivery }) {
+function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions, retryDelivery, setNotice }) {
   return (
     <div className="recent-sessions">
       <div className="recent-header">
@@ -176,11 +185,21 @@ function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions
                 <button
                   className="share-quick-btn approve-session-btn"
                   onClick={async () => {
-                    await fetch(`${API_BASE_URL}/api/admin/approve-manual-session/${session.id}`, {
-                      method: 'POST',
-                      headers: adminHeaders(),
-                    });
-                    fetchDashboard({ silent: true });
+                    try {
+                      const response = await fetch(`${API_BASE_URL}/api/admin/approve-manual-session/${session.id}`, {
+                        method: 'POST',
+                        headers: adminHeaders(),
+                      });
+                      const data = await readJsonResponse(response);
+                      if (!response.ok) {
+                        setNotice(buildApiErrorMessage('Não foi possível liberar as fotos.', response, data));
+                        return;
+                      }
+                      setNotice('Fotos liberadas para entrega.');
+                      fetchDashboard({ silent: true });
+                    } catch (error) {
+                      setNotice(buildNetworkErrorMessage('Não foi possível liberar as fotos.', error));
+                    }
                   }}
                 >
                   Liberar fotos

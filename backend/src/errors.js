@@ -21,12 +21,12 @@ function normalizeMulterError(error) {
   if (error.code === 'LIMIT_FILE_COUNT') {
     return new HttpError(
       400,
-      'Quantidade maxima de fotos excedida para este envio.',
+      'Quantidade máxima de fotos excedida para este envio. Envie menos arquivos por vez ou ajuste MAX_FILES_PER_UPLOAD no backend.',
       'upload_file_count_exceeded'
     );
   }
 
-  return new HttpError(400, error.message || 'Upload inválido.', error.code || 'upload_error');
+  return new HttpError(400, error.message || 'Upload inválido. Envie apenas imagens nos formatos aceitos e tente novamente.', error.code || 'upload_error');
 }
 
 function asyncHandler(handler) {
@@ -43,7 +43,9 @@ function errorHandler(error, req, res, next) {
   const status = Number(normalizedError.status) || 500;
   if (status >= 500) console.error(normalizedError);
   const payload = {
-    error: status >= 500 ? 'Erro interno do servidor' : normalizedError.message,
+    error: status >= 500
+      ? 'Erro interno do servidor. Verifique o terminal APP FOTOGRAFIA - SERVIDOR para detalhes e reinicie o backend se a falha persistir.'
+      : normalizedError.message,
     code: normalizedError.code || 'error',
   };
   if (normalizedError.details) payload.details = normalizedError.details;

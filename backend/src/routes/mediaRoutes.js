@@ -10,10 +10,10 @@ function createMediaRouter({ auth, config, media, repos }) {
     '/media/:photoId/:variant',
     asyncHandler(async (req, res) => {
       if (!['thumb', 'preview'].includes(req.params.variant)) {
-        throw new HttpError(404, 'Variante de mídia não encontrada.', 'media_variant_not_found');
+        throw new HttpError(404, 'Variante de mídia não encontrada. Atualize a página e tente abrir a foto novamente.', 'media_variant_not_found');
       }
       const photo = await repos.getPhoto(req.params.photoId);
-      if (!photo) throw new HttpError(404, 'Foto não encontrada.', 'photo_not_found');
+      if (!photo) throw new HttpError(404, 'Foto não encontrada. Ela pode ter sido removida pela retenção ou pela edição da galeria.', 'photo_not_found');
       const adminToken = req.query.admin_token || '';
       const hasAdminMediaAccess = config.adminAccessToken && safeEqual(adminToken, config.adminAccessToken);
       if (!hasAdminMediaAccess) validateCustomerAccess(req, photo.shareToken);
@@ -26,7 +26,7 @@ function createMediaRouter({ auth, config, media, repos }) {
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const photo = await repos.getPhoto(req.params.photoId);
-      if (!photo) throw new HttpError(404, 'Foto não encontrada.', 'photo_not_found');
+      if (!photo) throw new HttpError(404, 'Foto não encontrada. Ela pode ter sido removida pela retenção ou pela edição da galeria.', 'photo_not_found');
       await media.sendFile(res, photo, 'original');
     })
   );

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 
 export function useWhatsAppTemplates({ adminJsonHeaders, isAdminUnlocked, setNotice }) {
   const [whatsAppTemplates, setWhatsAppTemplates] = useState(null);
@@ -19,7 +19,7 @@ export function useWhatsAppTemplates({ adminJsonHeaders, isAdminUnlocked, setNot
       setWhatsAppTemplates(data);
       return data;
     } catch (error) {
-      if (!silent) setNotice(error.message || 'Não foi possível carregar as mensagens do WhatsApp.');
+      if (!silent) setNotice(buildNetworkErrorMessage('Não foi possível carregar as mensagens do WhatsApp.', error));
       return null;
     }
   }, [adminJsonHeaders, isAdminUnlocked, setNotice]);
@@ -53,7 +53,7 @@ export function useWhatsAppTemplates({ adminJsonHeaders, isAdminUnlocked, setNot
       setNotice('Mensagens do WhatsApp salvas.');
       return true;
     } catch (error) {
-      setNotice(error.message || 'Não foi possível salvar as mensagens do WhatsApp.');
+      setNotice(buildNetworkErrorMessage('Não foi possível salvar as mensagens do WhatsApp.', error));
       setWhatsAppTemplateStatus('error');
       return false;
     }

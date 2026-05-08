@@ -28,7 +28,7 @@ function createApp({ config, repos, media, payment, deliveryQueue, retention, pa
   app.use('/api', createPaymentRouter(deps));
   app.use('/api', (req, res) => {
     res.status(404).json({
-      error: `Rota da API não encontrada: ${req.method} ${req.originalUrl}`,
+      error: `Rota da API não encontrada: ${req.method} ${req.originalUrl}. Reinicie o backend depois de atualizar o projeto e confirme se esta rota existe na versão atual.`,
       code: 'api_route_not_found',
     });
   });

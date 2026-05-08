@@ -22,10 +22,10 @@ export function AccountMenu({
   const isLocked = adminAccessStatus === 'locked';
   const statusLabel = {
     checking: 'Validando credenciais...',
-    denied: adminAccessError || 'Credencial inválida.',
+    denied: adminAccessError || 'Credencial inválida. Confira o token informado no instalador ou em backend\\.env.local.',
     granted: 'Conta administrativa ativa.',
     idle: 'Entre com a credencial administrativa.',
-    locked: adminAccessError || 'Limite de tentativas atingido.',
+    locked: adminAccessError || 'Limite de tentativas atingido. Aguarde alguns minutos antes de tentar novamente.',
   }[adminAccessStatus || 'idle'];
 
   const handleSubmit = async (event) => {

@@ -16,13 +16,20 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', color: 'red', background: 'black', minHeight: '100vh' }}>
-          <h2>Algo deu errado.</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px' }}>
-            {this.state.error && this.state.error.toString()}
-            <br />
-            {this.state.error && this.state.error.stack}
-          </pre>
+        <div style={{ padding: '20px', color: '#f8fafc', background: '#111', minHeight: '100vh' }}>
+          <h2>O painel encontrou um erro inesperado.</h2>
+          <p>
+            Atualize a página. Se continuar acontecendo, reinicie o painel e o servidor,
+            depois verifique o terminal APP FOTOGRAFIA - SERVIDOR.
+          </p>
+          <details>
+            <summary>Detalhe técnico para suporte</summary>
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px' }}>
+              {this.state.error && this.state.error.toString()}
+              <br />
+              {this.state.error && this.state.error.stack}
+            </pre>
+          </details>
         </div>
       );
     }

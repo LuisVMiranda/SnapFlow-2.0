@@ -23,7 +23,7 @@ function normalizeClientEmail(value) {
   const normalized = optionalEmail(value);
   if (normalized) return normalized;
   if (String(value || '').trim()) {
-    throw new HttpError(400, 'Informe um e-mail valido para o cliente ou deixe o campo vazio.', 'invalid_client_email');
+    throw new HttpError(400, 'Informe um e-mail válido para o cliente ou deixe o campo em branco. O Pix funciona sem e-mail, mas o Mercado Pago exige um formato válido quando esse campo é preenchido.', 'invalid_client_email');
   }
   return '';
 }
@@ -58,13 +58,13 @@ async function adminShareDetails(repos, token) {
 
 async function sendShareLinkMessage({ whatsapp, phone, message }) {
   if (!whatsapp || typeof whatsapp.sendText !== 'function') {
-    return { whatsappSent: false, whatsappStatus: 'unavailable', whatsappError: 'WhatsApp indisponivel.' };
+    return { whatsappSent: false, whatsappStatus: 'unavailable', whatsappError: 'WhatsApp indisponível. Abra Vendas, confira o cartão WhatsApp de envio e tente reconectar.' };
   }
   try {
     await whatsapp.sendText(phone, message);
     return { whatsappSent: true, whatsappStatus: 'sent' };
   } catch (error) {
-    return { whatsappSent: false, whatsappStatus: 'failed', whatsappError: error.message || 'Falha ao enviar WhatsApp.' };
+    return { whatsappSent: false, whatsappStatus: 'failed', whatsappError: error.message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.' };
   }
 }
 
@@ -161,7 +161,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const current = await repos.getSession(req.params.id);
-      if (!current) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+      if (!current) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
       if (current.status === 'approved') {
         res.json({ success: true, alreadyApproved: true, session: current });
         return;
@@ -228,7 +228,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const updated = await repos.extendShareSession(req.params.token, Math.min(60, Math.max(1, Number(req.body.minutes) || 15)));
-      if (!updated) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!updated) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(updated);
     })
   );
@@ -238,7 +238,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const updated = await repos.revokeShareSession(req.params.token);
-      if (!updated) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!updated) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(updated);
     })
   );
@@ -248,7 +248,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       let original = await repos.getShareSession(req.params.token, { includeSensitive: true });
-      if (!original) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!original) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       let photos = await repos.listPhotosForShare(original.token);
       if (!photos.length && typeof repos.findShareWithMatchingMetadata === 'function') {
         const matched = await repos.findShareWithMatchingMetadata(original);
@@ -258,7 +258,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
           photos = await repos.listPhotosForShare(original.token);
         }
       }
-      if (!photos.length) throw new HttpError(400, 'Esta galeria não possui fotos para recriar.', 'share_photos_missing');
+      if (!photos.length) throw new HttpError(400, 'Esta galeria não possui fotos para recriar. Abra Ver/Editar e adicione fotos antes de recriar o link.', 'share_photos_missing');
       const createdAt = new Date(original.createdAt).getTime();
       const expiresAt = new Date(original.expiresAt).getTime();
       const originalMinutes = Math.round((expiresAt - createdAt) / 60_000);
@@ -302,7 +302,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const details = await adminShareDetails(repos, req.params.token);
-      if (!details) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!details) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(details);
     })
   );
@@ -313,7 +313,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     upload.photos,
     asyncHandler(async (req, res) => {
       const share = await repos.getShareSession(req.params.token, { includeAccessCode: true });
-      if (!share) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!share) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       const retentionExpiresAt = share.retentionExpiresAt || addDays(new Date(), config.defaultGalleryRetentionDays);
       const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt);
       await repos.createPhotos(processed.map((photo) => ({ ...photo, shareToken: share.token })));
@@ -328,7 +328,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     asyncHandler(async (req, res) => {
       const photo = await repos.getPhoto(req.params.photoId);
       if (!photo || photo.shareToken !== req.params.token) {
-        throw new HttpError(404, 'Foto não encontrada nesta galeria.', 'photo_not_found');
+        throw new HttpError(404, 'Foto não encontrada nesta galeria. Atualize Ver/Editar e tente novamente.', 'photo_not_found');
       }
       const removal = await media.removeOrArchive(photo, false);
       if (removal.errors.length) {
@@ -368,7 +368,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         accessCode,
         accessCodeHash: accessCode ? hashValue(accessCode) : undefined,
       });
-      if (!updated) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!updated) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(updated);
     })
   );
@@ -378,7 +378,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const deleted = await repos.deleteShareSession(req.params.token);
-      if (!deleted) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!deleted) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json({ success: true, token: deleted.token, deletedAt: deleted.deletedAt });
     })
   );
@@ -408,11 +408,11 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
   }));
 
   router.get('/whatsapp/status', auth.requireAdmin, (req, res) => {
-    res.json(whatsapp?.getStatus ? whatsapp.getStatus() : { ready: false, status: 'unavailable', lastError: 'Cliente WhatsApp indisponível.' });
+    res.json(whatsapp?.getStatus ? whatsapp.getStatus() : { ready: false, status: 'unavailable', lastError: 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.' });
   });
 
   router.post('/whatsapp/reconnect', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp?.reconnect) throw new HttpError(503, 'Cliente WhatsApp indisponível.', 'whatsapp_unavailable');
+    if (!whatsapp?.reconnect) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
     whatsapp.reconnect().catch((error) => {
       console.warn(`Reconexão manual do WhatsApp falhou: ${error.message}`);
     });
@@ -420,7 +420,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
   }));
 
   router.post('/whatsapp/reset-auth', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp?.resetAuth) throw new HttpError(503, 'Cliente WhatsApp indisponível.', 'whatsapp_unavailable');
+    if (!whatsapp?.resetAuth) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
     res.status(202).json(await whatsapp.resetAuth());
   }));
 
@@ -434,15 +434,15 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
   router.post('/delivery-jobs/:id/retry', auth.requireAdmin, asyncHandler(async (req, res) => {
     const job = await repos.retryDeliveryJob(req.params.id);
-    if (!job) throw new HttpError(404, 'Entrega não encontrada.', 'delivery_job_not_found');
+    if (!job) throw new HttpError(404, 'Entrega não encontrada. Atualize Vendas e confirme se esta venda ainda aparece no painel.', 'delivery_job_not_found');
     res.json(job);
   }));
 
   router.post('/sessions/:sessionId/retry-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {
     const session = await repos.getSession(req.params.sessionId);
-    if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
     if (session.status !== 'approved') {
-      throw new HttpError(409, 'A sessão ainda não foi aprovada para envio.', 'session_not_approved');
+      throw new HttpError(409, 'A sessão ainda não foi aprovada para envio. Libere o pagamento no painel antes de reenviar as fotos.', 'session_not_approved');
     }
     const job = await repos.retryDeliveryForSession(session.id);
     await repos.updateDeliveryStatus(session.id, 'queued', null);
@@ -456,7 +456,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
   router.get('/session/:sessionId', auth.requireAdmin, asyncHandler(async (req, res) => {
     const session = await repos.getSession(req.params.sessionId);
-    if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
     res.json(session);
   }));
 

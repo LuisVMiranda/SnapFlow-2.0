@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 
 const WHATSAPP_STATUS_LABELS = {
   ready: 'PRONTO',
@@ -21,36 +21,51 @@ export function WhatsAppStatusCard({ adminHeaders, setNotice }) {
   const [whatsAppQrImage, setWhatsAppQrImage] = useState('');
 
   const loadWhatsAppStatus = useCallback(async () => {
-    const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/status`, {
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (response.ok) setWhatsAppStatus(data);
-  }, [adminHeaders]);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/status`, {
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (response.ok) setWhatsAppStatus(data);
+      else setNotice(buildApiErrorMessage('Não foi possível consultar o WhatsApp de envio.', response, data));
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível consultar o WhatsApp de envio.', error));
+    }
+  }, [adminHeaders, setNotice]);
 
   const reconnectWhatsApp = async () => {
-    const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/reconnect`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    setWhatsAppStatus(data);
-    setNotice(data.ready
-      ? 'WhatsApp pareado e pronto para envio.'
-      : `Reconexão iniciada. ${data.lastError || 'Escaneie o QR Code no painel quando aparecer.'}`);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/reconnect`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      setWhatsAppStatus(data);
+      setNotice(response.ok
+        ? data.ready
+          ? 'WhatsApp pareado e pronto para envio.'
+          : `Reconexão iniciada. ${data.lastError || 'Escaneie o QR Code no painel quando aparecer.'}`
+        : buildApiErrorMessage('Não foi possível reconectar o WhatsApp.', response, data));
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível reconectar o WhatsApp.', error));
+    }
   };
 
   const resetWhatsAppAuth = async () => {
     if (!window.confirm('Parear novamente o WhatsApp inicia uma sessão local nova e exige escanear um novo QR Code no painel. Continuar?')) return;
-    const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/reset-auth`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    setWhatsAppStatus(data);
-    setNotice(response.ok
-      ? 'Sessão local nova iniciada. Escaneie o QR Code no painel quando aparecer.'
-      : buildApiErrorMessage('Não foi possível refazer o pareamento do WhatsApp.', response, data));
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/reset-auth`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      setWhatsAppStatus(data);
+      setNotice(response.ok
+        ? 'Sessão local nova iniciada. Escaneie o QR Code no painel quando aparecer.'
+        : buildApiErrorMessage('Não foi possível refazer o pareamento do WhatsApp.', response, data));
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível refazer o pareamento do WhatsApp.', error));
+    }
   };
 
   useEffect(() => {

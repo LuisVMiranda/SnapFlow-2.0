@@ -18,8 +18,8 @@ function calculateTotal(count, packageType, packageOptions) {
 
 async function resolveShareOrder({ packages, repos, req }) {
   const share = await repos.getShareSession(req.params.token);
-  if (!share) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
-  if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado.', 'share_expired');
+  if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para conferir a galeria no painel e enviar um link atualizado.', 'share_not_found');
+  if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
   validateCustomerAccess(req, share.token);
 
   const requestedPhotoIds = toPhotoIds(req.body.photoIds || req.body.photos);
@@ -31,7 +31,7 @@ async function resolveShareOrder({ packages, repos, req }) {
   const allowedIds = new Set(sharePhotos.map((photo) => photo.id));
   const photoIds = requestedPhotoIds.filter((photoId) => allowedIds.has(photoId));
   if (photoIds.length !== requestedPhotoIds.length) {
-    throw new HttpError(403, 'Uma ou mais fotos não pertencem a esta galeria.', 'photo_share_mismatch');
+    throw new HttpError(403, 'Uma ou mais fotos não pertencem a esta galeria. Atualize a página e selecione as fotos novamente.', 'photo_share_mismatch');
   }
 
   const packageOptions = await packages.getSettings();
@@ -47,7 +47,7 @@ function createShareRouter({ packages, payment, repos }) {
     '/share-session/:token',
     asyncHandler(async (req, res) => {
       const share = await repos.getShareSession(req.params.token);
-      if (!share) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
       res.json(publicSharePayload(share));
     })
   );
@@ -56,10 +56,10 @@ function createShareRouter({ packages, payment, repos }) {
     '/share-session/:token/unlock',
     asyncHandler(async (req, res) => {
       const share = await repos.getShareSession(req.params.token, { includeSensitive: true });
-      if (!share) throw new HttpError(404, 'Link não encontrado.', 'share_not_found');
-      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado.', 'share_expired');
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
       if (!validateAccessCode(req.body.code, share.accessCodeHash)) {
-        throw new HttpError(401, 'Código inválido.', 'invalid_share_code');
+        throw new HttpError(401, 'Código inválido. Digite os 4 caracteres enviados pelo fotógrafo e tente novamente.', 'invalid_share_code');
       }
       await repos.markShareAccessGranted(share.token);
       const photos = await repos.listPhotosForShare(share.token);

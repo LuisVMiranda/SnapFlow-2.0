@@ -10,7 +10,7 @@ const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 function safeRelativePath(value) {
   const normalized = String(value || '').replace(/\\/g, '/');
   if (!normalized || normalized.includes('..') || path.isAbsolute(normalized)) {
-    throw new HttpError(400, 'Caminho de arquivo inválido.', 'invalid_file_path');
+    throw new HttpError(400, 'Caminho de arquivo inválido. Use apenas arquivos dentro da pasta privada de armazenamento do SnapFlow.', 'invalid_file_path');
   }
   return normalized;
 }
@@ -39,7 +39,7 @@ function createMediaService(config) {
 
   function validateUploadFile(file) {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      throw new HttpError(400, 'Tipo de arquivo não permitido.', 'invalid_file_type');
+      throw new HttpError(400, 'Tipo de arquivo não permitido. Envie fotos em JPG, PNG ou WebP.', 'invalid_file_type');
     }
   }
 
@@ -125,7 +125,7 @@ function createMediaService(config) {
       preview: photo.previewPath,
     };
     const target = pathByVariant[variant];
-    if (!target) throw new HttpError(404, 'Arquivo não encontrado.', 'file_not_found');
+    if (!target) throw new HttpError(404, 'Arquivo não encontrado. Ele pode ter sido removido pela retenção ou pela edição da galeria.', 'file_not_found');
     res.set({
       'Cache-Control': variant === 'original' ? 'private, no-store' : 'private, max-age=60',
       'X-Content-Type-Options': 'nosniff',

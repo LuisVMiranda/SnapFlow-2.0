@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { deleteCookie, getCookie, setCookie } from '../lib/cookies';
 
 const ADMIN_TOKEN_STORAGE_KEY = 'snapflow-admin-token';
@@ -91,13 +91,15 @@ export function useAdminAccess() {
         }
 
         setAdminAccessStatus(response.status === 429 ? 'locked' : 'denied');
-        setAdminAccessError(data.error || 'Token administrativo inválido.');
+        setAdminAccessError(
+          buildApiErrorMessage('Não foi possível entrar na conta administrativa.', response, data)
+        );
         setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
         persistAdminToken('', false);
         return false;
-      } catch {
+      } catch (error) {
         setAdminAccessStatus('denied');
-        setAdminAccessError('Não foi possível validar o token administrativo.');
+        setAdminAccessError(buildNetworkErrorMessage('Não foi possível validar a credencial administrativa.', error));
         return false;
       }
     },
@@ -121,13 +123,15 @@ export function useAdminAccess() {
         }
 
         setAdminAccessStatus(response.status === 429 ? 'locked' : 'denied');
-        setAdminAccessError(data.error || 'Token administrativo inválido.');
+        setAdminAccessError(
+          buildApiErrorMessage('Não foi possível validar a sessão administrativa.', response, data)
+        );
         setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
         persistAdminToken('', false);
-      } catch {
+      } catch (error) {
         if (cancelled) return;
         setAdminAccessStatus('denied');
-        setAdminAccessError('Não foi possível validar o token administrativo.');
+        setAdminAccessError(buildNetworkErrorMessage('Não foi possível validar a sessão administrativa.', error));
       }
     }
 

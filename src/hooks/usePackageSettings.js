@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { DEFAULT_PRICING, firstPackageKey, normalizePricingOptions } from '../lib/pricing';
 
 export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnlocked, setNotice, setType }) {
@@ -58,7 +58,7 @@ export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnloc
       setPackageSettingsStatus('saved');
       return true;
     } catch (error) {
-      setNotice(error.message || 'Não foi possível salvar os pacotes.');
+      setNotice(buildNetworkErrorMessage('Não foi possível salvar os pacotes.', error));
       setPackageSettingsStatus('error');
       return false;
     }

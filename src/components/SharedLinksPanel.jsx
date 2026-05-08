@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ShareCountdown } from './ShareCountdown';
 import { ShareGalleryEditor } from './ShareGalleryEditor';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 
@@ -75,8 +75,8 @@ export function SharedLinksPanel({
       const normalized = normalizeDetails(data);
       setDetails((previous) => ({ ...previous, [shareSession.token]: normalized }));
       return normalized;
-    } catch {
-      setNotice('Não foi possível carregar a galeria.');
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível carregar a galeria.', error));
       return null;
     } finally {
       setLoadingDetailsToken('');
@@ -115,53 +115,79 @@ export function SharedLinksPanel({
   };
 
   const recreateShare = async (shareSession) => {
-    const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/recreate`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(buildApiErrorMessage('Não foi possível recriar a galeria.', response, data));
-      return;
-    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/recreate`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível recriar a galeria.', response, data));
+        return;
+      }
 
-    const message = data.whatsappMessage || buildShareWhatsAppMessage(data.link, data.accessCode);
-    await navigator.clipboard?.writeText(message);
-    setNotice('Galeria revalidada com o mesmo link e código. A mensagem foi copiada.');
-    fetchDashboard({ silent: true });
+      const message = data.whatsappMessage || buildShareWhatsAppMessage(data.link, data.accessCode);
+      await navigator.clipboard?.writeText(message);
+      setNotice('Galeria revalidada com o mesmo link e código. A mensagem foi copiada.');
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível recriar a galeria.', error));
+    }
   };
 
   const deleteShare = async (shareSession) => {
     if (!window.confirm('Deseja deletar esta galeria da lista? Os arquivos continuarão sob a política de retenção.')) return;
-    const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
-      method: 'DELETE',
-      headers: adminJsonHeaders(),
-      body: JSON.stringify({}),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(buildApiErrorMessage('Não foi possível deletar a galeria.', response, data));
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
+        method: 'DELETE',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({}),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível deletar a galeria.', response, data));
+        return;
+      }
+      setNotice('Galeria removida da lista.');
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível deletar a galeria.', error));
     }
-    setNotice('Galeria removida da lista.');
-    fetchDashboard({ silent: true });
   };
 
   const extendShare = async (shareSession) => {
-    await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/extend`, {
-      method: 'POST',
-      headers: adminJsonHeaders(),
-      body: JSON.stringify({ minutes: 15 }),
-    });
-    fetchDashboard({ silent: true });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/extend`, {
+        method: 'POST',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({ minutes: 15 }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível estender a galeria.', response, data));
+        return;
+      }
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível estender a galeria.', error));
+    }
   };
 
   const revokeShare = async (shareSession) => {
-    await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/revoke`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    fetchDashboard({ silent: true });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/revoke`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível revogar a galeria.', response, data));
+        return;
+      }
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível revogar a galeria.', error));
+    }
   };
 
   const uploadPhotos = async (event, shareSession) => {
@@ -185,8 +211,8 @@ export function SharedLinksPanel({
       setDetails((previous) => ({ ...previous, [shareSession.token]: normalizeDetails(data) }));
       setNotice('Fotos adicionadas à galeria.');
       fetchDashboard({ silent: true });
-    } catch {
-      setNotice('Não foi possível adicionar fotos.');
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível adicionar fotos.', error));
     } finally {
       event.target.value = '';
       setPhotoActionToken('');
@@ -209,8 +235,8 @@ export function SharedLinksPanel({
       await loadShareDetails(shareSession);
       setNotice('Foto removida da galeria.');
       fetchDashboard({ silent: true });
-    } catch {
-      setNotice('Não foi possível remover a foto.');
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível remover a foto.', error));
     } finally {
       setPhotoActionToken('');
     }
@@ -229,19 +255,23 @@ export function SharedLinksPanel({
     if (draft.accessCode) body.accessCode = draft.accessCode;
     if (draft.expiresMinutes) body.expiresMinutes = Number(draft.expiresMinutes);
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
-      method: 'PATCH',
-      headers: adminJsonHeaders(),
-      body: JSON.stringify(body),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(buildApiErrorMessage('Não foi possível salvar a galeria.', response, data));
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
+        method: 'PATCH',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível salvar a galeria.', response, data));
+        return;
+      }
+      setNotice('Galeria atualizada.');
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível salvar a galeria.', error));
     }
-    setNotice('Galeria atualizada.');
-    await loadShareDetails(shareSession);
-    fetchDashboard({ silent: true });
   };
 
   return (

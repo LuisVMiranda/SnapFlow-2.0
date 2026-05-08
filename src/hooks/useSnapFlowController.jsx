@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { API_BASE_URL, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { resolveInitialScreen } from '../lib/navigation';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
@@ -215,26 +215,32 @@ export function useSnapFlowController() {
       const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
         headers: adminHeaders(),
       });
+      const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(`Dashboard retornou ${response.status}`);
+        throw new Error(buildApiErrorMessage('Não foi possível carregar o painel.', response, data));
       }
 
-      const data = await readJsonResponse(response);
       setDashData(data);
     } catch (error) {
       if (!silent) {
         console.error('Falha ao carregar dashboard:', error);
+        setNotice(buildNetworkErrorMessage('Não foi possível carregar o painel.', error));
       }
     }
-  }, [isAdminUnlocked, adminHeaders]);
+  }, [isAdminUnlocked, adminHeaders, setNotice]);
 
   const fetchRetentionSettings = useCallback(async () => {
     if (!isAdminUnlocked) return;
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
-      headers: adminHeaders(),
-    });
-    if (response.ok) {
-      setRetentionSettings(await response.json());
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (response.ok) {
+        setRetentionSettings(data);
+      }
+    } catch (error) {
+      console.warn('Falha ao carregar retenção:', error);
     }
   }, [isAdminUnlocked, adminHeaders]);
 
@@ -243,18 +249,22 @@ export function useSnapFlowController() {
       setNotice('Valide o token administrativo antes de salvar a retenção.');
       return;
     }
-    const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
-      method: 'PUT',
-      headers: adminJsonHeaders(),
-      body: JSON.stringify(retentionSettings),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(data.error || 'Não foi possível salvar a retenção.');
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
+        method: 'PUT',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify(retentionSettings),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível salvar a retenção.', response, data));
+        return;
+      }
+      setRetentionSettings(data);
+      setNotice('Política de retenção salva.');
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível salvar a retenção.', error));
     }
-    setRetentionSettings(data);
-    setNotice('Política de retenção salva.');
   };
 
   const previewCleanup = async () => {
@@ -262,16 +272,20 @@ export function useSnapFlowController() {
       setNotice('Valide o token administrativo antes de prever a limpeza.');
       return;
     }
-    const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/preview`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(data.error || 'Não foi possível calcular a limpeza.');
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/preview`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível calcular a limpeza.', response, data));
+        return;
+      }
+      setCleanupPreview(data);
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível calcular a limpeza.', error));
     }
-    setCleanupPreview(data);
   };
 
   const runCleanup = async () => {
@@ -279,17 +293,21 @@ export function useSnapFlowController() {
       setNotice('Valide o token administrativo antes de executar a limpeza.');
       return;
     }
-    const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/run`, {
-      method: 'POST',
-      headers: adminHeaders(),
-    });
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      setNotice(data.error || 'Não foi possível executar a limpeza.');
-      return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/run`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível executar a limpeza.', response, data));
+        return;
+      }
+      setCleanupPreview(data);
+      setNotice('Limpeza de retenção executada.');
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível executar a limpeza.', error));
     }
-    setCleanupPreview(data);
-    setNotice('Limpeza de retenção executada.');
   };
 
   useDashboardPolling({
@@ -317,18 +335,18 @@ export function useSnapFlowController() {
     const loadSharedSession = async () => {
       try {
         const response = await fetch(API_BASE_URL + '/api/share-session/' + shareToken);
+        const data = await readJsonResponse(response);
         if (!response.ok) {
-          throw new Error('Compartilhamento retornou ' + response.status);
+          throw new Error(buildApiErrorMessage('Não foi possível carregar o link compartilhado.', response, data));
         }
 
-        const data = await response.json();
         setShareSessionInfo(data);
         if (data.expired || data.status === 'revoked') {
           setNotice('Este link expirou ou foi revogado.');
         }
       } catch (error) {
         console.error('Falha ao carregar link compartilhado:', error);
-        setShareSessionInfo({ error: 'Link não encontrado ou expirado.' });
+        setShareSessionInfo({ error: buildNetworkErrorMessage('Link não encontrado ou expirado.', error) });
       }
     };
 

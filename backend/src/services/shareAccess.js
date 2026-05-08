@@ -44,10 +44,10 @@ function validateCustomerAccess(req, expectedShareToken = null) {
   const token = match?.[1] || queryToken;
   const record = accessTokens.get(token);
   if (!record || record.expiresAt <= Date.now()) {
-    throw new HttpError(403, 'Acesso de mídia inválido ou expirado.', 'media_access_denied');
+    throw new HttpError(403, 'Acesso de mídia inválido ou expirado. Abra novamente o link da galeria e digite o código de acesso.', 'media_access_denied');
   }
   if (expectedShareToken && record.shareToken !== expectedShareToken) {
-    throw new HttpError(403, 'Mídia fora da galeria liberada.', 'media_share_mismatch');
+    throw new HttpError(403, 'Esta foto não pertence à galeria liberada. Atualize a página e tente novamente.', 'media_share_mismatch');
   }
   return record;
 }

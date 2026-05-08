@@ -84,7 +84,7 @@ function createPackageSettingsService({ repos }) {
   async function updateSettings(packageOptions) {
     const normalized = normalizePackageOptions(packageOptions);
     if (!Object.keys(normalized).length) {
-      throw new HttpError(400, 'Mantenha ao menos uma opcao de pacote.', 'package_options_required');
+      throw new HttpError(400, 'Mantenha ao menos uma opção de pacote ativa para que o cliente consiga finalizar pedidos.', 'package_options_required');
     }
     await repos.upsertSettings({ packageOptions: normalized });
     return getSettings();

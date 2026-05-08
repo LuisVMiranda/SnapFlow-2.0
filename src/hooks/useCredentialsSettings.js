@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL, buildApiErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 
 const EMPTY_CREDENTIALS = { api: [], profile: [] };
 
@@ -23,7 +23,7 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
       }
       setCredentialsData(data);
     } catch (error) {
-      if (!silent) setNotice(error.message || 'Não foi possível carregar as credenciais.');
+      if (!silent) setNotice(buildNetworkErrorMessage('Não foi possível carregar as credenciais.', error));
     }
   }, [adminJsonHeaders, isAdminUnlocked, setNotice]);
 
@@ -43,6 +43,9 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
       await loadCredentials({ silent: true });
       setNotice('Credencial salva com segurança.');
       return true;
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível salvar a credencial.', error));
+      return false;
     } finally {
       setCredentialsStatus('idle');
     }
@@ -64,7 +67,10 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
             ? { status: 'saved' }
             : { status: 'failed', error: buildApiErrorMessage('Não foi possível salvar a credencial.', response, data) };
         } catch (error) {
-          results[change.key] = { status: 'failed', error: error.message || 'Não foi possível salvar a credencial.' };
+          results[change.key] = {
+            status: 'failed',
+            error: buildNetworkErrorMessage('Não foi possível salvar a credencial.', error),
+          };
         }
       }
       await loadCredentials({ silent: true });
@@ -92,6 +98,9 @@ export function useCredentialsSettings({ adminJsonHeaders, isAdminUnlocked, setN
       await loadCredentials({ silent: true });
       setNotice('Credencial removida.');
       return true;
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível deletar a credencial.', error));
+      return false;
     } finally {
       setCredentialsStatus('idle');
     }

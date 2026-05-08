@@ -33,18 +33,18 @@ function validateBrazilPhone(phone) {
     return {
       valid: false,
       code: 'phone_invalid_length',
-      message: 'Informe um WhatsApp brasileiro com DDD e 10 ou 11 dígitos.',
+      message: 'Informe um WhatsApp brasileiro com DDD e 10 ou 11 dígitos. Exemplo: 21975191926.',
     };
   }
   const ddd = Number(local.slice(0, 2));
   if (!Number.isInteger(ddd) || ddd < 11 || ddd > 99) {
-    return { valid: false, code: 'phone_invalid_ddd', message: 'Informe um DDD brasileiro válido.' };
+    return { valid: false, code: 'phone_invalid_ddd', message: 'Informe um DDD brasileiro válido. Use apenas números, sem parênteses ou traços se preferir.' };
   }
   if (local.length === 11 && local[2] !== '9') {
     return {
       valid: false,
       code: 'phone_invalid_mobile',
-      message: 'Celulares brasileiros com 11 dígitos devem ter 9 depois do DDD.',
+      message: 'Celulares brasileiros com 11 dígitos devem ter 9 depois do DDD. Confira o número antes de enviar pelo WhatsApp.',
     };
   }
   return {

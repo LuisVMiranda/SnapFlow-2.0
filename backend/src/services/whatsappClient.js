@@ -174,7 +174,7 @@ function createWhatsAppClient({
       ready = false;
       status = 'auth_failure';
       latestQr = null;
-      lastError = new Error(`Falha de autenticacao do WhatsApp: ${message}`);
+      lastError = new Error(`Falha de autenticação do WhatsApp: ${message}. Abra Vendas > WhatsApp de envio, use Reparar se necessário e escaneie o QR Code novamente.`);
       console.warn('Falha de autenticação do WhatsApp:', message);
     });
 

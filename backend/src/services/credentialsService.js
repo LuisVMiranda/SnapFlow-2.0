@@ -18,7 +18,7 @@ function encryptionKey(secret) {
 }
 
 function encryptValue(value, secret) {
-  if (!secret) throw new HttpError(500, 'CREDENTIALS_SECRET ausente para salvar dados sensíveis.', 'credentials_secret_missing');
+  if (!secret) throw new HttpError(500, 'CREDENTIALS_SECRET ausente para salvar dados sensíveis. Rode o instalador ou configure backend\\.env.local antes de alterar credenciais.', 'credentials_secret_missing');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(secret), iv);
   const encrypted = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
@@ -48,7 +48,7 @@ function maskValue(value) {
 function normalizeKey(key) {
   const safeKey = String(key || '').trim();
   if (!Object.prototype.hasOwnProperty.call(CREDENTIAL_DEFINITIONS, safeKey)) {
-    throw new HttpError(404, 'Credencial não encontrada.', 'credential_not_found');
+    throw new HttpError(404, 'Credencial não encontrada. Atualize a página e tente novamente.', 'credential_not_found');
   }
   return safeKey;
 }
@@ -56,7 +56,7 @@ function normalizeKey(key) {
 function createCredentialsService({ config, repos }) {
   function confirmCredential(value) {
     if (!safeEqual(String(value || ''), config.adminAccessToken)) {
-      throw new HttpError(401, 'Confirmação administrativa inválida.', 'credential_confirmation_invalid');
+      throw new HttpError(401, 'Confirmação administrativa inválida. Digite a mesma credencial administrativa usada para entrar no painel.', 'credential_confirmation_invalid');
     }
   }
 
@@ -101,7 +101,7 @@ function createCredentialsService({ config, repos }) {
     const definition = CREDENTIAL_DEFINITIONS[safeKey];
     confirmCredential(body.confirmation);
     const value = String(body.value || '').trim();
-    if (!value) throw new HttpError(400, 'Informe um valor para salvar.', 'credential_value_required');
+    if (!value) throw new HttpError(400, 'Informe um valor para salvar. Campos vazios são ignorados no salvamento global.', 'credential_value_required');
     const storedValue = definition.sensitive ? encryptValue(value, config.credentialsSecret) : value;
     const record = await repos.upsertCredential({ key: safeKey, value: storedValue, sensitive: definition.sensitive });
     return publicCredential(safeKey, record);

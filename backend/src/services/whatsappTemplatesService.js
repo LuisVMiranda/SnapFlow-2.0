@@ -119,7 +119,7 @@ function createWhatsAppTemplatesService({ repos }) {
   async function render(key, variables = {}) {
     const templates = await getSettings();
     const template = templates[key];
-    if (!template) throw new HttpError(404, 'Modelo de WhatsApp não encontrado.', 'whatsapp_template_not_found');
+    if (!template) throw new HttpError(404, 'Modelo de WhatsApp não encontrado. Atualize Configurações e tente salvar novamente.', 'whatsapp_template_not_found');
     const normalizedVariables = {
       ...variables,
       name: variables.name || variables.clientName || 'cliente',

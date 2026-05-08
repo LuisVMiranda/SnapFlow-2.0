@@ -24,7 +24,7 @@ export function validateOptionalEmail(value) {
     : {
         valid: false,
         normalized,
-        message: 'Informe um e-mail valido ou deixe este campo em branco.',
+        message: 'Informe um e-mail válido ou deixe este campo em branco. O Pix funciona sem e-mail, mas o Mercado Pago exige um formato válido quando o campo é preenchido.',
         tone: 'danger',
       };
 }

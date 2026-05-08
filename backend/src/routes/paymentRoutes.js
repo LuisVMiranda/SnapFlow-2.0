@@ -8,7 +8,7 @@ function createPaymentRouter({ auth, payment, repos }) {
     '/status/:sessionId',
     asyncHandler(async (req, res) => {
       const session = await repos.getSession(req.params.sessionId);
-      if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+      if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
       if (session.status === 'pending' && session.paymentId) {
         await payment.approvePayment(session.paymentId);
       }
@@ -27,7 +27,7 @@ function createPaymentRouter({ auth, payment, repos }) {
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const session = await repos.getSession(req.params.sessionId);
-      if (!session) throw new HttpError(404, 'Sessão não encontrada.', 'session_not_found');
+      if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
       res.json(session);
     })
   );

@@ -53,7 +53,7 @@ function createAuth(config) {
     }
 
     attempts.set(key, { count, lockedUntil: 0 });
-    throw new HttpError(401, `Acesso administrativo inválido. ${attemptsRemaining} tentativa(s) restante(s).`, 'admin_required', {
+    throw new HttpError(401, `Acesso administrativo inválido. Confira a credencial criada no instalador ou em backend\\.env.local. ${attemptsRemaining} tentativa(s) restante(s).`, 'admin_required', {
       attemptsRemaining,
     });
   }
@@ -61,7 +61,7 @@ function createAuth(config) {
   function requireAdmin(req, res, next) {
     try {
       if (!config.adminAccessToken) {
-        next(new HttpError(500, 'ADMIN_ACCESS_TOKEN ausente no servidor.', 'admin_token_missing'));
+        next(new HttpError(500, 'Credencial administrativa ausente no servidor. Configure ADMIN_ACCESS_TOKEN em backend\\.env.local e reinicie o backend.', 'admin_token_missing'));
         return;
       }
 

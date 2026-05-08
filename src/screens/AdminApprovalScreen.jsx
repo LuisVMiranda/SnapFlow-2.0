@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AccountMenu } from '../components/AccountMenu';
 import { SessionOpsCard } from '../components/SessionOpsCard';
-import { API_BASE_URL, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { DEFAULT_PRICING } from '../lib/pricing';
 
 export function AdminApprovalScreen({
@@ -30,12 +30,12 @@ export function AdminApprovalScreen({
         headers: adminHeaders(),
       });
       const data = await readJsonResponse(response);
-      if (!response.ok) throw new Error(data.error || 'Sessão não encontrada.');
+      if (!response.ok) throw new Error(buildApiErrorMessage('Não foi possível carregar a sessão de aprovação.', response, data));
       setSession(data);
       setStatus('ready');
     } catch (error) {
       setStatus('error');
-      setNotice(error.message || 'Não foi possível carregar a sessão.');
+      setNotice(buildNetworkErrorMessage('Não foi possível carregar a sessão de aprovação.', error));
     }
   }, [adminHeaders, isAdminUnlocked, sessionId, setNotice]);
 
@@ -52,14 +52,14 @@ export function AdminApprovalScreen({
         headers: adminHeaders(),
       });
       const data = await readJsonResponse(response);
-      if (!response.ok) throw new Error(data.error || 'Não foi possível liberar as fotos.');
+      if (!response.ok) throw new Error(buildApiErrorMessage('Não foi possível liberar as fotos.', response, data));
       setSession(data.session);
       setStatus('ready');
       setNotice('Fotos liberadas para entrega.');
       fetchDashboard({ silent: true });
     } catch (error) {
       setStatus('error');
-      setNotice(error.message || 'Não foi possível liberar as fotos.');
+      setNotice(buildNetworkErrorMessage('Não foi possível liberar as fotos.', error));
     }
   };
 

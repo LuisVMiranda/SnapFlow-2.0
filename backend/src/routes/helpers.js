@@ -12,10 +12,10 @@ function toPhotoIds(value) {
 
 function buildShareLinkMessage(link, code, expiresMinutes) {
   return [
-    'Ola! Seu link SnapFlow foi liberado.',
+    'Olá! Seu link SnapFlow foi liberado.',
     `Link: ${link}`,
     `Código: ${code}`,
-    `Expira em ate ${expiresMinutes} minuto(s).`,
+    `Expira em até ${expiresMinutes} minuto(s).`,
     'Abra pelo navegador e selecione suas fotos.',
   ].join('\n');
 }
@@ -91,7 +91,7 @@ function createUploader(config, media) {
         return;
       }
       if (!req.files || req.files.length === 0) {
-        next(new HttpError(400, 'Nenhuma foto foi recebida pelo servidor.', 'upload_empty'));
+        next(new HttpError(400, 'Nenhuma foto foi recebida pelo servidor. Selecione uma ou mais imagens e tente enviar novamente.', 'upload_empty'));
         return;
       }
       next();
