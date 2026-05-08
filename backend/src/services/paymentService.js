@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 const { HttpError } = require('../errors');
+const { resolvePayerEmail } = require('./email');
 
 function createPaymentClient(accessToken) {
   return new Payment(new MercadoPagoConfig({ accessToken: accessToken || 'missing' }));
@@ -56,7 +57,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
         transaction_amount: Number(payload.total),
         payment_method_id: 'pix',
         description: `SnapFlow - Pacote ${payload.count} foto(s)`,
-        payer: { email: 'contato@snapflow.local' },
+        payer: { email: resolvePayerEmail(payload.clientEmail, payload.sessionId) },
         metadata: { session_id: payload.sessionId },
       },
     });
@@ -69,6 +70,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
         packageType: payload.packageType,
         phone: payload.phone,
         clientName: payload.clientName || '',
+        clientEmail: payload.clientEmail || '',
         status: 'pending',
         paymentMethod: 'PIX',
         paymentId: response.id,

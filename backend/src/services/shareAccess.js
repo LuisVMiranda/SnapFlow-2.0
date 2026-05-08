@@ -16,6 +16,7 @@ function publicSharePayload(share) {
     token: share.token,
     packageType: share.packageType,
     clientName: share.clientName || '',
+    clientEmail: share.clientEmail || '',
     photoCount: share.photoCount,
     total: share.total,
     link: share.link,

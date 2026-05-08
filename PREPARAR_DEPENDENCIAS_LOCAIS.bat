@@ -101,7 +101,9 @@ if exist "%ROOT%\backend\.env.local" exit /b 0
 echo.
 echo Configuração local backend\.env.local não encontrada.
 echo O servidor precisa desse arquivo para DATABASE_URL, token administrativo e segredos locais.
-call :perguntar_sn RODAR_INSTALADOR "Rodar INSTALAR_SNAPFLOW.bat para configurar o ambiente agora" "S"
+echo Para o método recomendado com Docker, use INSTALAR_SNAPFLOW.bat.
+echo Para configurar PostgreSQL nativo sem Docker, feche esta janela e rode INSTALAR_SNAPFLOW_SEM_DOCKER.bat.
+call :perguntar_sn RODAR_INSTALADOR "Rodar o instalador recomendado com Docker agora" "S"
 if /i not "%RODAR_INSTALADOR%"=="S" exit /b 1
 
 set "SNAPFLOW_SKIP_FINAL_START=S"

@@ -55,6 +55,7 @@ export function useSnapFlowController() {
   
   const [clientPhone, setClientPhone] = useState(() => getSavedState('clientPhone', ''));
   const [clientName, setClientName] = useState(() => getSavedState('clientName', ''));
+  const [clientEmail, setClientEmail] = useState(() => getSavedState('clientEmail', ''));
   const [sessionId, setSessionId] = useState(() => getSavedState('sessionId', ''));
   const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedState('qrCodeBase64', ''));
   const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedState('pixCopyPaste', ''));
@@ -156,6 +157,7 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'selected', JSON.stringify(selected));
         window.localStorage.setItem(prefix + 'clientPhone', JSON.stringify(clientPhone));
         window.localStorage.setItem(prefix + 'clientName', JSON.stringify(clientName));
+        window.localStorage.setItem(prefix + 'clientEmail', JSON.stringify(clientEmail));
         window.localStorage.setItem(prefix + 'sessionId', JSON.stringify(sessionId));
         window.localStorage.setItem(prefix + 'qrCodeBase64', JSON.stringify(qrCodeBase64));
         window.localStorage.setItem(prefix + 'pixCopyPaste', JSON.stringify(pixCopyPaste));
@@ -163,7 +165,7 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'liveOps', JSON.stringify(liveOps));
       } catch { /* ignore */ }
     }
-  }, [screen, type, selected, clientPhone, clientName, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
+  }, [screen, type, selected, clientPhone, clientName, clientEmail, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
   
   // Save photos only if shareToken exists
   useEffect(() => {
@@ -428,6 +430,7 @@ export function useSnapFlowController() {
     adminHeaders,
     adminJsonHeaders,
     clientName,
+    clientEmail,
     clientPhone,
     count,
     fetchDashboard,
@@ -435,6 +438,7 @@ export function useSnapFlowController() {
     sessionId,
     setBrokenPhotoIds,
     setClientName,
+    setClientEmail,
     setClientPhone,
     setIsGeneratingPix,
     setIsUploading,
@@ -479,6 +483,7 @@ export function useSnapFlowController() {
     brokenPhotoIds,
     cleanupPreview,
     clientName,
+    clientEmail,
     clientPhone,
     count,
     currentPhoto,
@@ -525,6 +530,7 @@ export function useSnapFlowController() {
     selected,
     selectedPhotoItems,
     sessionId,
+    setClientEmail,
     setClientPhone,
     setClientName,
     setNotice,

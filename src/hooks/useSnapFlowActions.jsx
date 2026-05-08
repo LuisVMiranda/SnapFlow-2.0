@@ -9,13 +9,15 @@ export function useSnapFlowActions(config) {
     adminHeaders,
     adminJsonHeaders,
     clientName,
+    clientEmail,
     clientPhone,
-  count,
-  fetchDashboard,
-  selectedPhotoItems,
+    count,
+    fetchDashboard,
+    selectedPhotoItems,
     sessionId,
     setBrokenPhotoIds,
     setClientName,
+    setClientEmail = () => {},
     setClientPhone,
     setIsGeneratingPix,
     setIsUploading,
@@ -57,6 +59,7 @@ export function useSnapFlowActions(config) {
     setPixCopyPaste('');
     setPixWhatsAppMessage('');
     setClientName('');
+    setClientEmail('');
     setClientPhone('');
     setViewerIndex(null);
     setBrokenPhotoIds([]);
@@ -116,6 +119,7 @@ export function useSnapFlowActions(config) {
         setPixWhatsAppMessage('');
         setSessionId('');
         setClientName('');
+        setClientEmail('');
         setClientPhone('');
         setViewerIndex(null);
         setLiveOps({
@@ -150,6 +154,7 @@ export function useSnapFlowActions(config) {
         sessionId: generatedId,
         phone: clientPhone,
         clientName,
+        clientEmail,
         photoIds: selectedPhotoItems.map((photo) => photo.id),
         packageType: type,
       };
@@ -218,6 +223,7 @@ export function useSnapFlowActions(config) {
           sessionId: generatedId,
           phone: clientPhone,
           clientName,
+          clientEmail,
           photoIds: selectedPhotoItems.map((photo) => photo.id),
           packageType: type,
           paymentMethod,
@@ -281,6 +287,7 @@ export function useSnapFlowActions(config) {
     setQrCodeBase64('');
     setSessionId('');
     setClientName(data.clientName || '');
+    setClientEmail(data.clientEmail || '');
     setClientPhone(data.phone || '');
     setType(pricingOptions[data.packageType] ? data.packageType : firstPackageKey(pricingOptions));
     setShareAccess({
@@ -347,6 +354,7 @@ export function useSnapFlowActions(config) {
           photoIds: selectedPhotoItems.map((photo) => photo.id),
           phone: clientPhone,
           clientName,
+          clientEmail,
           packageType: type,
           count,
           total,
@@ -367,6 +375,7 @@ export function useSnapFlowActions(config) {
         link,
         expiresAt: data.expiresAt,
         clientName: data.clientName || clientName,
+        clientEmail: data.clientEmail || clientEmail,
         whatsappMessage: data.whatsappMessage || buildShareWhatsAppMessage(link, data.accessCode),
       };
 
@@ -447,8 +456,6 @@ export function useSnapFlowActions(config) {
       setShareActionLoading(false);
     }
   };
-
-
 
   return {
     handleCreateShareSession,

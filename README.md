@@ -60,8 +60,9 @@ SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso p
 - Windows com PowerShell ou Windows Terminal.
 - Git para baixar o projeto do repositório.
 - Node.js `20.19+`, `22.13+` ou `24+` com npm. Node 18 não é suficiente para as ferramentas atuais de frontend.
-- Docker Desktop aberto e com o motor Linux rodando para subir o PostgreSQL local com `docker compose`.
-- Internet na instalação inicial para baixar pacotes npm, a imagem `postgres:16-alpine` e o Chromium usado pelo WhatsApp Web.
+- Docker Desktop aberto e com o motor Linux rodando para o método recomendado com PostgreSQL via `docker compose`.
+- PostgreSQL nativo no Windows apenas se você optar pelo instalador alternativo sem Docker.
+- Internet na instalação inicial para baixar pacotes npm, a imagem `postgres:16-alpine` no método Docker, PostgreSQL nativo no método sem Docker e o Chromium usado pelo WhatsApp Web.
 - Um token administrativo forte para proteger o painel.
 - Conta Mercado Pago com token de acesso, se for usar Pix real.
 - WhatsApp no celular para parear o cliente WhatsApp Web usado pelo backend.
@@ -80,7 +81,7 @@ Se `docker compose` responder que não consegue conectar ao Docker API, abra o D
 
 ## Configuração inicial
 
-### Opção recomendada: instalador guiado
+### Opção recomendada: instalador guiado com Docker
 
 Depois de baixar o projeto, rode:
 
@@ -101,6 +102,32 @@ Para verificar o ambiente sem instalar ou alterar arquivos:
 Esse modo também confere se as dependências locais já existem em `node_modules`, incluindo `vite` no painel e `dotenv`, `express`, `whatsapp-web.js` e `sharp` no backend.
 
 `vite` não precisa ser instalado globalmente na máquina. Ele é uma dependência local do projeto e é instalado por `cmd /c npm.cmd install` na raiz.
+
+### Opção alternativa: instalador sem Docker
+
+Use esta opção quando Docker Desktop não funcionar bem nesse computador. Ela instala/configura PostgreSQL nativo como serviço do Windows e mantém o restante do SnapFlow igual.
+
+Rode o terminal como administrador se PostgreSQL ainda não estiver instalado, depois execute:
+
+```powershell
+.\INSTALAR_SNAPFLOW_SEM_DOCKER.bat
+```
+
+O instalador sem Docker verifica Git, Node.js, npm e PostgreSQL nativo; instala PostgreSQL 16 via `winget` quando necessário; cria o usuário e banco `snapflow`; escreve `backend\.env.local` com `DATABASE_URL` apontando para `127.0.0.1:5432`; instala dependências npm; roda migrações; e pode iniciar backend e painel.
+
+O pacote usado segue a documentação da EDB para instalação de PostgreSQL no Windows via WinGet: <https://www.enterprisedb.com/docs/dev-guides/deploy/windows/>.
+
+Para verificar o ambiente sem alterar arquivos:
+
+```powershell
+.\INSTALAR_SNAPFLOW_SEM_DOCKER.bat --verificar
+```
+
+Depois de configurado, o início continua igual:
+
+```powershell
+.\INICIAR_TUDO.bat
+```
 
 ### Opção manual
 
@@ -410,6 +437,10 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `cmd /c npm.cmd run db:up`.
 - `Docker Desktop foi encontrado, mas o engine não respondeu`: abra o Docker Desktop e aguarde o status indicar que está pronto. Na primeira abertura após instalação ou atualização isso pode levar alguns minutos.
 - `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
+- `psql não encontrado` no instalador sem Docker: instale PostgreSQL pelo `INSTALAR_SNAPFLOW_SEM_DOCKER.bat` como administrador ou adicione `C:\Program Files\PostgreSQL\16\bin` ao `PATH`.
+- `A senha padrão do usuário postgres não funcionou`: digite a senha definida na instalação do PostgreSQL. Se não souber, redefina pelo pgAdmin ou reinstale PostgreSQL conscientemente.
+- `Serviço PostgreSQL detectado, mas parado`: rode `INSTALAR_SNAPFLOW_SEM_DOCKER.bat` como administrador para permitir iniciar o serviço.
+- `A porta 5432 já está ocupada`: informe outra porta no instalador sem Docker ou pare o serviço que está usando a porta. O instalador não altera portas de serviços existentes automaticamente.
 - `DATABASE_URL ausente`: confirme se `backend\.env.local` existe e se o comando está sendo rodado a partir da pasta correta.
 - `ADMIN_ACCESS_TOKEN ausente`: defina um token longo em `backend\.env.local` e reinicie o backend.
 - WhatsApp não mostra QR Code: aguarde o backend terminar de iniciar, clique em `Atualizar` no cartão `WhatsApp de envio` e, se necessário, use `Parear novamente`.

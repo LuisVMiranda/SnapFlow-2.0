@@ -24,6 +24,7 @@ export default function App() {
     brokenPhotoIds,
     cleanupPreview,
     clientName,
+    clientEmail,
     clientPhone,
     count,
     currentPhoto,
@@ -70,6 +71,7 @@ export default function App() {
     selected,
     selectedPhotoItems,
     sessionId,
+    setClientEmail,
     setClientName,
     setClientPhone,
     setNotice,
@@ -244,6 +246,7 @@ export default function App() {
       <SummaryScreen
         activeStage={activeStage}
         clientName={clientName}
+        clientEmail={clientEmail}
         clientPhone={clientPhone}
         count={count}
         handleCreateShareSession={handleCreateShareSession}
@@ -257,6 +260,7 @@ export default function App() {
         pricingOptions={pricingOptions}
         resetSession={resetSession}
         selectedPhotoItems={selectedPhotoItems}
+        setClientEmail={setClientEmail}
         setClientName={setClientName}
         setClientPhone={setClientPhone}
         setScreen={setScreen}

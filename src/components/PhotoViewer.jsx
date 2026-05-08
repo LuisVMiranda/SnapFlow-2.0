@@ -32,7 +32,14 @@ export function PhotoViewer({
       </header>
 
       <div className="viewer-body">
-        <div className="viewer-nav" onClick={handlePrev}>&#8249;</div>
+        <button
+          className="viewer-nav left"
+          onClick={handlePrev}
+          type="button"
+          aria-label="Foto anterior"
+        >
+          <span className="nav-btn">&#8249;</span>
+        </button>
 
         <div className={`viewer-image-container ${currentPhotoBroken ? 'image-broken-frame' : ''}`}>
           {currentPhotoBroken ? (
@@ -61,7 +68,14 @@ export function PhotoViewer({
           )}
         </div>
 
-        <div className="viewer-nav" onClick={handleNext}>&#8250;</div>
+        <button
+          className="viewer-nav right"
+          onClick={handleNext}
+          type="button"
+          aria-label="Próxima foto"
+        >
+          <span className="nav-btn">&#8250;</span>
+        </button>
       </div>
 
       <footer className="viewer-bottom">

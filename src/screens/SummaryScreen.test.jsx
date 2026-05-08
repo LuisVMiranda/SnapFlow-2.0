@@ -6,6 +6,7 @@ import { SummaryScreen } from './SummaryScreen';
 const baseProps = {
   activeStage: 'Conferindo valor',
   clientName: '',
+  clientEmail: '',
   clientPhone: '11999999999',
   count: 2,
   handleCreateShareSession: vi.fn(),
@@ -23,6 +24,7 @@ const baseProps = {
   noticeBanner: null,
   resetSession: vi.fn(),
   selectedPhotoItems: [{ id: 'p1' }, { id: 'p2' }],
+  setClientEmail: vi.fn(),
   setClientName: vi.fn(),
   setClientPhone: vi.fn(),
   setScreen: vi.fn(),
@@ -45,6 +47,21 @@ describe('SummaryScreen', () => {
 
     expect(props.setClientName).toHaveBeenCalled();
     expect(screen.getByText(/\{name\}/)).toBeInTheDocument();
+  });
+
+  it('accepts an optional client email for manual checkout actions', async () => {
+    const props = {
+      ...baseProps,
+      clientEmail: 'ana@cliente.com',
+      setClientEmail: vi.fn(),
+      handleManualPayment: vi.fn(),
+    };
+    render(<SummaryScreen {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Pagamento Dinheiro/Cartão' }));
+
+    expect(screen.getByDisplayValue('ana@cliente.com')).toBeInTheDocument();
+    expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
   it('fires Pix and manual payment actions from the checkout buttons', async () => {

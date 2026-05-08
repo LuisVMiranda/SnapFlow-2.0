@@ -1,5 +1,6 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
+const { optionalEmail } = require('../services/email');
 const { validateBrazilPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
 const { publicBaseUrlForRequest, toPhotoIds } = require('./helpers');
@@ -16,6 +17,15 @@ function normalizeClientName(value) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80);
+}
+
+function normalizeClientEmail(value) {
+  const normalized = optionalEmail(value);
+  if (normalized) return normalized;
+  if (String(value || '').trim()) {
+    throw new HttpError(400, 'Informe um e-mail valido para o cliente ou deixe o campo vazio.', 'invalid_client_email');
+  }
+  return '';
 }
 
 async function resolvePublicBaseUrl(req, config, credentials) {
@@ -106,6 +116,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         sessionId: req.body.sessionId,
         phone: phone.normalized,
         clientName: normalizeClientName(req.body.clientName),
+        clientEmail: normalizeClientEmail(req.body.clientEmail),
         packageType: req.body.packageType,
         photoIds,
       });
@@ -128,6 +139,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
           packageType: req.body.packageType,
           phone: phone.normalized,
           clientName: normalizeClientName(req.body.clientName),
+          clientEmail: normalizeClientEmail(req.body.clientEmail),
           status: 'pending',
           paymentMethod: 'Dinheiro/Cartão',
           shareToken: req.body.shareToken || null,
@@ -169,6 +181,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const phone = validateBrazilPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const clientName = normalizeClientName(req.body.clientName);
+      const clientEmail = normalizeClientEmail(req.body.clientEmail);
 
       const safeMinutes = Math.min(180, Math.max(5, Number(req.body.expiresMinutes) || 30));
       const now = new Date();
@@ -184,6 +197,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         accessCode,
         phone: phone.normalized,
         clientName,
+        clientEmail,
         packageType: req.body.packageType || 'eventos',
         photoCount: Number(req.body.count) || photoIds.length,
         total: Number(req.body.total) || 0,
@@ -203,6 +217,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         link,
         whatsappMessage,
         clientName,
+        clientEmail,
         ...whatsappResult,
       });
     })
@@ -345,6 +360,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
       const updated = await repos.updateShareSession(req.params.token, {
         clientName: body.clientName === undefined ? undefined : normalizeClientName(body.clientName),
+        clientEmail: body.clientEmail === undefined ? undefined : normalizeClientEmail(body.clientEmail),
         phone: body.phone ? String(body.phone) : undefined,
         packageType: body.packageType ? String(body.packageType) : undefined,
         total: body.total === undefined ? undefined : Number(body.total),

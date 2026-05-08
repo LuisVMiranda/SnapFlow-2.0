@@ -22,6 +22,7 @@ function createTestApp({
     packageType: 'eventos',
     phone: '11999999999',
     clientName: 'Ana Cliente',
+    clientEmail: '',
     photoCount: 1,
     total: 10,
     createdAt: new Date().toISOString(),
@@ -95,6 +96,7 @@ function createTestApp({
         packageType: payload.packageType,
         phone: payload.phone,
         clientName: payload.clientName || '',
+        clientEmail: payload.clientEmail || '',
         photoCount: payload.photoCount,
         total: payload.total,
         createdAt: new Date().toISOString(),
@@ -148,6 +150,7 @@ function createTestApp({
         ...share,
         phone: updates.phone || share.phone,
         clientName: updates.clientName === undefined ? share.clientName : updates.clientName,
+        clientEmail: updates.clientEmail === undefined ? share.clientEmail : updates.clientEmail,
         packageType: updates.packageType || share.packageType,
         total: updates.total === undefined ? share.total : updates.total,
         expiresAt: updates.expiresAt ? updates.expiresAt.toISOString() : share.expiresAt,
@@ -166,6 +169,7 @@ function createTestApp({
         packageType: session.packageType,
         phone: session.phone,
         clientName: session.clientName || '',
+        clientEmail: session.clientEmail || '',
         status: session.status,
         paymentMethod: session.paymentMethod,
         deliveryStatus: session.deliveryStatus,
@@ -386,6 +390,7 @@ test('admin manual cash/card payment stays pending until explicit approval', asy
       count: 2,
       phone: '11999999999',
       clientName: 'Ana Cliente',
+      clientEmail: 'ana@cliente.com',
       packageType: 'eventos',
       photoIds: ['photo_1'],
     });
@@ -399,6 +404,7 @@ test('admin manual cash/card payment stays pending until explicit approval', asy
     .get('/api/admin/session/manual_1')
     .set('Authorization', 'Bearer admin-secret');
   assert.equal(storedPending.body.clientName, 'Ana Cliente');
+  assert.equal(storedPending.body.clientEmail, 'ana@cliente.com');
 
   const approved = await request(app)
     .post('/api/admin/approve-manual-session/manual_1')
@@ -428,6 +434,7 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
       photoIds: ['photo_1'],
       phone: '11999999999',
       clientName: 'Ana Cliente',
+      clientEmail: 'ana@cliente.com',
       packageType: 'eventos',
       count: 1,
       total: 10,
@@ -438,6 +445,7 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.equal(response.body.whatsappSent, true);
   assert.equal(response.body.whatsappStatus, 'sent');
   assert.equal(response.body.clientName, 'Ana Cliente');
+  assert.equal(response.body.clientEmail, 'ana@cliente.com');
   assert.equal(sends.length, 1);
   assert.equal(sends[0].phone, '5511999999999');
   assert.match(sends[0].message, /Ana Cliente/);
@@ -460,6 +468,7 @@ test('admin share link creation keeps link when WhatsApp send fails', async () =
       photoIds: ['photo_1'],
       phone: '11999999999',
       clientName: 'Ana Cliente',
+      clientEmail: 'ana@cliente.com',
       packageType: 'eventos',
       count: 1,
       total: 10,
@@ -655,6 +664,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
     .send({
       phone: '11888888888',
       clientName: 'Bruna Cliente',
+      clientEmail: 'bruna@cliente.com',
       packageType: 'escola',
       total: 42,
       accessCode: 'ab12',
@@ -664,6 +674,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
   assert.equal(response.status, 200);
   assert.equal(response.body.phone, '11888888888');
   assert.equal(response.body.clientName, 'Bruna Cliente');
+  assert.equal(response.body.clientEmail, 'bruna@cliente.com');
   assert.equal(response.body.packageType, 'escola');
   assert.equal(response.body.total, 42);
   assert.equal(response.body.accessCode, 'AB12');
@@ -772,8 +783,28 @@ test('share metadata hides photo urls before unlock', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.body.clientName, 'Ana Cliente');
+  assert.equal(response.body.clientEmail, '');
   assert.equal(response.body.photos, undefined);
   assert.equal(response.body.thumbUrls, undefined);
+});
+
+test('admin Pix route rejects malformed client emails with a clear validation error', async () => {
+  const response = await request(createTestApp())
+    .post('/api/admin/pix')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'pix_invalid_email',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      clientEmail: 'email-invalido',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'invalid_client_email');
 });
 
 test('share unlock returns short-lived media urls after valid code', async () => {

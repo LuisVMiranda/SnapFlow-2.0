@@ -4,8 +4,8 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, access_code_hash, access_code, phone, client_name, package_type, photo_count, total_cents, expires_at, retention_expires_at, link)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        (token, gallery_id, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, total_cents, expires_at, retention_expires_at, link)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        returning *`,
       [
         share.token,
@@ -14,6 +14,7 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
         share.accessCode || null,
         share.phone,
         share.clientName || '',
+        share.clientEmail || '',
         share.packageType || 'eventos',
         share.photoCount,
         toCents(share.total),
@@ -32,19 +33,21 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
       `update share_sessions
        set phone = coalesce($2, phone),
            client_name = coalesce($3, client_name),
-           package_type = coalesce($4, package_type),
-           total_cents = coalesce($5, total_cents),
-           expires_at = coalesce($6, expires_at),
-           access_code_hash = coalesce($7, access_code_hash),
-           access_code = coalesce($8, access_code),
-           status = case when $9::boolean then 'active' else status end,
-           revoked_at = case when $9::boolean then null else revoked_at end
+           client_email = coalesce($4, client_email),
+           package_type = coalesce($5, package_type),
+           total_cents = coalesce($6, total_cents),
+           expires_at = coalesce($7, expires_at),
+           access_code_hash = coalesce($8, access_code_hash),
+           access_code = coalesce($9, access_code),
+           status = case when $10::boolean then 'active' else status end,
+           revoked_at = case when $10::boolean then null else revoked_at end
        where token = $1 and deleted_at is null
        returning *`,
       [
         token,
         updates.phone ?? null,
         updates.clientName ?? null,
+        updates.clientEmail ?? null,
         updates.packageType ?? null,
         updates.total === undefined ? null : toCents(updates.total),
         updates.expiresAt || null,
@@ -112,10 +115,11 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
          and ss.phone = $3
          and ss.package_type = $4
          and ss.client_name = $5
+         and ss.client_email = $6
        group by ss.token
        order by ss.created_at desc
        limit 1`,
-      [share.token, share.accessCode, share.phone, share.packageType, share.clientName || '']
+      [share.token, share.accessCode, share.phone, share.packageType, share.clientName || '', share.clientEmail || '']
     );
     return rowToShare(result.rows[0], { includeAccessCode: true, includeSensitive: true });
   }
@@ -131,12 +135,13 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
          and ss.phone = $3
          and ss.package_type = $4
          and ss.client_name = $5
+         and ss.client_email = $6
          and not exists (
            select 1 from photos p
            where p.share_token = ss.token and p.deleted_at is null
          )
        returning *`,
-      [share.token, share.accessCode, share.phone, share.packageType, share.clientName || '']
+      [share.token, share.accessCode, share.phone, share.packageType, share.clientName || '', share.clientEmail || '']
     );
     return result.rows.map((row) => rowToShare(row, { includeAccessCode: true }));
   }

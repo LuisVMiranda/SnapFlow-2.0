@@ -43,6 +43,17 @@ export function ShareGalleryEditor({
         />
       </label>
       <label>
+        E-mail do cliente
+        <input
+          className="phone-input"
+          maxLength={120}
+          value={draft.clientEmail || ''}
+          onChange={(event) => updateDraft(shareSession.token, 'clientEmail', event.target.value)}
+          placeholder="cliente@exemplo.com"
+          type="email"
+        />
+      </label>
+      <label>
         WhatsApp
         <input
           className="phone-input"

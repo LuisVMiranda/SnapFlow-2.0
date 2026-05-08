@@ -20,6 +20,7 @@ function draftFromShare(shareSession) {
   return {
     accessCode: shareSession.accessCode || '',
     clientName: shareSession.clientName || '',
+    clientEmail: shareSession.clientEmail || '',
     expiresMinutes: '',
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
@@ -220,6 +221,7 @@ export function SharedLinksPanel({
     const draft = drafts[shareSession.token] || draftFromShare(shareSession);
     const body = {
       clientName: draft.clientName,
+      clientEmail: draft.clientEmail,
       packageType: draft.packageType,
       phone: draft.phone,
       total: draft.total === '' ? undefined : Number(draft.total),
@@ -262,6 +264,7 @@ export function SharedLinksPanel({
                 {shareSession.photoCount} foto(s) • código {shareSession.accessCode || 'não definido'}
               </small>
               {shareSession.clientName ? <small>Cliente: {shareSession.clientName}</small> : null}
+              {shareSession.clientEmail ? <small>E-mail: {shareSession.clientEmail}</small> : null}
               <small>
                 Expira em <ShareCountdown isoDate={shareSession.expiresAt} />
               </small>
