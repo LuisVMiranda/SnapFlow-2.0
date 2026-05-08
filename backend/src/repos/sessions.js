@@ -151,6 +151,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
        from (
          select ss.token,
                 ss.gallery_id,
+                ss.gallery_name,
+                ss.gallery_description,
                 ss.access_code_hash,
                 ss.access_code,
                 ss.phone,
@@ -167,7 +169,11 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.extends_count,
                 ss.retention_expires_at,
                 ss.link,
-                ss.deleted_at
+                ss.deleted_at,
+                coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
+                coalesce(sales.sold_order_count, 0)::int as sold_order_count,
+                coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,
+                sales.last_sold_at
          from share_sessions ss
          left join (
            select share_token, count(*)::int as photo_count
@@ -175,6 +181,16 @@ function createSessionRepo({ pool, query, withTransaction }) {
            where deleted_at is null
            group by share_token
          ) photo_counts on photo_counts.share_token = ss.token
+         left join (
+           select share_token,
+                  coalesce(sum(photo_count), 0)::int as sold_photo_count,
+                  count(*)::int as sold_order_count,
+                  coalesce(sum(amount_cents), 0)::bigint as sold_amount_cents,
+                  max(approved_at) as last_sold_at
+           from sessions
+           where status = 'approved' and share_token is not null
+           group by share_token
+         ) sales on sales.share_token = ss.token
          where ss.deleted_at is null
            and (
              coalesce(photo_counts.photo_count, 0) > 0

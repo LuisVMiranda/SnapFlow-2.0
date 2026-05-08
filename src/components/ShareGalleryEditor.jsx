@@ -1,3 +1,5 @@
+import { formatMoney } from '../lib/formatters';
+
 export function ShareGalleryEditor({
   closeEditor,
   deletePhoto,
@@ -12,10 +14,44 @@ export function ShareGalleryEditor({
   uploadPhotos,
 }) {
   const photos = detail?.photos || [];
+  const sales = detail?.sales || shareSession.sales || {};
+  const soldPhotoCount = Number(sales.soldPhotoCount || 0);
+  const soldOrderCount = Number(sales.soldOrderCount || 0);
+  const soldAmount = Number(sales.soldAmount || 0);
   const uploadInputId = `share-upload-${shareSession.galleryId || shareSession.token}`;
 
   return (
     <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
+      <label>
+        Nome da galeria
+        <input
+          className="phone-input"
+          maxLength={120}
+          value={draft.galleryName || ''}
+          onChange={(event) =>
+            updateDraft(
+              shareSession.token,
+              'galleryName',
+              event.target.value.replace(/\s+/g, ' ').slice(0, 120)
+            )
+          }
+          placeholder="Ex.: Formatura turma 2026"
+        />
+      </label>
+      <label>
+        Descrição da galeria
+        <textarea
+          className="phone-input"
+          maxLength={800}
+          rows={3}
+          value={draft.galleryDescription || ''}
+          onChange={(event) => updateDraft(shareSession.token, 'galleryDescription', event.target.value.slice(0, 800))}
+          placeholder="Detalhes opcionais para orientar o cliente"
+        />
+      </label>
+      <div className="share-sales-summary">
+        {soldPhotoCount} foto(s) vendidas até agora em {soldOrderCount} pedido(s) - {formatMoney(soldAmount)}
+      </div>
       <label>
         Código de acesso
         <input

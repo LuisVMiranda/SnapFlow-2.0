@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ShareCountdown } from './ShareCountdown';
 import { ShareGalleryEditor } from './ShareGalleryEditor';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { formatMoney } from '../lib/formatters';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 
@@ -22,10 +23,20 @@ function draftFromShare(shareSession) {
     clientName: shareSession.clientName || '',
     clientEmail: shareSession.clientEmail || '',
     expiresMinutes: '',
+    galleryDescription: shareSession.galleryDescription || '',
+    galleryName: shareSession.galleryName || '',
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
     total: String(shareSession.total ?? ''),
   };
+}
+
+function gallerySalesLabel(shareSession) {
+  const sales = shareSession?.sales || {};
+  const soldPhotoCount = Number(sales.soldPhotoCount || 0);
+  const soldOrderCount = Number(sales.soldOrderCount || 0);
+  const soldAmount = Number(sales.soldAmount || 0);
+  return `${soldPhotoCount} foto(s) vendidas até agora em ${soldOrderCount} pedido(s) - ${formatMoney(soldAmount)}`;
 }
 
 function galleryRouteErrorMessage(prefix, response, data) {
@@ -248,6 +259,8 @@ export function SharedLinksPanel({
     const body = {
       clientName: draft.clientName,
       clientEmail: draft.clientEmail,
+      galleryName: draft.galleryName,
+      galleryDescription: draft.galleryDescription,
       packageType: draft.packageType,
       phone: draft.phone,
       total: draft.total === '' ? undefined : Number(draft.total),
@@ -289,12 +302,14 @@ export function SharedLinksPanel({
         return (
           <div key={shareSession.galleryId || shareSession.token} className="session-item share-session-item">
             <div className="session-info">
-              <strong>{packageLabel(shareSession.packageType, pricingOptions)}</strong>
+              <strong>{shareSession.galleryName || packageLabel(shareSession.packageType, pricingOptions)}</strong>
               <small>
                 {shareSession.photoCount} foto(s) • código {shareSession.accessCode || 'não definido'}
               </small>
+              {shareSession.galleryDescription ? <small>{shareSession.galleryDescription}</small> : null}
               {shareSession.clientName ? <small>Cliente: {shareSession.clientName}</small> : null}
               {shareSession.clientEmail ? <small>E-mail: {shareSession.clientEmail}</small> : null}
+              <small>{gallerySalesLabel(shareSession)}</small>
               <small>
                 Expira em <ShareCountdown isoDate={shareSession.expiresAt} />
               </small>

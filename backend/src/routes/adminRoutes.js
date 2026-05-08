@@ -28,6 +28,23 @@ function normalizeClientEmail(value) {
   return '';
 }
 
+function normalizeGalleryName(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
+function normalizeGalleryDescription(value) {
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 800);
+}
+
 async function resolvePublicBaseUrl(req, config, credentials) {
   const savedUrl = typeof credentials?.getSecretValue === 'function'
     ? await credentials.getSecretValue('publicBaseUrl')
@@ -182,6 +199,8 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const clientName = normalizeClientName(req.body.clientName);
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
+      const galleryName = normalizeGalleryName(req.body.galleryName);
+      const galleryDescription = normalizeGalleryDescription(req.body.galleryDescription);
 
       const safeMinutes = Math.min(180, Math.max(5, Number(req.body.expiresMinutes) || 30));
       const now = new Date();
@@ -191,13 +210,15 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
       const link = new URL(`/s/${token}`, await resolvePublicBaseUrl(req, config, credentials)).toString();
 
-      await repos.createShareSession({
+      const share = await repos.createShareSession({
         token,
         accessCodeHash: hashValue(accessCode),
         accessCode,
         phone: phone.normalized,
         clientName,
         clientEmail,
+        galleryName,
+        galleryDescription,
         packageType: req.body.packageType || 'eventos',
         photoCount: Number(req.body.count) || photoIds.length,
         total: Number(req.body.total) || 0,
@@ -218,6 +239,9 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         whatsappMessage,
         clientName,
         clientEmail,
+        galleryName: share.galleryName,
+        galleryDescription: share.galleryDescription,
+        sales: share.sales,
         ...whatsappResult,
       });
     })
@@ -361,6 +385,8 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const updated = await repos.updateShareSession(req.params.token, {
         clientName: body.clientName === undefined ? undefined : normalizeClientName(body.clientName),
         clientEmail: body.clientEmail === undefined ? undefined : normalizeClientEmail(body.clientEmail),
+        galleryName: body.galleryName === undefined ? undefined : normalizeGalleryName(body.galleryName),
+        galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
         phone: body.phone ? String(body.phone) : undefined,
         packageType: body.packageType ? String(body.packageType) : undefined,
         total: body.total === undefined ? undefined : Number(body.total),

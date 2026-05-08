@@ -14,6 +14,8 @@ function publicSharePayload(share) {
   const expired = isExpired(share);
   return {
     token: share.token,
+    galleryName: share.galleryName || '',
+    galleryDescription: share.galleryDescription || '',
     packageType: share.packageType,
     clientName: share.clientName || '',
     clientEmail: share.clientEmail || '',

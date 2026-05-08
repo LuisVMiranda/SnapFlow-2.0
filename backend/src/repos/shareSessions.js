@@ -1,15 +1,36 @@
 const { rowToShare, toCents } = require('./mappers');
 
+const SHARE_WITH_SALES_SQL = `
+  select ss.*,
+         coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
+         coalesce(sales.sold_order_count, 0)::int as sold_order_count,
+         coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,
+         sales.last_sold_at
+  from share_sessions ss
+  left join (
+    select share_token,
+           coalesce(sum(photo_count), 0)::int as sold_photo_count,
+           count(*)::int as sold_order_count,
+           coalesce(sum(amount_cents), 0)::bigint as sold_amount_cents,
+           max(approved_at) as last_sold_at
+    from sessions
+    where status = 'approved' and share_token is not null
+    group by share_token
+  ) sales on sales.share_token = ss.token
+`;
+
 function createShareSessionRepo({ attachPhotosToSession, query }) {
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, total_cents, expires_at, retention_expires_at, link)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, total_cents, expires_at, retention_expires_at, link)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        returning *`,
       [
         share.token,
         share.galleryId || share.token,
+        share.galleryName || '',
+        share.galleryDescription || '',
         share.accessCodeHash,
         share.accessCode || null,
         share.phone,
@@ -39,8 +60,10 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
            expires_at = coalesce($7, expires_at),
            access_code_hash = coalesce($8, access_code_hash),
            access_code = coalesce($9, access_code),
-           status = case when $10::boolean then 'active' else status end,
-           revoked_at = case when $10::boolean then null else revoked_at end
+           gallery_name = coalesce($10, gallery_name),
+           gallery_description = coalesce($11, gallery_description),
+           status = case when $12::boolean then 'active' else status end,
+           revoked_at = case when $12::boolean then null else revoked_at end
        where token = $1 and deleted_at is null
        returning *`,
       [
@@ -53,6 +76,8 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
         updates.expiresAt || null,
         updates.accessCodeHash || null,
         updates.accessCode || null,
+        updates.galleryName ?? null,
+        updates.galleryDescription ?? null,
         hasExpiresAt,
       ]
     );
@@ -147,7 +172,7 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
   }
 
   async function getShareSession(token, options = {}) {
-    const result = await query('select * from share_sessions where token = $1 and deleted_at is null', [token]);
+    const result = await query(`${SHARE_WITH_SALES_SQL} where ss.token = $1 and ss.deleted_at is null`, [token]);
     return rowToShare(result.rows[0], options);
   }
 

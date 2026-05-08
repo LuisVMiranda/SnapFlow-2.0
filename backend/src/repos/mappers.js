@@ -54,6 +54,8 @@ function rowToShare(row, options = {}) {
   const payload = {
     token: row.token,
     galleryId: row.gallery_id || row.token,
+    galleryName: row.gallery_name || '',
+    galleryDescription: row.gallery_description || '',
     packageType: row.package_type,
     phone: row.phone,
     clientName: row.client_name || '',
@@ -69,6 +71,12 @@ function rowToShare(row, options = {}) {
     extendsCount: row.extends_count || 0,
     retentionExpiresAt: row.retention_expires_at,
     link: row.link,
+    sales: {
+      soldPhotoCount: Number(row.sold_photo_count || 0),
+      soldOrderCount: Number(row.sold_order_count || 0),
+      soldAmount: fromCents(row.sold_amount_cents),
+      lastSoldAt: row.last_sold_at || null,
+    },
   };
   if (options.includeSensitive) payload.accessCodeHash = row.access_code_hash;
   if (options.includeSensitive || options.includeAccessCode) payload.accessCode = row.access_code || null;

@@ -5,6 +5,7 @@ loadEnv();
 const { createApp } = require('./src/app');
 const { createConfig } = require('./src/config');
 const { createRepos } = require('./src/repos');
+const { runMigrations } = require('./src/migrations/runMigrations');
 const { createPaymentService } = require('./src/services/paymentService');
 const { createMediaService } = require('./src/services/mediaService');
 const { createDeliveryQueue } = require('./src/services/deliveryQueue');
@@ -16,6 +17,7 @@ const { createWhatsAppTemplatesService } = require('./src/services/whatsappTempl
 
 async function main() {
   const config = createConfig();
+  await runMigrations(config);
   const repos = createRepos(config);
   const media = createMediaService(config);
   const credentials = createCredentialsService({ config, repos });

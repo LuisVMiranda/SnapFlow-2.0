@@ -30,6 +30,14 @@ const baseProps = {
         accessCode: '1234',
         expiresAt: '2026-05-02T12:00:00.000Z',
         link: 'https://snap.test/s/old-token',
+        galleryName: 'Galeria Família',
+        galleryDescription: 'Escolha final do aniversário',
+        sales: {
+          soldPhotoCount: 0,
+          soldOrderCount: 0,
+          soldAmount: 0,
+          lastSoldAt: null,
+        },
       },
     ],
   },
@@ -46,11 +54,14 @@ afterEach(() => {
 });
 
 describe('SharedLinksPanel', () => {
-  it('shows access code plus recreate and delete actions for expired galleries', () => {
+  it('shows gallery metadata, sales summary and delete actions for expired galleries', () => {
     render(<SharedLinksPanel {...baseProps} />);
 
+    expect(screen.getByText('Galeria Família')).toBeInTheDocument();
+    expect(screen.getByText('Escolha final do aniversário')).toBeInTheDocument();
     expect(screen.getByText(/código 1234/i)).toBeInTheDocument();
     expect(screen.getByText('Cliente: Ana Cliente')).toBeInTheDocument();
+    expect(screen.getByText(/0 foto\(s\) vendidas até agora em 0 pedido\(s\)/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Recriar' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deletar' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Revogar' })).not.toBeInTheDocument();
@@ -65,6 +76,11 @@ describe('SharedLinksPanel', () => {
 
     render(<SharedLinksPanel {...baseProps} />);
     await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    expect(screen.getAllByText(/0 foto\(s\) vendidas até agora em 0 pedido\(s\)/i).length).toBeGreaterThan(1);
+    await user.clear(screen.getByLabelText('Nome da galeria'));
+    await user.type(screen.getByLabelText('Nome da galeria'), 'Casamento Centro');
+    await user.clear(screen.getByLabelText('Descrição da galeria'));
+    await user.type(screen.getByLabelText('Descrição da galeria'), 'Entrega revisada');
     await user.clear(screen.getByLabelText('Código de acesso'));
     await user.type(screen.getByLabelText('Código de acesso'), 'ab12');
     await user.clear(screen.getByLabelText('Cliente'));
@@ -83,6 +99,18 @@ describe('SharedLinksPanel', () => {
       '/api/admin/share-sessions/old-token',
       expect.objectContaining({
         body: expect.stringContaining('"clientName":"Bruna Compradora"'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token',
+      expect.objectContaining({
+        body: expect.stringContaining('"galleryName":"Casamento Centro"'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token',
+      expect.objectContaining({
+        body: expect.stringContaining('"galleryDescription":"Entrega revisada"'),
       })
     );
     await waitFor(() => expect(baseProps.fetchDashboard).toHaveBeenCalled());
@@ -178,5 +206,26 @@ describe('SharedLinksPanel', () => {
     );
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/share-sessions/old-token', expect.objectContaining({ method: 'DELETE' }));
     await waitFor(() => expect(baseProps.fetchDashboard).toHaveBeenCalled());
+  });
+
+  it('shows non-zero sales metadata in gallery lists', () => {
+    render(
+      <SharedLinksPanel
+        {...baseProps}
+        dashData={{
+          shareRecent: [{
+            ...baseProps.dashData.shareRecent[0],
+            sales: {
+              soldPhotoCount: 3,
+              soldOrderCount: 2,
+              soldAmount: 45,
+              lastSoldAt: '2026-05-08T10:00:00.000Z',
+            },
+          }],
+        }}
+      />
+    );
+
+    expect(screen.getByText(/3 foto\(s\) vendidas até agora em 2 pedido\(s\) - R\$\s*45,00/i)).toBeInTheDocument();
   });
 });

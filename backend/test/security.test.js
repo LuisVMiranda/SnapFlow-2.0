@@ -14,9 +14,17 @@ function createTestApp({
     sendText: async () => {},
   },
 } = {}) {
+  const emptySales = () => ({
+    soldPhotoCount: 0,
+    soldOrderCount: 0,
+    soldAmount: 0,
+    lastSoldAt: null,
+  });
   let share = {
     token: 'share_1',
     galleryId: 'gallery_1',
+    galleryName: 'Galeria Família',
+    galleryDescription: 'Seleção final do aniversário',
     accessCodeHash: hashValue('1234'),
     accessCode: '1234',
     packageType: 'eventos',
@@ -30,6 +38,7 @@ function createTestApp({
     revokedAt: null,
     status: 'active',
     link: 'http://localhost:5173/s/share_1',
+    sales: emptySales(),
   };
   let deletedShareToken = null;
   let recreatedShare = null;
@@ -73,6 +82,9 @@ function createTestApp({
         status: 'active',
         accessCode: share.accessCode,
         clientName: share.clientName,
+        galleryName: share.galleryName,
+        galleryDescription: share.galleryDescription,
+        sales: share.sales,
       }],
     }),
     getShareSession: async (token, options = {}) => {
@@ -97,6 +109,8 @@ function createTestApp({
         phone: payload.phone,
         clientName: payload.clientName || '',
         clientEmail: payload.clientEmail || '',
+        galleryName: payload.galleryName || '',
+        galleryDescription: payload.galleryDescription || '',
         photoCount: payload.photoCount,
         total: payload.total,
         createdAt: new Date().toISOString(),
@@ -104,6 +118,7 @@ function createTestApp({
         revokedAt: null,
         status: 'active',
         link: payload.link,
+        sales: emptySales(),
       };
       return recreatedShare;
     },
@@ -151,6 +166,8 @@ function createTestApp({
         phone: updates.phone || share.phone,
         clientName: updates.clientName === undefined ? share.clientName : updates.clientName,
         clientEmail: updates.clientEmail === undefined ? share.clientEmail : updates.clientEmail,
+        galleryName: updates.galleryName === undefined ? share.galleryName : updates.galleryName,
+        galleryDescription: updates.galleryDescription === undefined ? share.galleryDescription : updates.galleryDescription,
         packageType: updates.packageType || share.packageType,
         total: updates.total === undefined ? share.total : updates.total,
         expiresAt: updates.expiresAt ? updates.expiresAt.toISOString() : share.expiresAt,
@@ -172,6 +189,7 @@ function createTestApp({
         clientEmail: session.clientEmail || '',
         status: session.status,
         paymentMethod: session.paymentMethod,
+        shareToken: session.shareToken || null,
         deliveryStatus: session.deliveryStatus,
       };
       sessions.set(stored.id, stored);
@@ -187,6 +205,17 @@ function createTestApp({
       if (!session) return null;
       session.status = 'approved';
       session.deliveryStatus = 'queued';
+      if (session.shareToken === share.token) {
+        share = {
+          ...share,
+          sales: {
+            soldPhotoCount: (share.sales?.soldPhotoCount || 0) + Number(session.photoCount || 0),
+            soldOrderCount: (share.sales?.soldOrderCount || 0) + 1,
+            soldAmount: (share.sales?.soldAmount || 0) + Number(session.amount || 0),
+            lastSoldAt: new Date().toISOString(),
+          },
+        };
+      }
       return session;
     },
     getSession: async (sessionId) => sessions.get(sessionId) || null,
@@ -373,6 +402,9 @@ test('admin dashboard accepts bearer token and does not expose managementKey', a
 
   assert.equal(response.status, 200);
   assert.equal(response.body.shareRecent[0].managementKey, undefined);
+  assert.equal(response.body.shareRecent[0].galleryName, 'Galeria Família');
+  assert.equal(response.body.shareRecent[0].galleryDescription, 'Seleção final do aniversário');
+  assert.equal(response.body.shareRecent[0].sales.soldPhotoCount, 0);
   assert.ok(response.body.stats.ano);
   assert.ok(response.body.chartSeries);
 });
@@ -435,6 +467,8 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
       phone: '11999999999',
       clientName: 'Ana Cliente',
       clientEmail: 'ana@cliente.com',
+      galleryName: 'Formatura 2026',
+      galleryDescription: 'Galeria liberada para escolha das famílias.',
       packageType: 'eventos',
       count: 1,
       total: 10,
@@ -446,6 +480,9 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.equal(response.body.whatsappStatus, 'sent');
   assert.equal(response.body.clientName, 'Ana Cliente');
   assert.equal(response.body.clientEmail, 'ana@cliente.com');
+  assert.equal(response.body.galleryName, 'Formatura 2026');
+  assert.equal(response.body.galleryDescription, 'Galeria liberada para escolha das famílias.');
+  assert.equal(response.body.sales.soldPhotoCount, 0);
   assert.equal(sends.length, 1);
   assert.equal(sends[0].phone, '5511999999999');
   assert.match(sends[0].message, /Ana Cliente/);
@@ -623,6 +660,14 @@ test('admin gallery details expose only that gallery photos for editing', async 
   assert.equal(response.status, 200);
   assert.equal(response.body.token, 'share_1');
   assert.equal(response.body.photoCount, 1);
+  assert.equal(response.body.galleryName, 'Galeria Família');
+  assert.equal(response.body.galleryDescription, 'Seleção final do aniversário');
+  assert.deepEqual(response.body.sales, {
+    soldPhotoCount: 0,
+    soldOrderCount: 0,
+    soldAmount: 0,
+    lastSoldAt: null,
+  });
   assert.equal(response.body.photos.length, 1);
   assert.equal(response.body.photos[0].id, 'photo_1');
   assert.match(response.body.photos[0].thumbUrl, /\/api\/media\/photo_1\/thumb/);
@@ -665,6 +710,8 @@ test('admin can edit shared gallery metadata and visible access code', async () 
       phone: '11888888888',
       clientName: 'Bruna Cliente',
       clientEmail: 'bruna@cliente.com',
+      galleryName: 'Ensaio editado',
+      galleryDescription: 'Entrega revisada para o cliente.',
       packageType: 'escola',
       total: 42,
       accessCode: 'ab12',
@@ -675,9 +722,25 @@ test('admin can edit shared gallery metadata and visible access code', async () 
   assert.equal(response.body.phone, '11888888888');
   assert.equal(response.body.clientName, 'Bruna Cliente');
   assert.equal(response.body.clientEmail, 'bruna@cliente.com');
+  assert.equal(response.body.galleryName, 'Ensaio editado');
+  assert.equal(response.body.galleryDescription, 'Entrega revisada para o cliente.');
   assert.equal(response.body.packageType, 'escola');
   assert.equal(response.body.total, 42);
   assert.equal(response.body.accessCode, 'AB12');
+});
+
+test('admin can clear shared gallery name and description', async () => {
+  const response = await request(createTestApp())
+    .patch('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      galleryName: '',
+      galleryDescription: '',
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.galleryName, '');
+  assert.equal(response.body.galleryDescription, '');
 });
 
 test('admin retention settings route saves with a valid token', async () => {
@@ -784,8 +847,41 @@ test('share metadata hides photo urls before unlock', async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.clientName, 'Ana Cliente');
   assert.equal(response.body.clientEmail, '');
+  assert.equal(response.body.galleryName, 'Galeria Família');
+  assert.equal(response.body.galleryDescription, 'Seleção final do aniversário');
   assert.equal(response.body.photos, undefined);
   assert.equal(response.body.thumbUrls, undefined);
+});
+
+test('approved shared sales update gallery sales metadata', async () => {
+  const app = createTestApp();
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const pending = await request(app)
+    .post('/api/share-session/share_1/manual-payment')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({
+      sessionId: 'share_sale_1',
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+    });
+  assert.equal(pending.status, 200);
+
+  await request(app)
+    .post('/api/admin/approve-manual-session/share_sale_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const details = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(details.status, 200);
+  assert.equal(details.body.sales.soldPhotoCount, 1);
+  assert.equal(details.body.sales.soldOrderCount, 1);
+  assert.equal(details.body.sales.soldAmount, 15);
+  assert.ok(details.body.sales.lastSoldAt);
 });
 
 test('admin Pix route rejects malformed client emails with a clear validation error', async () => {

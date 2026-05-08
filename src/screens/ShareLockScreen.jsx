@@ -10,6 +10,8 @@ export function ShareLockScreen({
   noticeBanner,
 }) {
   const shareExpired = shareSessionInfo?.expired || shareSessionInfo?.status === 'revoked';
+  const galleryName = shareSessionInfo?.galleryName?.trim();
+  const galleryDescription = shareSessionInfo?.galleryDescription?.trim();
 
   return (
     <div className="screen center-screen share-screen">
@@ -21,6 +23,8 @@ export function ShareLockScreen({
 
       <div className="summary-card share-lock-card">
         <div className="summary-label">Acesso temporário do cliente</div>
+        {galleryName ? <h2 className="share-lock-title">{galleryName}</h2> : null}
+        {galleryDescription ? <p className="share-lock-description">{galleryDescription}</p> : null}
         <div className="summary-row">
           <span>Fotos disponíveis</span>
           <strong>{shareSessionInfo?.photoCount || '---'}</strong>

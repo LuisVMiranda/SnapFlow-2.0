@@ -37,6 +37,20 @@
   margin: 16px;
 }
 
+.share-lock-title {
+  color: #fff;
+  font-size: 20px;
+  line-height: 1.2;
+  margin: 6px 0 4px;
+}
+
+.share-lock-description {
+  color: var(--gray);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
 .share-duration-label {
   display: block;
   font-size: 12px;
@@ -528,6 +542,18 @@
   display: grid;
   font-size: 12px;
   gap: 6px;
+}
+
+.share-sales-summary {
+  background: rgba(0, 200, 81, 0.08);
+  border: 1px solid rgba(0, 200, 81, 0.28);
+  border-radius: 8px;
+  color: #d8ffe8;
+  font-size: 13px;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  line-height: 1.4;
+  padding: 12px 14px;
 }
 
 .share-edit-actions {

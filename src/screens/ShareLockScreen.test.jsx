@@ -9,7 +9,13 @@ describe('ShareLockScreen', () => {
     const setShareCodeInput = vi.fn();
     render(
       <ShareLockScreen
-        shareSessionInfo={{ photoCount: 3, expiresAt: '2026-05-02T12:00:00.000Z', status: 'active' }}
+        shareSessionInfo={{
+          photoCount: 3,
+          expiresAt: '2026-05-02T12:00:00.000Z',
+          status: 'active',
+          galleryName: 'Ensaio da Sofia',
+          galleryDescription: 'Seleção final para a família.',
+        }}
         shareCodeInput=""
         setShareCodeInput={setShareCodeInput}
         handleUnlockSharedSession={handleUnlockSharedSession}
@@ -18,6 +24,8 @@ describe('ShareLockScreen', () => {
       />
     );
 
+    expect(screen.getByText('Ensaio da Sofia')).toBeInTheDocument();
+    expect(screen.getByText('Seleção final para a família.')).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('Código de 4 caracteres'), {
       target: { value: 'ab-12' },
     });
