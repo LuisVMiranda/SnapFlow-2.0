@@ -94,6 +94,42 @@ async function sendShareLinkMessage({ whatsapp, phone, message }) {
   }
 }
 
+async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, galleryDescription, galleryName, phone, photoIds, repos, requestBody, retentionExpiresAt }) {
+  const existingShare = typeof repos.findShareWithExactPhotos === 'function'
+    ? await repos.findShareWithExactPhotos(photoIds)
+    : null;
+  const token = existingShare?.token || randomToken(12);
+  const stableAccessCode = existingShare?.accessCode || accessCode;
+  const link = new URL(`/s/${token}`, baseUrl).toString();
+  const payload = {
+    token,
+    accessCodeHash: existingShare?.accessCodeHash || hashValue(stableAccessCode),
+    accessCode: stableAccessCode,
+    phone: phone.normalized,
+    clientName: requestBody.clientName,
+    clientEmail: requestBody.clientEmail,
+    galleryName,
+    galleryDescription,
+    packageType: requestBody.packageType || 'eventos',
+    photoCount: Number(requestBody.count) || photoIds.length,
+    total: Number(requestBody.total) || 0,
+    expiresAt,
+    retentionExpiresAt,
+    link,
+    photoIds,
+  };
+
+  const share = existingShare && typeof repos.restoreShareSession === 'function'
+    ? await repos.restoreShareSession(existingShare.token, payload)
+    : await repos.createShareSession(payload);
+
+  if (share && typeof repos.deleteDetachedShareDuplicates === 'function') {
+    await repos.deleteDetachedShareDuplicates(share);
+  }
+
+  return { accessCode: stableAccessCode, link, share };
+}
+
 function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
 
@@ -217,36 +253,33 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
       const safeMinutes = Math.min(180, Math.max(5, Number(req.body.expiresMinutes) || 30));
       const now = new Date();
-      const token = randomToken(12);
       const accessCode = generateAccessCode(4);
       const expiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
-      const link = new URL(`/s/${token}`, await resolvePublicBaseUrl(req, config, credentials)).toString();
-
-      const share = await repos.createShareSession({
-        token,
-        accessCodeHash: hashValue(accessCode),
+      const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
-        phone: phone.normalized,
-        clientName,
-        clientEmail,
-        galleryName,
-        galleryDescription,
-        packageType: req.body.packageType || 'eventos',
-        photoCount: Number(req.body.count) || photoIds.length,
-        total: Number(req.body.total) || 0,
+        baseUrl: await resolvePublicBaseUrl(req, config, credentials),
         expiresAt,
-        retentionExpiresAt,
-        link,
+        galleryDescription,
+        galleryName,
+        phone,
         photoIds,
+        repos,
+        requestBody: {
+          ...req.body,
+          clientName,
+          clientEmail,
+        },
+        retentionExpiresAt,
       });
 
-      const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
+      const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode: resolvedAccessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
       const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.normalized, message: whatsappMessage });
 
       res.json({
-        token,
-        accessCode,
+        token: share.token,
+        galleryId: share.galleryId,
+        accessCode: resolvedAccessCode,
         expiresAt,
         link,
         whatsappMessage,

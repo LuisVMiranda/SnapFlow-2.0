@@ -1,5 +1,6 @@
 export function RetentionPanel({
   cleanupPreview,
+  embedded = false,
   previewCleanup,
   retentionSettings,
   runCleanup,
@@ -7,8 +8,8 @@ export function RetentionPanel({
   setRetentionSettings,
 }) {
   return (
-    <div className="summary-card" style={{ margin: '0 0 16px 0' }}>
-      <div className="summary-label">Retenção e sanitização</div>
+    <div className={embedded ? 'retention-panel-body' : 'summary-card'} style={embedded ? undefined : { margin: '0 0 16px 0' }}>
+      {!embedded ? <div className="summary-label">Retenção e sanitização</div> : null}
       <div className="ops-grid">
         <div className="ops-stat">
           <span>Galerias novas</span>

@@ -51,8 +51,11 @@ describe('CredentialsPanel', () => {
       />
     );
 
-    expect(screen.getByText('••••1234')).toBeInTheDocument();
     expect(screen.queryByText('secret-live-token-1234')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Chaves e APIs/i }));
+    await user.click(screen.getByRole('button', { name: /Dados do fotógrafo/i }));
+    expect(screen.getByText('••••1234')).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Novo valor', { selector: 'input[type="password"]' }), 'secret-live-token-1234');
     const nameInput = screen.getByLabelText('Novo valor', { selector: 'input[type="text"]' });

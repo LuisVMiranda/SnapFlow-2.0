@@ -24,6 +24,7 @@ function createRepos(config) {
   const sessions = createSessionRepo(context);
   const shareSessions = createShareSessionRepo({
     attachPhotosToSession: photos.attachPhotosToSession,
+    cancelPendingSessionsForShare: sessions.cancelPendingSessionsForShare,
     query,
   });
 

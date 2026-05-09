@@ -1,5 +1,4 @@
 import { SessionOpsCard } from './SessionOpsCard';
-import { WhatsAppStatusCard } from './WhatsAppStatusCard';
 import { formatMoney } from '../lib/formatters';
 import { DELIVERY_META, PAYMENT_META, packageLabel } from '../lib/pricing';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
@@ -15,7 +14,7 @@ function deliveryFailureHint(error) {
   const message = String(error || '').trim();
   if (!message) return 'O envio falhou, mas a API não retornou detalhes. Confira se o WhatsApp está pareado e tente reenviar.';
   if (message.includes('WhatsApp ainda')) {
-    return `${message} Abra Vendas > WhatsApp de envio, escaneie o QR Code no painel quando aparecer e tente reenviar.`;
+    return `${message} Abra Galerias > WhatsApp de envio, escaneie o QR Code no painel quando aparecer e tente reenviar.`;
   }
   if (message.includes('Número não encontrado') || message.includes('Telefone') || message.includes('WhatsApp brasileiro')) {
     return `${message} Corrija o WhatsApp do cliente na galeria/venda antes de reenviar.`;
@@ -145,8 +144,6 @@ export function SalesStatsPanel({
         </div>
         <MiniBarChart series={series} />
       </div>
-
-      <WhatsAppStatusCard adminHeaders={adminHeaders} setNotice={setNotice} />
 
       {hasActiveSession ? (
         <SessionOpsCard

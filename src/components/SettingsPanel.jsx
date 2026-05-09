@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
+import { CollapsibleSection } from './CollapsibleSection';
 import { PackageSettingsModal } from './PackageSettingsModal';
 import { RetentionPanel } from './RetentionPanel';
 import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
@@ -36,37 +37,45 @@ export function SettingsPanel({
 
   return (
     <section className="admin-panel">
-      <RetentionPanel
-        cleanupPreview={cleanupPreview}
-        previewCleanup={previewCleanup}
-        retentionSettings={retentionSettings}
-        runCleanup={runCleanup}
-        saveRetentionSettings={saveRetentionSettings}
-        setRetentionSettings={setRetentionSettings}
-      />
+      <CollapsibleSection
+        emoji="🧹"
+        help="Defina prazos e limpezas para fotos, galerias expiradas e arquivos locais."
+        title="Retenção e sanitização"
+      >
+        <RetentionPanel
+          cleanupPreview={cleanupPreview}
+          embedded
+          previewCleanup={previewCleanup}
+          retentionSettings={retentionSettings}
+          runCleanup={runCleanup}
+          saveRetentionSettings={saveRetentionSettings}
+          setRetentionSettings={setRetentionSettings}
+        />
+      </CollapsibleSection>
 
-      <div className="summary-card package-management-card">
-        <div>
-          <div className="summary-label">Pacotes e preços</div>
-          <small className="summary-help">Crie, edite ou remova opções de venda sem alterar o fluxo do cliente.</small>
+      <CollapsibleSection
+        emoji="💳"
+        help="Crie, edite ou remova opções de venda sem alterar o fluxo do cliente."
+        title="Pacotes e preços"
+      >
+        <div className="package-management-card">
+          <div className="package-management-list">
+            {Object.entries(pricingOptions).map(([key, option]) => (
+              <div className="package-management-item" key={key}>
+                <strong>{option.label}</strong>
+                <small>
+                  {option.threshold}+ fotos: R$ {option.bulk} · avulsa: R$ {option.unit}
+                </small>
+              </div>
+            ))}
+          </div>
+
+          <button type="button" className="btn-manual btn-manual-card" onClick={() => setIsPackageEditorOpen(true)}>
+            <Pencil size={16} />
+            Editar pacotes
+          </button>
         </div>
-
-        <div className="package-management-list">
-          {Object.entries(pricingOptions).map(([key, option]) => (
-            <div className="package-management-item" key={key}>
-              <strong>{option.label}</strong>
-              <small>
-                {option.threshold}+ fotos: R$ {option.bulk} · avulsa: R$ {option.unit}
-              </small>
-            </div>
-          ))}
-        </div>
-
-        <button type="button" className="btn-manual btn-manual-card" onClick={() => setIsPackageEditorOpen(true)}>
-          <Pencil size={16} />
-          Editar pacotes
-        </button>
-      </div>
+      </CollapsibleSection>
 
       <PackageSettingsModal
         isOpen={isPackageEditorOpen}
@@ -76,17 +85,31 @@ export function SettingsPanel({
         status={packageSettingsStatus}
       />
 
-      <WatermarkSettingsPanel
-        onSave={saveWatermarkSettings}
-        settings={watermarkSettings}
-        status={watermarkSettingsStatus}
-      />
+      <CollapsibleSection
+        emoji="🖼️"
+        help="Ajuste como o texto SnapFlow aparece nas imagens de prévia enviadas ao cliente."
+        title="Marca d'água das prévias"
+      >
+        <WatermarkSettingsPanel
+          embedded
+          onSave={saveWatermarkSettings}
+          settings={watermarkSettings}
+          status={watermarkSettingsStatus}
+        />
+      </CollapsibleSection>
 
-      <WhatsAppTemplatesPanel
-        saveWhatsAppTemplates={saveWhatsAppTemplates}
-        status={whatsAppTemplateStatus}
-        templates={whatsAppTemplates}
-      />
+      <CollapsibleSection
+        emoji="💬"
+        help="Personalize os textos enviados ou copiados para o cliente em cada etapa da venda."
+        title="Mensagens do WhatsApp"
+      >
+        <WhatsAppTemplatesPanel
+          embedded
+          saveWhatsAppTemplates={saveWhatsAppTemplates}
+          status={whatsAppTemplateStatus}
+          templates={whatsAppTemplates}
+        />
+      </CollapsibleSection>
     </section>
   );
 }

@@ -120,8 +120,14 @@ describe('DashboardScreen admin unlock', () => {
     expect(screen.getByRole('button', { name: 'Escolher fotos da câmera / galeria' })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: /Configurações/i }));
-    expect(screen.getByText('Retenção e sanitização')).toBeInTheDocument();
-    expect(screen.getByText("Marca d'água das prévias")).toBeInTheDocument();
-    expect(screen.getByText('Mensagens do WhatsApp')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Retenção e sanitização/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Pacotes e preços/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Marca d'água das prévias/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /Mensagens do WhatsApp/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /Editar pacotes/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Pacotes e preços/i }));
+    expect(screen.getByRole('button', { name: /Pacotes e preços/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Editar pacotes/i })).toBeInTheDocument();
   });
 });

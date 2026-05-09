@@ -1,13 +1,16 @@
 import { EyeOff, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CollapsibleSection } from './CollapsibleSection';
 import { buildCredentialDrafts, changedCredentialDrafts } from '../lib/credentials';
 
 const GROUP_META = {
   api: {
+    emoji: '🔐',
     title: 'Chaves e APIs',
     description: 'Segredos ficam mascarados e nunca retornam completos depois de salvos.',
   },
   profile: {
+    emoji: '📸',
     title: 'Dados do fotógrafo',
     description: 'Informações comerciais usadas para identificação, contato e exibição de pagamento.',
   },
@@ -107,14 +110,12 @@ export function CredentialsPanel({
       </div>
 
       {['api', 'profile'].map((groupKey) => (
-        <div className="summary-card credentials-group" key={groupKey}>
-          <div className="credentials-group-header">
-            <div>
-              <div className="summary-label">{GROUP_META[groupKey].title}</div>
-              <small className="summary-help">{GROUP_META[groupKey].description}</small>
-            </div>
-          </div>
-
+        <CollapsibleSection
+          emoji={GROUP_META[groupKey].emoji}
+          help={GROUP_META[groupKey].description}
+          key={groupKey}
+          title={GROUP_META[groupKey].title}
+        >
           <div className="credentials-grid">
             {(credentialsData[groupKey] || []).map((credential) => (
               <article className="credential-card" key={credential.key}>
@@ -169,7 +170,7 @@ export function CredentialsPanel({
               </article>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       ))}
 
       <div className="credentials-global-actions bottom">

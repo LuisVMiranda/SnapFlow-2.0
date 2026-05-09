@@ -136,6 +136,7 @@ function PlaceholderPill({ isActive, onActivate, onClear, placeholder, tooltipPo
 }
 
 export function WhatsAppTemplatesPanel({
+  embedded = false,
   saveWhatsAppTemplates,
   status = 'idle',
   templates,
@@ -175,14 +176,16 @@ export function WhatsAppTemplatesPanel({
   };
 
   return (
-    <div className="summary-card whatsapp-templates-card">
+    <div className={`${embedded ? '' : 'summary-card '}whatsapp-templates-card`}>
       <div className="whatsapp-templates-header">
-        <div>
-          <div className="summary-label">Mensagens do WhatsApp</div>
-          <small className="summary-help">
-            Personalize os textos enviados ou copiados para o cliente em cada etapa da venda.
-          </small>
-        </div>
+        {!embedded ? (
+          <div>
+            <div className="summary-label">Mensagens do WhatsApp</div>
+            <small className="summary-help">
+              Personalize os textos enviados ou copiados para o cliente em cada etapa da venda.
+            </small>
+          </div>
+        ) : <span />}
         <button
           type="button"
           className="btn-manual btn-manual-card whatsapp-template-save"

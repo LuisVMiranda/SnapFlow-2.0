@@ -72,6 +72,29 @@ function createSessionRepo({ pool, query, withTransaction }) {
     return rowToSession(result.rows[0]);
   }
 
+  async function cancelPendingSessionsForShare(shareToken, reason = 'Galeria removida pelo administrador.') {
+    const result = await query(
+      `update sessions
+       set status = 'cancelled',
+           delivery_status = 'cancelled',
+           delivery_error = $2,
+           delivery_updated_at = now()
+       where status = 'pending'
+         and (
+           share_token = $1
+           or exists (
+             select 1
+             from photos
+             where photos.session_id = sessions.id
+               and photos.share_token = $1
+           )
+         )
+       returning *`,
+      [shareToken, reason]
+    );
+    return result.rows.map(rowToSession);
+  }
+
   async function getSession(sessionId) {
     const result = await query('select * from sessions where id = $1', [sessionId]);
     return rowToSession(result.rows[0]);
@@ -154,7 +177,28 @@ function createSessionRepo({ pool, query, withTransaction }) {
          order by updated_at desc, id desc
          limit 1
        ) delivery_jobs on true
-       where sessions.status = 'approved' or sessions.created_at >= now() - interval '2 hours'
+       left join share_sessions ss on ss.token = sessions.share_token
+       where (sessions.status = 'approved' or sessions.created_at >= now() - interval '2 hours')
+         and (
+           (
+             sessions.share_token is null
+             and not exists (
+               select 1
+               from photos
+               where photos.session_id = sessions.id
+                 and photos.share_token is not null
+             )
+           )
+           or (ss.token is not null and ss.deleted_at is null)
+           or exists (
+             select 1
+             from photos
+             join share_sessions photo_share
+               on photo_share.token = photos.share_token
+              and photo_share.deleted_at is null
+             where photos.session_id = sessions.id
+           )
+         )
        order by sessions.created_at desc
        limit 5`
     );
@@ -243,6 +287,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
   return {
     approveSession,
     cancelManualSessionRelease,
+    cancelPendingSessionsForShare,
     clearSalesStats,
     createSession,
     dashboard,

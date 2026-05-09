@@ -41,7 +41,7 @@ const CODE_HINTS = {
   whatsapp_template_not_found: 'Atualize Configurações e tente salvar novamente.',
   webhook_signature_invalid: 'Confira o segredo do webhook configurado no Mercado Pago e no SnapFlow.',
   webhook_signature_missing: 'O Mercado Pago enviou a notificação sem assinatura. Confira a configuração do webhook.',
-  whatsapp_unavailable: 'Abra Vendas, verifique o cartão WhatsApp de envio e use Reconectar WhatsApp se necessário.',
+  whatsapp_unavailable: 'Abra Galerias, verifique o cartão WhatsApp de envio e use Reconectar WhatsApp se necessário.',
 };
 
 function statusHint(status) {

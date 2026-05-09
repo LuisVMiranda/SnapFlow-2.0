@@ -32,14 +32,18 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
 
   async function attachPhotosToSession(photoIds, values) {
     if (!Array.isArray(photoIds) || photoIds.length === 0) return [];
+    const replaceShareToken = Boolean(values.replaceShareToken && values.shareToken);
     const result = await query(
       `update photos
        set session_id = coalesce($1, session_id),
-           share_token = coalesce($2, share_token),
+           share_token = case
+             when $4::boolean then $2
+             else coalesce($2, share_token)
+           end,
            retention_expires_at = coalesce($3, retention_expires_at)
-       where id = any($4::text[])
+       where id = any($5::text[])
        returning *`,
-      [values.sessionId || null, values.shareToken || null, values.retentionExpiresAt || null, photoIds]
+      [values.sessionId || null, values.shareToken || null, values.retentionExpiresAt || null, replaceShareToken, photoIds]
     );
     return result.rows.map((row) => rowToPhoto(row, config));
   }

@@ -3,12 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SalesStatsPanel } from './SalesStatsPanel';
 
-vi.mock('qrcode', () => ({
-  default: {
-    toDataURL: vi.fn(() => Promise.resolve('data:image/png;base64,qr-image')),
-  },
-}));
-
 const baseDashData = {
   stats: {
     hoje: { valor: 0, fotos: 0, sessoes: 0 },
@@ -65,36 +59,6 @@ function jsonResponse(body, status = 200) {
     text: async () => JSON.stringify(body),
   };
 }
-
-describe('SalesStatsPanel WhatsApp pairing', () => {
-  beforeEach(() => {
-    globalThis.fetch = vi.fn(async (url) => {
-      if (String(url).endsWith('/api/admin/whatsapp/status')) {
-        return jsonResponse({
-          ready: false,
-          status: 'qr',
-          lastError: null,
-          hasQr: true,
-          qr: 'pairing-payload',
-        });
-      }
-      return jsonResponse({});
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('renders the backend WhatsApp pairing QR inside the sales panel', async () => {
-    render(<SalesStatsPanel {...baseProps} />);
-
-    const qr = await screen.findByAltText('QR Code para parear WhatsApp');
-    expect(qr).toHaveAttribute('src', 'data:image/png;base64,qr-image');
-    expect(screen.getByText('QR DISPONÍVEL')).toBeInTheDocument();
-    expect(screen.getByText(/Aparelhos conectados/i)).toBeInTheDocument();
-  });
-});
 
 describe('SalesStatsPanel manual release cancellation', () => {
   beforeEach(() => {

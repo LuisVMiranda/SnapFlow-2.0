@@ -19,7 +19,7 @@ const SHARE_WITH_SALES_SQL = `
   ) sales on sales.share_token = ss.token
 `;
 
-function createShareSessionRepo({ attachPhotosToSession, query }) {
+function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsForShare, query }) {
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
@@ -44,8 +44,54 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
         share.link,
       ]
     );
-    await attachPhotosToSession(share.photoIds, { shareToken: share.token, retentionExpiresAt: share.retentionExpiresAt });
+    await attachPhotosToSession(share.photoIds, {
+      shareToken: share.token,
+      retentionExpiresAt: share.retentionExpiresAt,
+      replaceShareToken: true,
+    });
     return rowToShare(result.rows[0], { includeSensitive: true });
+  }
+
+  async function findShareWithExactPhotos(photoIds) {
+    if (!Array.isArray(photoIds) || photoIds.length === 0) return null;
+    const uniquePhotoIds = [...new Set(photoIds.map(String).filter(Boolean))];
+    if (!uniquePhotoIds.length) return null;
+
+    const result = await query(
+      `with selected_photos as (
+         select unnest($1::text[]) as id
+       ),
+       selected_count as (
+         select count(*)::int as total from selected_photos
+       ),
+       candidate_shares as (
+         select p.share_token
+         from photos p
+         join selected_photos selected on selected.id = p.id
+         where p.deleted_at is null
+           and p.share_token is not null
+         group by p.share_token
+         having count(distinct p.id) = (select total from selected_count)
+       )
+       select ss.*
+       from share_sessions ss
+       join candidate_shares candidate on candidate.share_token = ss.token
+       where not exists (
+         select 1
+         from photos p
+         where p.share_token = ss.token
+           and p.deleted_at is null
+           and not exists (
+             select 1 from selected_photos selected where selected.id = p.id
+           )
+       )
+       order by
+         case when ss.deleted_at is null then 0 else 1 end,
+         ss.created_at desc
+       limit 1`,
+      [uniquePhotoIds]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true, includeSensitive: true });
   }
 
   async function updateShareSession(token, updates = {}) {
@@ -104,6 +150,50 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
       [
         token,
         updates.expiresAt,
+        updates.retentionExpiresAt || null,
+        updates.accessCodeHash || null,
+        updates.accessCode || null,
+        updates.link || null,
+      ]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true, includeSensitive: true });
+  }
+
+  async function restoreShareSession(token, updates = {}) {
+    const result = await query(
+      `update share_sessions
+       set phone = coalesce($2, phone),
+           client_name = coalesce($3, client_name),
+           client_email = coalesce($4, client_email),
+           gallery_name = coalesce($5, gallery_name),
+           gallery_description = coalesce($6, gallery_description),
+           package_type = coalesce($7, package_type),
+           total_cents = coalesce($8, total_cents),
+           expires_at = coalesce($9, expires_at),
+           retention_expires_at = coalesce($10, retention_expires_at),
+           access_code_hash = coalesce($11, access_code_hash),
+           access_code = coalesce($12, access_code),
+           link = coalesce($13, link),
+           status = 'active',
+           revoked_at = null,
+           deleted_at = null,
+           photo_count = (
+             select count(*)::int
+             from photos
+             where share_token = $1 and deleted_at is null
+           )
+       where token = $1
+       returning *`,
+      [
+        token,
+        updates.phone ?? null,
+        updates.clientName ?? null,
+        updates.clientEmail ?? null,
+        updates.galleryName ?? null,
+        updates.galleryDescription ?? null,
+        updates.packageType ?? null,
+        updates.total === undefined ? null : toCents(updates.total),
+        updates.expiresAt || null,
         updates.retentionExpiresAt || null,
         updates.accessCodeHash || null,
         updates.accessCode || null,
@@ -172,7 +262,14 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
   }
 
   async function getShareSession(token, options = {}) {
-    const result = await query(`${SHARE_WITH_SALES_SQL} where ss.token = $1 and ss.deleted_at is null`, [token]);
+    const result = await query(
+      `${SHARE_WITH_SALES_SQL}
+       where (ss.token = $1 or lower(ss.token) = lower($1))
+         and ss.deleted_at is null
+       order by case when ss.token = $1 then 0 else 1 end, ss.created_at desc
+       limit 1`,
+      [token]
+    );
     return rowToShare(result.rows[0], options);
   }
 
@@ -201,7 +298,11 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
 
   async function deleteShareSession(token) {
     const result = await query('update share_sessions set deleted_at = coalesce(deleted_at, now()) where token = $1 and deleted_at is null returning *', [token]);
-    return rowToShare(result.rows[0]);
+    const deleted = rowToShare(result.rows[0]);
+    if (deleted && typeof cancelPendingSessionsForShare === 'function') {
+      await cancelPendingSessionsForShare(token, 'Galeria removida pelo administrador.');
+    }
+    return deleted;
   }
 
   return {
@@ -209,11 +310,13 @@ function createShareSessionRepo({ attachPhotosToSession, query }) {
     deleteShareSession,
     deleteDetachedShareDuplicates,
     extendShareSession,
+    findShareWithExactPhotos,
     findShareWithMatchingMetadata,
     getShareSession,
     markShareAccessGranted,
     reactivateShareSession,
     refreshSharePhotoCount,
+    restoreShareSession,
     revokeShareSession,
     updateShareSession,
   };

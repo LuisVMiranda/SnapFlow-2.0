@@ -24,6 +24,7 @@ function watermarkPreviewSize(settings) {
 }
 
 export function WatermarkSettingsPanel({
+  embedded = false,
   onSave,
   settings = DEFAULT_WATERMARK_SETTINGS,
   status = 'idle',
@@ -53,14 +54,16 @@ export function WatermarkSettingsPanel({
   };
 
   return (
-    <div className="summary-card watermark-settings-card">
+    <div className={`${embedded ? '' : 'summary-card '}watermark-settings-card`}>
       <div className="watermark-settings-header">
-        <div>
-          <div className="summary-label">Marca d&apos;água das prévias</div>
-          <small className="summary-help">
-            Ajuste como o texto SnapFlow aparece nas imagens de prévia enviadas ao cliente.
-          </small>
-        </div>
+        {!embedded ? (
+          <div>
+            <div className="summary-label">Marca d&apos;água das prévias</div>
+            <small className="summary-help">
+              Ajuste como o texto SnapFlow aparece nas imagens de prévia enviadas ao cliente.
+            </small>
+          </div>
+        ) : <span />}
         <button
           type="button"
           className="btn-manual btn-manual-card watermark-save-button"

@@ -8,6 +8,7 @@ const { hashValue } = require('../src/tokens');
 
 function createTestApp({
   deliveryQueue = { enqueue: async () => null },
+  initialDeletedShareToken = null,
   initialPhotos = null,
   whatsapp = {
     getStatus: () => ({ ready: true, status: 'ready', lastError: null }),
@@ -43,7 +44,10 @@ function createTestApp({
     link: 'http://localhost:5173/s/share_1',
     sales: emptySales(),
   };
-  let deletedShareToken = null;
+  let deletedShareToken = initialDeletedShareToken;
+  if (deletedShareToken === share.token) {
+    share = { ...share, deletedAt: new Date().toISOString(), status: 'revoked' };
+  }
   let recreatedShare = null;
   const sessions = new Map();
   let photos = basePhotos;
@@ -78,7 +82,13 @@ function createTestApp({
         mensal: [],
         anual: [],
       },
-      recent: [],
+      recent: Array.from(sessions.values()).filter((session) => {
+        const hasSharePhotos = photos.some((photo) => photo.sessionId === session.id && photo.shareToken);
+        const hasActiveSharePhotos = photos.some((photo) => photo.sessionId === session.id && photo.shareToken && deletedShareToken !== photo.shareToken);
+        return (!session.shareToken && !hasSharePhotos)
+          || (session.shareToken && deletedShareToken !== session.shareToken)
+          || hasActiveSharePhotos;
+      }),
       shareRecent: deletedShareToken ? [] : [{
         token: 'share_1',
         photoCount: 1,
@@ -91,8 +101,9 @@ function createTestApp({
       }],
     }),
     getShareSession: async (token, options = {}) => {
-      const target = token === 'share_1' ? share : recreatedShare?.token === token ? recreatedShare : null;
-      if (!target || deletedShareToken === token) return null;
+      const normalizedToken = String(token || '').toLowerCase();
+      const target = normalizedToken === 'share_1' ? share : recreatedShare?.token?.toLowerCase() === normalizedToken ? recreatedShare : null;
+      if (!target || deletedShareToken?.toLowerCase?.() === normalizedToken) return null;
       return options.includeSensitive ? target : { ...target, accessCodeHash: undefined };
     },
     markShareAccessGranted: async () => share,
@@ -144,7 +155,45 @@ function createTestApp({
         link: payload.link,
         sales: emptySales(),
       };
+      photos = photos.map((photo) => (payload.photoIds.includes(photo.id) ? { ...photo, shareToken: payload.token } : photo));
       return recreatedShare;
+    },
+    findShareWithExactPhotos: async (photoIds) => {
+      const selected = new Set(photoIds);
+      const candidates = [share, recreatedShare].filter(Boolean);
+      return candidates.find((candidate) => {
+        const visibleIds = photos
+          .filter((photo) => photo.shareToken === candidate.token && !photo.deletedAt)
+          .map((photo) => photo.id);
+        return visibleIds.length === selected.size && visibleIds.every((photoId) => selected.has(photoId));
+      }) || null;
+    },
+    restoreShareSession: async (token, updates) => {
+      const target = token === share.token ? share : recreatedShare?.token === token ? recreatedShare : null;
+      if (!target) return null;
+      const restored = {
+        ...target,
+        accessCodeHash: updates.accessCodeHash || target.accessCodeHash,
+        accessCode: updates.accessCode || target.accessCode,
+        packageType: updates.packageType || target.packageType,
+        phone: updates.phone || target.phone,
+        clientName: updates.clientName === undefined ? target.clientName : updates.clientName,
+        clientEmail: updates.clientEmail === undefined ? target.clientEmail : updates.clientEmail,
+        galleryName: updates.galleryName === undefined ? target.galleryName : updates.galleryName,
+        galleryDescription: updates.galleryDescription === undefined ? target.galleryDescription : updates.galleryDescription,
+        photoCount: photos.filter((photo) => photo.shareToken === token && !photo.deletedAt).length,
+        total: updates.total === undefined ? target.total : updates.total,
+        expiresAt: updates.expiresAt.toISOString(),
+        retentionExpiresAt: updates.retentionExpiresAt?.toISOString?.() || updates.retentionExpiresAt || target.retentionExpiresAt,
+        revokedAt: null,
+        deletedAt: null,
+        status: 'active',
+        link: updates.link || target.link,
+      };
+      if (token === share.token) share = restored;
+      if (recreatedShare?.token === token) recreatedShare = restored;
+      if (deletedShareToken === token) deletedShareToken = null;
+      return restored;
     },
     reactivateShareSession: async (token, updates) => {
       if (token !== 'share_1') return null;
@@ -167,6 +216,14 @@ function createTestApp({
       if (token !== 'share_1') return null;
       deletedShareToken = token;
       share = { ...share, deletedAt: new Date().toISOString() };
+      for (const session of sessions.values()) {
+        const hasSharePhoto = photos.some((photo) => photo.sessionId === session.id && photo.shareToken === token);
+        if ((session.shareToken === token || hasSharePhoto) && session.status === 'pending') {
+          session.status = 'cancelled';
+          session.deliveryStatus = 'cancelled';
+          session.deliveryError = 'Galeria removida pelo administrador.';
+        }
+      }
       return share;
     },
     deletePhotoFromShare: async (token, photoId) => {
@@ -202,7 +259,7 @@ function createTestApp({
       };
       return share;
     },
-    createSession: async (session) => {
+    createSession: async (session, photoIds = []) => {
       const stored = {
         id: session.id,
         amount: session.amount,
@@ -217,6 +274,9 @@ function createTestApp({
         deliveryStatus: session.deliveryStatus,
       };
       sessions.set(stored.id, stored);
+      if (photoIds.length) {
+        photos = photos.map((photo) => (photoIds.includes(photo.id) ? { ...photo, sessionId: stored.id } : photo));
+      }
       return stored;
     },
     clearSalesStats: async () => {
@@ -591,6 +651,41 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.match(sends[0].message, /Código/);
 });
 
+test('admin share link creation restores the existing gallery for the same photo set', async () => {
+  const sends = [];
+  const app = createTestApp({
+    initialDeletedShareToken: 'share_1',
+    whatsapp: { sendText: async (phone, message) => sends.push({ phone, message }) },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.token, 'share_1');
+  assert.equal(response.body.galleryId, 'gallery_1');
+  assert.equal(response.body.accessCode, '1234');
+  assert.equal(response.body.link, 'https://snapflow-tail.example/s/share_1');
+  assert.equal(sends.length, 1);
+
+  const dashboard = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(dashboard.body.shareRecent.length, 1);
+  assert.equal(dashboard.body.shareRecent[0].token, 'share_1');
+});
+
 test('admin share link creation keeps link when WhatsApp send fails', async () => {
   const app = createTestApp({
     whatsapp: {
@@ -739,6 +834,110 @@ test('admin delete hides a shared link from dashboard lists', async () => {
     .set('Authorization', 'Bearer admin-secret');
 
   assert.equal(dashboard.body.shareRecent.length, 0);
+});
+
+test('admin delete cancels and hides pending sales for that shared gallery', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'gallery_pending_sale',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      packageType: 'eventos',
+      shareToken: 'share_1',
+      photoIds: ['photo_1'],
+    });
+
+  const beforeDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(beforeDelete.body.recent.some((session) => session.id === 'gallery_pending_sale'), true);
+
+  const deleted = await request(app)
+    .delete('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(deleted.status, 200);
+  const storedSession = await request(app)
+    .get('/api/admin/session/gallery_pending_sale')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(storedSession.body.status, 'cancelled');
+  assert.equal(storedSession.body.deliveryStatus, 'cancelled');
+
+  const afterDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(afterDelete.body.recent.some((session) => session.id === 'gallery_pending_sale'), false);
+});
+
+test('admin delete hides pending sales linked only through gallery photos', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'gallery_photo_pending_sale',
+      total: 30,
+      count: 1,
+      phone: '11999999999',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  const beforeDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(beforeDelete.body.recent.some((session) => session.id === 'gallery_photo_pending_sale'), true);
+
+  await request(app)
+    .delete('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const storedSession = await request(app)
+    .get('/api/admin/session/gallery_photo_pending_sale')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(storedSession.body.status, 'cancelled');
+
+  const afterDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(afterDelete.body.recent.some((session) => session.id === 'gallery_photo_pending_sale'), false);
+});
+
+test('admin delete hides approved sales from recent when their gallery is gone', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'gallery_approved_sale',
+      total: 30,
+      count: 1,
+      phone: '11999999999',
+      packageType: 'eventos',
+      shareToken: 'share_1',
+      photoIds: ['photo_1'],
+    });
+  await request(app)
+    .post('/api/admin/approve-manual-session/gallery_approved_sale')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const beforeDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(beforeDelete.body.recent.some((session) => session.id === 'gallery_approved_sale'), true);
+
+  await request(app)
+    .delete('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const afterDelete = await request(app)
+    .get('/api/admin/dashboard')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(afterDelete.body.recent.some((session) => session.id === 'gallery_approved_sale'), false);
 });
 
 test('admin recreate revalidates the same gallery link and code', async () => {
@@ -993,6 +1192,13 @@ test('share metadata hides photo urls before unlock', async () => {
   assert.equal(response.body.galleryDescription, 'Seleção final do aniversário');
   assert.equal(response.body.photos, undefined);
   assert.equal(response.body.thumbUrls, undefined);
+});
+
+test('share metadata tolerates token casing differences in copied links', async () => {
+  const response = await request(createTestApp()).get('/api/share-session/SHARE_1');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.token, 'share_1');
 });
 
 test('approved shared sales update gallery sales metadata', async () => {
