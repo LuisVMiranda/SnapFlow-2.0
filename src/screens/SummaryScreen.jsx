@@ -133,7 +133,9 @@ export function SummaryScreen({
             : phoneValidation.message}
         </small>
         <small className="summary-help">
-          Assim que o pagamento for confirmado por você no painel, as imagens serão disparadas para ele em formato de documento, sem compressão.
+          {shareToken
+            ? 'Assim que o pagamento for confirmado, suas fotos serão liberadas pelo fotógrafo.'
+            : 'Assim que o pagamento for confirmado por você no painel, as imagens serão disparadas para ele em formato de documento, sem compressão.'}
         </small>
       </div>
 

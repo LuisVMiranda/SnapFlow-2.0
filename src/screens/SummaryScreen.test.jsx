@@ -65,6 +65,13 @@ describe('SummaryScreen', () => {
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
+  it('shows client-facing delivery help in shared gallery checkout', () => {
+    render(<SummaryScreen {...baseProps} shareToken="share_123" />);
+
+    expect(screen.getByText(/suas fotos serão liberadas pelo fotógrafo/i)).toBeInTheDocument();
+    expect(screen.queryByText(/por você no painel/i)).not.toBeInTheDocument();
+  });
+
   it('fires Pix and manual payment actions from the checkout buttons', async () => {
     const props = { ...baseProps, handleGeneratePix: vi.fn(), handleManualPayment: vi.fn() };
     render(<SummaryScreen {...props} />);

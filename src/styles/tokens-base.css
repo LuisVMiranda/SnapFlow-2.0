@@ -10,6 +10,7 @@
   --gray: #9ca3af;
   --radius: 14px;
   --gap: 16px;
+  --page-bottom-space: max(40px, calc(env(safe-area-inset-bottom) + 36px));
   --screen-width: min(100vw, 880px);
 }
 
@@ -42,6 +43,7 @@ body {
   max-width: var(--screen-width);
   margin: 0 auto;
   background: var(--black);
+  padding-bottom: var(--page-bottom-space);
   position: relative;
 }
 

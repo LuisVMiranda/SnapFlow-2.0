@@ -118,7 +118,7 @@
 }
 
 .viewer-bottom {
-  padding: 0 20px 24px;
+  padding: 0 20px max(24px, calc(env(safe-area-inset-bottom) + 24px));
 }
 
 .btn-giant {
@@ -181,6 +181,6 @@
   }
 
   .viewer-bottom {
-    padding: 0 12px 18px;
+    padding: 0 12px max(18px, calc(env(safe-area-inset-bottom) + 18px));
   }
 }
