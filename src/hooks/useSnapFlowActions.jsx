@@ -256,7 +256,9 @@ export function useSnapFlowActions(config) {
           deliveryError: null,
           paymentMethod: 'Dinheiro/Cartão',
         });
-        setNotice('Pagamento em dinheiro/cartão aguardando liberação no painel. Abra a aprovação em uma nova aba para liberar as fotos.');
+        setNotice(shareToken
+          ? 'Pedido enviado ao fotógrafo. Aguarde a aprovação do pagamento para liberar o envio das fotos.'
+          : 'Pagamento em dinheiro/cartão aguardando liberação no painel. Abra a aprovação em uma nova aba para liberar as fotos.');
         setScreen('manual-pending');
         return;
       } else {

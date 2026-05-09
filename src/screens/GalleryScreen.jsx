@@ -28,6 +28,9 @@ export function GalleryScreen({
   unit,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
+  const manualPaymentNotice = shareToken
+    ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
+    : undefined;
 
   return (
     <div className={`screen ${shareToken ? 'share-protected' : ''}`}>
@@ -162,6 +165,7 @@ export function GalleryScreen({
           paymentStatus={liveOps.paymentStatus}
           deliveryStatus={liveOps.deliveryStatus}
           deliveryError={liveOps.deliveryError}
+          manualPaymentNotice={manualPaymentNotice}
         />
       </div>
 

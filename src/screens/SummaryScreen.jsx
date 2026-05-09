@@ -47,6 +47,9 @@ export function SummaryScreen({
   const manualWhatsAppUrl = shareAccess && phoneValidation.valid
     ? `https://wa.me/${phoneValidation.normalized}?text=${encodeURIComponent(shareMessage)}`
     : '';
+  const manualPaymentNotice = shareToken
+    ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
+    : undefined;
 
   return (
     <div className="screen center-screen">
@@ -71,6 +74,7 @@ export function SummaryScreen({
         paymentStatus={liveOps.paymentStatus}
         deliveryStatus={liveOps.deliveryStatus}
         deliveryError={liveOps.deliveryError}
+        manualPaymentNotice={manualPaymentNotice}
       />
 
       <div className="summary-card">
@@ -102,9 +106,6 @@ export function SummaryScreen({
           onChange={(event) => setClientName(event.target.value.replace(/\s+/g, ' ').slice(0, 80))}
           className="phone-input"
         />
-        <small className="summary-help">
-          Esse nome pode ser usado nos modelos de WhatsApp com {'{name}'}.
-        </small>
 
         <div className="summary-label summary-label-spaced">E-mail do cliente</div>
         <input

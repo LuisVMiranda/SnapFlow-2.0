@@ -200,14 +200,22 @@ export function useSnapFlowController() {
     [photos, selected]
   );
 
-  const activeStage = {
+  const adminStageLabels = {
     dashboard: 'Pronto para iniciar uma nova venda',
     gallery: 'Selecionando fotos para o cliente',
     summary: 'Conferindo valor e WhatsApp',
     pix: 'Aguardando confirmação do pagamento',
     'manual-pending': 'Aguardando aprovação manual no painel',
     confirmed: 'Acompanhando entrega final',
-  }[screen];
+  };
+  const clientStageLabels = {
+    gallery: 'Selecionando suas fotos',
+    summary: 'Conferindo pedido',
+    pix: 'Aguardando confirmação do pagamento',
+    'manual-pending': 'Aguardando aprovação do fotógrafo',
+    confirmed: 'Acompanhando entrega das fotos',
+  };
+  const activeStage = (shareToken ? clientStageLabels : adminStageLabels)[screen];
 
   const fetchDashboard = useCallback(async ({ silent = false } = {}) => {
     if (!isAdminUnlocked) return;

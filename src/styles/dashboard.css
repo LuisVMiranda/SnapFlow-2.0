@@ -537,11 +537,17 @@
   width: 100%;
 }
 
-.share-edit-panel label {
+.share-edit-panel label,
+.share-edit-field {
   color: var(--gray);
   display: grid;
   font-size: 12px;
   gap: 6px;
+}
+
+.share-edit-field label {
+  color: inherit;
+  font-size: inherit;
 }
 
 .share-sales-summary {

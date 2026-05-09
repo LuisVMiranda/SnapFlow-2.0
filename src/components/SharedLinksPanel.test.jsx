@@ -77,6 +77,7 @@ describe('SharedLinksPanel', () => {
     render(<SharedLinksPanel {...baseProps} />);
     await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
     expect(screen.getAllByText(/0 foto\(s\) vendidas até agora em 0 pedido\(s\)/i).length).toBeGreaterThan(1);
+    expect(screen.getByText(/Este nome alimenta o parâmetro \{name\}/i)).toBeInTheDocument();
     await user.clear(screen.getByLabelText('Nome da galeria'));
     await user.type(screen.getByLabelText('Nome da galeria'), 'Casamento Centro');
     await user.clear(screen.getByLabelText('Descrição da galeria'));

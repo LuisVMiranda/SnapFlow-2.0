@@ -288,6 +288,7 @@ export default function App() {
         pricingOptions={pricingOptions}
         sessionId={sessionId}
         setScreen={setScreen}
+        shareToken={shareToken}
         total={total}
         type={type}
       />

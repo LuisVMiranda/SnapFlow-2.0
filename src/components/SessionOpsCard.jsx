@@ -14,12 +14,20 @@ export function SessionOpsCard({
   paymentStatus,
   deliveryStatus,
   deliveryError,
+  manualPaymentNotice = 'Aguardando sua confirmação no painel para liberar o envio automático das fotos.',
   onRetryDelivery,
 }) {
-  const paymentMeta = PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
+  const paymentMeta =
+    paymentMethod === 'Dinheiro/Cartão' && paymentStatus === 'pending'
+      ? { label: 'Aguardando aprovação', tone: 'info' }
+      : PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
   const deliveryMeta = DELIVERY_META[deliveryStatus] || DELIVERY_META.idle;
   const activePackageLabel = packageLabel(packageType, pricingOptions, 'Não definido');
   const paymentMethodLabel = paymentMethod || 'Não definido';
+  const showManualPaymentNotice =
+    paymentMethod === 'Dinheiro/Cartão' &&
+    paymentStatus !== 'approved' &&
+    manualPaymentNotice;
 
   return (
     <div className="ops-card">
@@ -56,9 +64,9 @@ export function SessionOpsCard({
         <span className={`ops-badge ${deliveryMeta.tone}`}>{deliveryMeta.label}</span>
       </div>
 
-      {paymentMethod === 'Dinheiro/Cartão' ? (
+      {showManualPaymentNotice ? (
         <div className="ops-warning">
-          Aguardando sua confirmação no painel para liberar o envio automático das fotos.
+          {manualPaymentNotice}
         </div>
       ) : null}
 

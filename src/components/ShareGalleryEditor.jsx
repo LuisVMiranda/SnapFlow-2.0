@@ -19,6 +19,8 @@ export function ShareGalleryEditor({
   const soldOrderCount = Number(sales.soldOrderCount || 0);
   const soldAmount = Number(sales.soldAmount || 0);
   const uploadInputId = `share-upload-${shareSession.galleryId || shareSession.token}`;
+  const clientInputId = `share-client-${shareSession.galleryId || shareSession.token}`;
+  const clientHelpId = `${clientInputId}-help`;
 
   return (
     <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
@@ -62,12 +64,14 @@ export function ShareGalleryEditor({
           placeholder="1234"
         />
       </label>
-      <label>
-        Cliente
+      <div className="share-edit-field">
+        <label htmlFor={clientInputId}>Cliente</label>
         <input
+          id={clientInputId}
           className="phone-input"
           maxLength={80}
           value={draft.clientName}
+          aria-describedby={clientHelpId}
           onChange={(event) => {
             updateDraft(
               shareSession.token,
@@ -77,7 +81,8 @@ export function ShareGalleryEditor({
           }}
           placeholder="Nome de quem acessa e paga"
         />
-      </label>
+        <small className="summary-help" id={clientHelpId}>Este nome alimenta o parâmetro {'{name}'} nos modelos de WhatsApp.</small>
+      </div>
       <label>
         E-mail do cliente
         <input

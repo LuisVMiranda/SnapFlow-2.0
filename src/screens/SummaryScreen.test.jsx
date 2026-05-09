@@ -39,14 +39,15 @@ const baseProps = {
 };
 
 describe('SummaryScreen', () => {
-  it('lets the photographer type the client name for WhatsApp templates', async () => {
+  it('lets the client name be typed without exposing template internals in checkout', async () => {
     const props = { ...baseProps, setClientName: vi.fn() };
     render(<SummaryScreen {...props} />);
 
     await userEvent.type(screen.getByPlaceholderText('Nome de quem vai acessar e pagar'), 'Ana Cliente');
 
     expect(props.setClientName).toHaveBeenCalled();
-    expect(screen.getByText(/\{name\}/)).toBeInTheDocument();
+    expect(screen.queryByText(/\{name\}/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/modelos de WhatsApp/i)).not.toBeInTheDocument();
   });
 
   it('accepts an optional client email for manual checkout actions', async () => {
@@ -73,6 +74,26 @@ describe('SummaryScreen', () => {
 
     expect(props.handleGeneratePix).toHaveBeenCalledTimes(1);
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
+  });
+
+  it('uses client-safe manual payment notice in shared gallery checkout', () => {
+    render(
+      <SummaryScreen
+        {...baseProps}
+        activeStage="Conferindo pedido"
+        liveOps={{
+          paymentStatus: 'pending',
+          deliveryStatus: 'idle',
+          deliveryError: null,
+          paymentMethod: 'Dinheiro/Cartão',
+        }}
+        shareToken="share_123"
+      />
+    );
+
+    expect(screen.getByText(/Pedido enviado ao fotógrafo/i)).toBeInTheDocument();
+    expect(screen.getByText('Aguardando aprovação')).toBeInTheDocument();
+    expect(screen.queryByText(/sua confirmação no painel/i)).not.toBeInTheDocument();
   });
 
   it('opens a manual WhatsApp link when backend sending needs fallback', async () => {
