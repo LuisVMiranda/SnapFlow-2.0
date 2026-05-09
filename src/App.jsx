@@ -71,6 +71,7 @@ export default function App() {
     saveCredentialsBatch,
     savePackageSettings,
     saveRetentionSettings,
+    saveWatermarkSettings,
     saveWhatsAppTemplates,
     screen,
     selected,
@@ -103,6 +104,8 @@ export default function App() {
     unit,
     whatsAppTemplateStatus,
     whatsAppTemplates,
+    watermarkSettings,
+    watermarkSettingsStatus,
     withAdminMediaToken,
   } = useSnapFlowController();
 
@@ -161,6 +164,7 @@ export default function App() {
         setViewerIndex={setViewerIndex}
         markBrokenPhoto={markBrokenPhoto}
         toggle={toggle}
+        watermarkSettings={shareSessionInfo?.watermarkSettings || watermarkSettings}
       />
     );
   }
@@ -201,6 +205,7 @@ export default function App() {
         saveCredentialsBatch={saveCredentialsBatch}
         savePackageSettings={savePackageSettings}
         saveRetentionSettings={saveRetentionSettings}
+        saveWatermarkSettings={saveWatermarkSettings}
         saveWhatsAppTemplates={saveWhatsAppTemplates}
         sessionId={sessionId}
         setNotice={setNotice}
@@ -213,6 +218,8 @@ export default function App() {
         withAdminMediaToken={withAdminMediaToken}
         whatsAppTemplateStatus={whatsAppTemplateStatus}
         whatsAppTemplates={whatsAppTemplates}
+        watermarkSettings={watermarkSettings}
+        watermarkSettingsStatus={watermarkSettingsStatus}
       />
     );
   }
@@ -247,6 +254,7 @@ export default function App() {
         total={total}
         type={type}
         unit={unit}
+        watermarkSettings={shareSessionInfo?.watermarkSettings || watermarkSettings}
       />
     );
   }

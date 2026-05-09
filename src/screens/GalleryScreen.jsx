@@ -1,5 +1,6 @@
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
+import { WatermarkOverlay } from '../components/WatermarkOverlay';
 import { formatMoney } from '../lib/formatters';
 import { DEFAULT_PRICING } from '../lib/pricing';
 
@@ -31,6 +32,7 @@ export function GalleryScreen({
   total,
   type,
   unit,
+  watermarkSettings,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
   const hasMorePhotos = Boolean(shareToken && photosPage?.hasMore);
@@ -109,10 +111,7 @@ export function GalleryScreen({
                     }}
                   />
                   {shareToken ? (
-                    <>
-                      <div className="preview-watermark">SNAPFLOW PREVIEW</div>
-                      <div className="watermark-overlay" />
-                    </>
+                    <WatermarkOverlay settings={watermarkSettings} />
                   ) : null}
                 </>
               )}

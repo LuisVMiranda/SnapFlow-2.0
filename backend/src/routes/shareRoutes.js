@@ -53,15 +53,23 @@ async function resolveShareOrder({ packages, repos, req }) {
   return { count, photoIds, share, total };
 }
 
-function createShareRouter({ packages, payment, repos }) {
+function createShareRouter({ packages, payment, repos, watermark }) {
   const router = express.Router();
+
+  async function publicPayload(share) {
+    const payload = publicSharePayload(share);
+    if (watermark && typeof watermark.getSettings === 'function') {
+      payload.watermarkSettings = await watermark.getSettings();
+    }
+    return payload;
+  }
 
   router.get(
     '/share-session/:token',
     asyncHandler(async (req, res) => {
       const share = await repos.getShareSession(req.params.token);
       if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
-      res.json(publicSharePayload(share));
+      res.json(await publicPayload(share));
     })
   );
 
@@ -78,7 +86,7 @@ function createShareRouter({ packages, payment, repos }) {
       const { items, page } = await repos.listPhotosForSharePage(share.token, { limit: req.body?.limit });
       const customerAccessToken = issueCustomerAccessToken(share.token);
       res.json({
-        ...publicSharePayload(share),
+        ...(await publicPayload(share)),
         customerAccessToken,
         photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
         photosPage: page,

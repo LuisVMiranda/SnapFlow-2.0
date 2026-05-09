@@ -18,7 +18,7 @@ const DEFAULT_WHATSAPP_TEMPLATES = {
     body: [
       'Recebemos sua seleção no SnapFlow, {name}.',
       'Assim que o pagamento for confirmado, suas fotos serão liberadas.',
-      '{linkLabel}: {link}',
+      '{linkText}',
     ].join('\n'),
   },
   deliveryThanks: {
@@ -63,7 +63,11 @@ function normalizeTemplateBody(value, fallback) {
 
 function normalizeStoredTemplateBody(key, value, fallback) {
   const body = normalizeTemplateBody(value, fallback);
-  return body === LEGACY_DEFAULT_TEMPLATE_BODIES[key] ? fallback : body;
+  const legacyBodies = [LEGACY_DEFAULT_TEMPLATE_BODIES[key]].filter(Boolean);
+  if (key === 'paymentWaiting') {
+    legacyBodies.push(fallback.replace('{linkText}', '{linkLabel}: {link}'));
+  }
+  return legacyBodies.includes(body) ? fallback : body;
 }
 
 function normalizeTemplates(value) {
@@ -92,11 +96,22 @@ function renderTemplate(template, variables = {}) {
 }
 
 function linkVariables({ link = '', linkLabel = 'Abrir galeria' } = {}) {
+  const safeLink = String(link || '').trim();
+  const safeLinkLabel = safeLink ? String(linkLabel || 'Abrir galeria').trim() : '';
   return {
-    link,
-    linkLabel,
-    linkText: `${linkLabel}: ${link}`.trim(),
+    link: safeLink,
+    linkLabel: safeLinkLabel,
+    linkText: safeLink ? `${safeLinkLabel}: ${safeLink}`.trim() : '',
   };
+}
+
+function cleanLinklessPaymentMessage(message) {
+  return String(message || '')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/g, ''))
+    .filter((line) => !/^[\s:.-]+$/.test(line))
+    .join('\n')
+    .trim();
 }
 
 function createWhatsAppTemplatesService({ repos }) {
@@ -147,10 +162,12 @@ function createWhatsAppTemplatesService({ repos }) {
   }
 
   async function renderPaymentWaitingMessage(variables = {}) {
-    return render('paymentWaiting', {
-      ...linkVariables(variables),
+    const hasPublicLink = Boolean(String(variables.link || '').trim());
+    const rendered = await render('paymentWaiting', {
       ...variables,
+      ...linkVariables(variables),
     });
+    return hasPublicLink ? rendered.trim() : cleanLinklessPaymentMessage(rendered);
   }
 
   async function renderDeliveryThanksMessage(variables = {}) {
@@ -172,6 +189,7 @@ function createWhatsAppTemplatesService({ repos }) {
 
 module.exports = {
   DEFAULT_WHATSAPP_TEMPLATES,
+  cleanLinklessPaymentMessage,
   createWhatsAppTemplatesService,
   normalizeTemplates,
   renderTemplate,

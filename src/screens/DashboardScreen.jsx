@@ -41,6 +41,7 @@ export function DashboardScreen({
   saveCredentialsBatch,
   savePackageSettings,
   saveRetentionSettings,
+  saveWatermarkSettings,
   saveWhatsAppTemplates,
   sessionId,
   setNotice,
@@ -53,6 +54,8 @@ export function DashboardScreen({
   withAdminMediaToken,
   whatsAppTemplateStatus,
   whatsAppTemplates,
+  watermarkSettings,
+  watermarkSettingsStatus,
 }) {
   const [activeTab, setActiveTab] = useState('galerias');
 
@@ -90,12 +93,15 @@ export function DashboardScreen({
           runCleanup={runCleanup}
           savePackageSettings={savePackageSettings}
           saveRetentionSettings={saveRetentionSettings}
+          saveWatermarkSettings={saveWatermarkSettings}
           saveWhatsAppTemplates={saveWhatsAppTemplates}
           setRetentionSettings={setRetentionSettings}
           setType={setType}
           type={type}
           whatsAppTemplateStatus={whatsAppTemplateStatus}
           whatsAppTemplates={whatsAppTemplates}
+          watermarkSettings={watermarkSettings}
+          watermarkSettingsStatus={watermarkSettingsStatus}
         />
       );
     }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { PackageSettingsModal } from './PackageSettingsModal';
 import { RetentionPanel } from './RetentionPanel';
+import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
 import { WhatsAppTemplatesPanel } from './WhatsAppTemplatesPanel';
 
 export function SettingsPanel({
@@ -12,6 +13,7 @@ export function SettingsPanel({
   runCleanup,
   savePackageSettings,
   saveRetentionSettings,
+  saveWatermarkSettings,
   saveWhatsAppTemplates,
   setRetentionSettings,
   setType,
@@ -19,6 +21,8 @@ export function SettingsPanel({
   type,
   whatsAppTemplateStatus,
   whatsAppTemplates,
+  watermarkSettings,
+  watermarkSettingsStatus,
 }) {
   const [isPackageEditorOpen, setIsPackageEditorOpen] = useState(false);
 
@@ -70,6 +74,12 @@ export function SettingsPanel({
         onSave={handleSavePackages}
         pricingOptions={pricingOptions}
         status={packageSettingsStatus}
+      />
+
+      <WatermarkSettingsPanel
+        onSave={saveWatermarkSettings}
+        settings={watermarkSettings}
+        status={watermarkSettingsStatus}
       />
 
       <WhatsAppTemplatesPanel

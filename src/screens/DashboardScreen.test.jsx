@@ -71,6 +71,7 @@ const baseProps = {
   saveCredential: vi.fn(),
   savePackageSettings: vi.fn(),
   saveRetentionSettings: vi.fn(),
+  saveWatermarkSettings: vi.fn(),
   saveWhatsAppTemplates: vi.fn(),
   setNotice: vi.fn(),
   setPeriod: vi.fn(),
@@ -85,6 +86,13 @@ const baseProps = {
     paymentWaiting: { body: 'Pagamento {linkText}' },
     deliveryThanks: { body: 'Obrigado {count}' },
   },
+  watermarkSettings: {
+    width: 420,
+    height: 140,
+    opacity: 0.55,
+    instances: 1,
+  },
+  watermarkSettingsStatus: 'idle',
 };
 
 describe('DashboardScreen admin unlock', () => {
@@ -113,6 +121,7 @@ describe('DashboardScreen admin unlock', () => {
 
     await user.click(screen.getByRole('button', { name: /Configurações/i }));
     expect(screen.getByText('Retenção e sanitização')).toBeInTheDocument();
+    expect(screen.getByText("Marca d'água das prévias")).toBeInTheDocument();
     expect(screen.getByText('Mensagens do WhatsApp')).toBeInTheDocument();
   });
 });

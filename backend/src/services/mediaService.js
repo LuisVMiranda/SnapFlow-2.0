@@ -4,6 +4,7 @@ const path = require('path');
 const sharp = require('sharp');
 const { randomToken } = require('../tokens');
 const { HttpError } = require('../errors');
+const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -15,7 +16,43 @@ function safeRelativePath(value) {
   return normalized;
 }
 
-function createMediaService(config) {
+function watermarkPositions(width, height, instances) {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(instances * (width / Math.max(1, height)))));
+  const rows = Math.max(1, Math.ceil(instances / columns));
+  return Array.from({ length: instances }, (_, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return {
+      x: Math.round(((column + 0.5) * width) / columns),
+      y: Math.round(((row + 0.5) * height) / rows),
+    };
+  });
+}
+
+function buildWatermarkSvg(width = 960, height = 640, settings = DEFAULT_WATERMARK_SETTINGS) {
+  const normalized = normalizeWatermarkSettings(settings);
+  const fontSize = Math.max(18, Math.round(Math.min(normalized.height * 0.48, normalized.width / 4.3, 72)));
+  const strokeOpacity = Math.min(0.95, Number((normalized.opacity + 0.2).toFixed(2)));
+  const positions = watermarkPositions(width, height, normalized.instances);
+  const labels = positions.map(({ x, y }) => `
+        <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle"
+          font-size="${fontSize}" fill="rgba(255,255,255,${normalized.opacity})" stroke="rgba(0,0,0,${strokeOpacity})"
+          stroke-width="2" transform="rotate(-35 ${x} ${y})">
+          SnapFlow
+        </text>`).join('');
+
+  return Buffer.from(`
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <style>
+          text { font-family: Arial, sans-serif; font-weight: 700; }
+        </style>
+        <rect width="100%" height="100%" fill="transparent"/>
+        ${labels}
+      </svg>
+    `);
+}
+
+function createMediaService(config, { watermarkSettings } = {}) {
   const dirs = {
     originals: path.join(config.storageRoot, 'originals'),
     thumbs: path.join(config.storageRoot, 'thumbs'),
@@ -50,20 +87,11 @@ function createMediaService(config) {
     return hash.digest('hex');
   }
 
-  function watermarkSvg(width = 960, height = 640) {
-    return Buffer.from(`
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          text { font-family: Arial, sans-serif; font-weight: 700; }
-        </style>
-        <rect width="100%" height="100%" fill="transparent"/>
-        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle"
-          font-size="48" fill="rgba(255,255,255,0.65)" stroke="rgba(0,0,0,0.75)"
-          stroke-width="2" transform="rotate(-35 ${width / 2} ${height / 2})">
-          SNAPFLOW PREVIEW
-        </text>
-      </svg>
-    `);
+  async function currentWatermarkSettings() {
+    if (!watermarkSettings || typeof watermarkSettings.getSettings !== 'function') {
+      return DEFAULT_WATERMARK_SETTINGS;
+    }
+    return normalizeWatermarkSettings(await watermarkSettings.getSettings());
   }
 
   async function processUploadedFiles(files, retentionExpiresAt = null) {
@@ -86,8 +114,9 @@ function createMediaService(config) {
         const preview = await sharp(originalAbs)
           .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
           .toBuffer({ resolveWithObject: true });
+        const watermark = await currentWatermarkSettings();
         await sharp(preview.data)
-          .composite([{ input: watermarkSvg(preview.info.width, preview.info.height), gravity: 'center' }])
+          .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
           .jpeg({ quality: 72 })
           .toFile(previewAbs);
 
@@ -172,4 +201,4 @@ function createMediaService(config) {
   };
 }
 
-module.exports = { createMediaService, ALLOWED_MIME_TYPES };
+module.exports = { createMediaService, ALLOWED_MIME_TYPES, buildWatermarkSvg, watermarkPositions };

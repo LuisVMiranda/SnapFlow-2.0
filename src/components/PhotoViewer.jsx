@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/formatters';
+import { WatermarkOverlay } from './WatermarkOverlay';
 
 export function PhotoViewer({
   currentPhoto,
@@ -11,6 +12,7 @@ export function PhotoViewer({
   setViewerIndex,
   markBrokenPhoto,
   toggle,
+  watermarkSettings,
 }) {
   const isSelected = selected.includes(currentPhoto.id);
   const currentPhotoBroken = brokenPhotoIds.includes(currentPhoto.id);
@@ -59,10 +61,7 @@ export function PhotoViewer({
                 }}
               />
               {shareToken ? (
-                <>
-                  <div className="preview-watermark viewer-watermark">SNAPFLOW PREVIEW</div>
-                  <div className="watermark-overlay" />
-                </>
+                <WatermarkOverlay settings={watermarkSettings} />
               ) : null}
             </>
           )}

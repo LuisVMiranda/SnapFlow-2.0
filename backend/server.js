@@ -14,12 +14,14 @@ const { createCredentialsService } = require('./src/services/credentialsService'
 const { createPackageSettingsService } = require('./src/services/packageSettingsService');
 const { createRetentionService } = require('./src/services/retentionService');
 const { createWhatsAppTemplatesService } = require('./src/services/whatsappTemplatesService');
+const { createWatermarkSettingsService } = require('./src/services/watermarkSettingsService');
 
 async function main() {
   const config = createConfig();
   await runMigrations(config);
   const repos = createRepos(config);
-  const media = createMediaService(config);
+  const watermark = createWatermarkSettingsService({ repos });
+  const media = createMediaService(config, { watermarkSettings: watermark });
   const credentials = createCredentialsService({ config, repos });
   const whatsappTemplates = createWhatsAppTemplatesService({ repos });
   const whatsapp = createWhatsAppClient();
@@ -27,7 +29,7 @@ async function main() {
   const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark });
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);

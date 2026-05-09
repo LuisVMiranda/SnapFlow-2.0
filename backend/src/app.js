@@ -11,11 +11,11 @@ const { createPackageRouter } = require('./routes/packageRoutes');
 const { createPaymentRouter } = require('./routes/paymentRoutes');
 const { createShareRouter } = require('./routes/shareRoutes');
 
-function createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates }) {
+function createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark }) {
   const app = express();
   const auth = createAuth(config);
   const upload = createUploader(config, media);
-  const deps = { auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates };
+  const deps = { auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark };
 
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));

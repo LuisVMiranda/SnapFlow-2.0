@@ -82,7 +82,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
 
     const pixData = response.point_of_interaction?.transaction_data || {};
     const baseUrl = await publicBaseUrl();
-    const link = payload.shareToken ? new URL(`/s/${payload.shareToken}`, baseUrl).toString() : baseUrl;
+    const link = payload.shareToken ? new URL(`/s/${payload.shareToken}`, baseUrl).toString() : '';
     const whatsappMessage = whatsappTemplates
       ? await whatsappTemplates.renderPaymentWaitingMessage({
           link,

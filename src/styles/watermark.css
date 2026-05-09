@@ -1,0 +1,104 @@
+.watermark-settings-card {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.watermark-settings-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.watermark-save-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  max-width: 240px;
+}
+
+.watermark-settings-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.9fr);
+}
+
+.watermark-controls {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.watermark-controls label {
+  color: var(--gray);
+  display: grid;
+  font-size: 12px;
+  gap: 6px;
+}
+
+.watermark-controls span {
+  color: #fff;
+  font-weight: 700;
+}
+
+.watermark-controls small {
+  color: #a8b6c7;
+}
+
+.watermark-range {
+  accent-color: var(--green);
+  width: 100%;
+}
+
+.watermark-preview-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.watermark-preview-frame {
+  background:
+    linear-gradient(135deg, rgba(30, 144, 255, 0.18), rgba(0, 200, 81, 0.12)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 18px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  min-height: 220px;
+  overflow: hidden;
+  position: relative;
+}
+
+.watermark-preview-instance {
+  align-items: center;
+  border: 1px dashed rgba(255, 255, 255, 0.34);
+  color: #fff;
+  display: inline-flex;
+  font-size: clamp(16px, 2.7vw, 28px);
+  font-weight: 800;
+  justify-content: center;
+  left: 50%;
+  line-height: 1;
+  min-height: 34px;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0 2px 7px rgba(0, 0, 0, 0.85);
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-35deg);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .watermark-settings-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .watermark-settings-layout,
+  .watermark-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .watermark-save-button {
+    max-width: none;
+  }
+}

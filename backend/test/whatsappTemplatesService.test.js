@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
+  cleanLinklessPaymentMessage,
   createWhatsAppTemplatesService,
   normalizeTemplates,
   renderTemplate,
@@ -69,4 +70,30 @@ test('WhatsApp template service saves and renders editable admin messages', asyn
   assert.equal(shareMessage, 'Abra Ana: Clique aqui: https://snap.test/s/abc\nCódigo AB12');
   assert.equal(paymentMessage, 'Pagamento pendente para 2 foto(s). Ver pedido: https://snap.test/s/abc');
   assert.equal(deliveryMessage, 'Obrigado Ana pela compra de 2 foto(s)!');
+});
+
+test('payment waiting message does not point clients to the admin root when there is no public link', async () => {
+  const service = createWhatsAppTemplatesService({
+    repos: createMemoryRepos({
+      whatsAppTemplates: {
+        paymentWaiting: {
+          body: 'Pagamento pendente.\n{linkLabel}: {link}',
+        },
+      },
+    }),
+  });
+
+  const message = await service.renderPaymentWaitingMessage({
+    name: 'Ana',
+    link: '',
+    linkLabel: 'Abrir pedido',
+  });
+
+  assert.equal(message, 'Pagamento pendente.');
+  assert.equal(message.includes('http://localhost'), false);
+  assert.equal(message.includes('Abrir pedido'), false);
+});
+
+test('linkless payment cleaner removes empty punctuation-only link lines', () => {
+  assert.equal(cleanLinklessPaymentMessage('Pedido recebido.\n: \nAguarde.'), 'Pedido recebido.\nAguarde.');
 });

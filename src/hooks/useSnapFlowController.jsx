@@ -12,6 +12,7 @@ import { usePackageSettings } from './usePackageSettings';
 import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
 import { useWhatsAppTemplates } from './useWhatsAppTemplates';
+import { useWatermarkSettings } from './useWatermarkSettings';
 
 export function useSnapFlowController() {
   const [shareToken] = useState(() => detectShareToken());
@@ -147,6 +148,15 @@ export function useSnapFlowController() {
     whatsAppTemplateStatus,
     whatsAppTemplates,
   } = useWhatsAppTemplates({
+    adminJsonHeaders,
+    isAdminUnlocked,
+    setNotice,
+  });
+  const {
+    saveWatermarkSettings,
+    watermarkSettings,
+    watermarkSettingsStatus,
+  } = useWatermarkSettings({
     adminJsonHeaders,
     isAdminUnlocked,
     setNotice,
@@ -490,6 +500,7 @@ export function useSnapFlowController() {
     setSessionId,
     setShareAccess,
     setShareActionLoading,
+    setShareSessionInfo,
     setIsLoadingPhotos,
     setType,
     setViewerIndex,
@@ -577,6 +588,7 @@ export function useSnapFlowController() {
     saveRetentionSettings,
     savePackageSettings,
     saveWhatsAppTemplates,
+    saveWatermarkSettings,
     screen,
     selected,
     selectedPhotoItems,
@@ -608,6 +620,8 @@ export function useSnapFlowController() {
     unit,
     whatsAppTemplateStatus,
     whatsAppTemplates,
+    watermarkSettings,
+    watermarkSettingsStatus,
     withAdminMediaToken,
   };
 }

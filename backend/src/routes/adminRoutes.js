@@ -94,7 +94,7 @@ async function sendShareLinkMessage({ whatsapp, phone, message }) {
   }
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates }) {
+function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -456,6 +456,14 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
   router.put('/settings/packages', auth.requireAdmin, asyncHandler(async (req, res) => {
     res.json(await packages.updateSettings(req.body || {}));
+  }));
+
+  router.get('/settings/watermark', auth.requireAdmin, asyncHandler(async (req, res) => {
+    res.json(await watermark.getSettings());
+  }));
+
+  router.put('/settings/watermark', auth.requireAdmin, asyncHandler(async (req, res) => {
+    res.json(await watermark.updateSettings(req.body || {}));
   }));
 
   router.get('/settings/whatsapp-messages', auth.requireAdmin, asyncHandler(async (req, res) => {

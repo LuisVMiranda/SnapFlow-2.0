@@ -43,6 +43,7 @@ export function useSnapFlowActions(config) {
     setShareAccess,
     setShareActionLoading,
     setIsLoadingPhotos = () => {},
+    setShareSessionInfo = () => {},
     setType,
     setViewerIndex,
     shareAccess,
@@ -309,6 +310,7 @@ export function useSnapFlowActions(config) {
   const applySharedSession = (data) => {
     const sharedPhotos = mapSharedPhotos(data);
 
+    setShareSessionInfo(data);
     setPhotos(sharedPhotos);
     setHasLoadedPhotosPage(true);
     setPhotosPage(normalizePhotosPage(data.photosPage, {
