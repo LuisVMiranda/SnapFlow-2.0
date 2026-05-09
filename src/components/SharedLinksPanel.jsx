@@ -63,6 +63,7 @@ export function SharedLinksPanel({
 
   const normalizeDetails = (data) => ({
     ...data,
+    photosPage: data.photosPage || { hasMore: false, nextCursor: null, loadedCount: 0, totalCount: data.photoCount || 0 },
     photos: Array.isArray(data.photos)
       ? data.photos.map((photo) => ({
           ...photo,
@@ -71,6 +72,15 @@ export function SharedLinksPanel({
         }))
       : [],
   });
+
+  const mergeDetailPhotos = (currentPhotos = [], nextPhotos = []) => {
+    const seen = new Set();
+    return [...currentPhotos, ...nextPhotos].filter((photo) => {
+      if (!photo?.id || seen.has(photo.id)) return false;
+      seen.add(photo.id);
+      return true;
+    });
+  };
 
   const loadShareDetails = async (shareSession) => {
     setLoadingDetailsToken(shareSession.token);
@@ -89,6 +99,38 @@ export function SharedLinksPanel({
     } catch (error) {
       setNotice(buildNetworkErrorMessage('Não foi possível carregar a galeria.', error));
       return null;
+    } finally {
+      setLoadingDetailsToken('');
+    }
+  };
+
+  const loadMoreSharePhotos = async (shareSession) => {
+    const current = details[shareSession.token];
+    if (!current?.photosPage?.hasMore || loadingDetailsToken === shareSession.token) return;
+    setLoadingDetailsToken(shareSession.token);
+    try {
+      const params = new URLSearchParams();
+      if (current.photosPage.nextCursor) params.set('cursor', current.photosPage.nextCursor);
+      if (current.photosPage.limit) params.set('limit', String(current.photosPage.limit));
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos?${params.toString()}`, {
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(galleryRouteErrorMessage('Não foi possível carregar mais fotos da galeria.', response, data));
+        return;
+      }
+      const normalized = normalizeDetails(data);
+      setDetails((previous) => ({
+        ...previous,
+        [shareSession.token]: {
+          ...current,
+          photos: mergeDetailPhotos(current.photos, normalized.photos),
+          photosPage: normalized.photosPage,
+        },
+      }));
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível carregar mais fotos da galeria.', error));
     } finally {
       setLoadingDetailsToken('');
     }
@@ -340,6 +382,7 @@ export function SharedLinksPanel({
                 draft={draft}
                 isLoading={loadingDetailsToken === shareSession.token}
                 isPhotoBusy={photoActionToken === shareSession.token}
+                loadMorePhotos={loadMoreSharePhotos}
                 pricingOptions={pricingOptions}
                 saveShare={saveShare}
                 shareSession={shareSession}

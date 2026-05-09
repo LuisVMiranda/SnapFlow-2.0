@@ -143,6 +143,37 @@ describe('SharedLinksPanel', () => {
     );
   });
 
+  it('loads additional admin gallery photos without replacing existing previews', async () => {
+    const user = userEvent.setup();
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes('/photos?')) {
+        return new Response(JSON.stringify({
+          photos: [{ id: 'photo_2', url: '/api/media/photo_2/preview', thumbUrl: '/api/media/photo_2/thumb' }],
+          photosPage: { hasMore: false, nextCursor: null, totalCount: 2 },
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({
+        token: 'old-token',
+        photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
+        photosPage: { hasMore: true, nextCursor: 'cursor-1', totalCount: 2 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    render(<SharedLinksPanel {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    expect(await screen.findByAltText('Foto 1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Carregar mais fotos' }));
+    expect(await screen.findByAltText('Foto 2')).toBeInTheDocument();
+    expect(screen.getByAltText('Foto 1')).toBeInTheDocument();
+  });
+
   it('uploads and removes photos inside the selected gallery only', async () => {
     const user = userEvent.setup();
     vi.spyOn(window, 'confirm').mockReturnValue(true);

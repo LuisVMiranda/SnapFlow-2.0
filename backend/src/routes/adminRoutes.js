@@ -62,14 +62,23 @@ function adminPhotoPayload(photo) {
   };
 }
 
-async function adminShareDetails(repos, token) {
+function adminPhotoPagePayload(page) {
+  return {
+    ...page,
+    loadedCount: page?.loadedCount || 0,
+    totalCount: Number(page?.totalCount || 0),
+  };
+}
+
+async function adminShareDetails(repos, token, options = {}) {
   const share = await repos.getShareSession(token, { includeAccessCode: true });
   if (!share) return null;
-  const photos = await repos.listPhotosForShare(share.token);
+  const { items, page } = await repos.listPhotosForSharePage(share.token, options);
   return {
     ...share,
-    photoCount: photos.length,
-    photos: photos.map(adminPhotoPayload),
+    photoCount: page.totalCount,
+    photos: items.map(adminPhotoPayload),
+    photosPage: adminPhotoPagePayload(page),
   };
 }
 
@@ -183,7 +192,11 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         res.json({ success: true, alreadyApproved: true, session: current });
         return;
       }
+      if (current.status === 'cancelled') {
+        throw new HttpError(409, 'A liberação desta venda foi cancelada. Gere uma nova solicitação se o cliente ainda quiser comprar.', 'session_release_cancelled');
+      }
       const session = await repos.approveSession(req.params.id);
+      if (!session) throw new HttpError(409, 'Não foi possível liberar esta venda. Atualize o painel e confira o status atual.', 'session_not_approvable');
       await deliveryQueue.enqueue(session.id);
       res.json({ success: true, session });
     })
@@ -325,9 +338,29 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     '/share-sessions/:token',
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
-      const details = await adminShareDetails(repos, req.params.token);
+      const details = await adminShareDetails(repos, req.params.token, {
+        cursor: req.query.cursor,
+        limit: req.query.limit,
+      });
       if (!details) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(details);
+    })
+  );
+
+  router.get(
+    '/share-sessions/:token/photos',
+    auth.requireAdmin,
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token, { includeAccessCode: true });
+      if (!share) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
+      const { items, page } = await repos.listPhotosForSharePage(share.token, {
+        cursor: req.query.cursor,
+        limit: req.query.limit,
+      });
+      res.json({
+        photos: items.map(adminPhotoPayload),
+        photosPage: adminPhotoPagePayload(page),
+      });
     })
   );
 
@@ -462,6 +495,24 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     const job = await repos.retryDeliveryJob(req.params.id);
     if (!job) throw new HttpError(404, 'Entrega não encontrada. Atualize Vendas e confirme se esta venda ainda aparece no painel.', 'delivery_job_not_found');
     res.json(job);
+  }));
+
+  router.post('/sessions/:sessionId/cancel-release', auth.requireAdmin, asyncHandler(async (req, res) => {
+    const session = await repos.getSession(req.params.sessionId);
+    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
+    if (session.status === 'approved') {
+      throw new HttpError(409, 'Esta venda já foi aprovada e não pode ter a liberação cancelada por aqui.', 'session_already_approved');
+    }
+    if (session.status === 'cancelled') {
+      res.json({ success: true, session });
+      return;
+    }
+    if (session.status !== 'pending' || session.paymentMethod !== 'Dinheiro/Cartão') {
+      throw new HttpError(409, 'Somente vendas pendentes em dinheiro/cartão podem ter a liberação cancelada.', 'session_cancel_not_allowed');
+    }
+    const cancelled = await repos.cancelManualSessionRelease(session.id);
+    if (!cancelled) throw new HttpError(409, 'Não foi possível cancelar esta liberação. Atualize o painel e confira o status atual.', 'session_cancel_failed');
+    res.json({ success: true, session: cancelled });
   }));
 
   router.post('/sessions/:sessionId/retry-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {

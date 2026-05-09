@@ -18,7 +18,9 @@ export function SessionOpsCard({
   onRetryDelivery,
 }) {
   const paymentMeta =
-    paymentMethod === 'Dinheiro/Cartão' && paymentStatus === 'pending'
+    paymentStatus === 'cancelled'
+      ? PAYMENT_META.cancelled
+      : paymentMethod === 'Dinheiro/Cartão' && paymentStatus === 'pending'
       ? { label: 'Aguardando aprovação', tone: 'info' }
       : PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
   const deliveryMeta = DELIVERY_META[deliveryStatus] || DELIVERY_META.idle;

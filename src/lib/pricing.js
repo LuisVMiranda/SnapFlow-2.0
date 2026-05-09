@@ -23,6 +23,7 @@ export const PAYMENT_META = {
   draft: { label: 'Montando sessão', tone: 'neutral' },
   pending: { label: 'Aguardando PIX', tone: 'info' },
   approved: { label: 'Pagamento aprovado', tone: 'success' },
+  cancelled: { label: 'Liberação cancelada', tone: 'danger' },
 };
 
 export const DELIVERY_META = {
@@ -31,6 +32,7 @@ export const DELIVERY_META = {
   sending: { label: 'Enviando no WhatsApp', tone: 'info' },
   sent: { label: 'Fotos entregues', tone: 'success' },
   failed: { label: 'Falha no envio', tone: 'danger' },
+  cancelled: { label: 'Envio cancelado', tone: 'danger' },
 };
 
 function positiveNumber(value, fallback) {

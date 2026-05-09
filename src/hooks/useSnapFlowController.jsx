@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { resolveInitialScreen } from '../lib/navigation';
+import { EMPTY_PHOTOS_PAGE, derivePhotoPageCounts, normalizePhotosPage } from '../lib/photoPages';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
 import { NoticeBanner } from '../components/NoticeBanner';
@@ -47,8 +48,12 @@ export function useSnapFlowController() {
   const initialType = getSavedState('type', 'eventos');
   const [type, setType] = useState(() => DEFAULT_PRICING[initialType] ? initialType : 'eventos');
   
-  const initialPhotos = getSavedState('photos', []);
+  const initialPhotos = shareToken ? [] : getSavedState('photos', []);
   const [photos, setPhotos] = useState(() => Array.isArray(initialPhotos) ? initialPhotos : []);
+  const [photosPage, setPhotosPage] = useState(() => normalizePhotosPage(EMPTY_PHOTOS_PAGE));
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [photoPageError, setPhotoPageError] = useState('');
+  const [hasLoadedPhotosPage, setHasLoadedPhotosPage] = useState(false);
   
   const initialSelected = getSavedState('selected', []);
   const [selected, setSelected] = useState(() => Array.isArray(initialSelected) ? initialSelected : []);
@@ -167,14 +172,11 @@ export function useSnapFlowController() {
     }
   }, [screen, type, selected, clientPhone, clientName, clientEmail, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
   
-  // Save photos only if shareToken exists
   useEffect(() => {
     if (typeof window !== 'undefined' && shareToken) {
-      try {
-        window.localStorage.setItem('snapflow-photos', JSON.stringify(photos));
-      } catch { /* ignore */ }
+      try { window.localStorage.removeItem('snapflow-photos'); } catch { /* ignore */ }
     }
-  }, [photos, shareToken]);
+  }, [shareToken]);
 
   const toggle = (id) =>
     setSelected((previous) =>
@@ -198,6 +200,10 @@ export function useSnapFlowController() {
         .map((id) => photos.find((photo) => photo.id === id))
         .filter(Boolean),
     [photos, selected]
+  );
+  const photoPageCounts = useMemo(
+    () => derivePhotoPageCounts({ photos, selected, photosPage }),
+    [photos, selected, photosPage]
   );
 
   const adminStageLabels = {
@@ -449,6 +455,7 @@ export function useSnapFlowController() {
     handleManualPayment,
     handleRevokeShareSession,
     handleUnlockSharedSession,
+    loadMorePhotos,
     markBrokenPhoto,
     resetSession,
     startNewSession,
@@ -460,6 +467,7 @@ export function useSnapFlowController() {
     clientPhone,
     count,
     fetchDashboard,
+    photos,
     selectedPhotoItems,
     sessionId,
     setBrokenPhotoIds,
@@ -470,7 +478,10 @@ export function useSnapFlowController() {
     setIsUploading,
     setLiveOps,
     setNotice,
+    setPhotoPageError,
+    setHasLoadedPhotosPage,
     setPhotos,
+    setPhotosPage,
     setPixCopyPaste,
     setPixWhatsAppMessage,
     setQrCodeBase64,
@@ -479,6 +490,7 @@ export function useSnapFlowController() {
     setSessionId,
     setShareAccess,
     setShareActionLoading,
+    setIsLoadingPhotos,
     setType,
     setViewerIndex,
     shareAccess,
@@ -486,11 +498,19 @@ export function useSnapFlowController() {
     shareDurationMinutes,
     shareSessionInfo,
     shareToken,
+    photosPage,
+    isLoadingPhotos,
     pricingOptions,
     total,
     type: activePackageType,
     withAdminMediaToken,
   });
+
+  useEffect(() => {
+    if (!shareToken || !shareAccess?.customerAccessToken || screen !== 'gallery') return;
+    if (photos.length > 0 || hasLoadedPhotosPage || isLoadingPhotos || photoPageError) return;
+    loadMorePhotos();
+  }, [hasLoadedPhotosPage, isLoadingPhotos, loadMorePhotos, photoPageError, photos.length, screen, shareAccess?.customerAccessToken, shareToken]);
 
   const currentPhoto = viewerIndex !== null ? photos[viewerIndex] : null;
   const hasActiveSession = photos.length > 0 || Boolean(sessionId);
@@ -529,15 +549,20 @@ export function useSnapFlowController() {
     hasDiscount,
     isGeneratingPix,
     isAdminUnlocked,
+    isLoadingPhotos,
     isUploading,
     liveOps,
+    loadMorePhotos,
     loginAdmin,
     logoutAdmin,
     markBrokenPhoto,
     noticeBanner,
     packageSettingsStatus,
     period,
+    photoPageCounts,
+    photoPageError,
     photos,
+    photosPage,
     pricingOptions,
     pixCopyPaste,
     pixWhatsAppMessage,

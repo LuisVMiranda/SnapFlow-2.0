@@ -103,6 +103,25 @@ export function SalesStatsPanel({
       setNotice(buildNetworkErrorMessage('Não foi possível limpar as estatísticas.', error));
     }
   };
+  const cancelRelease = async (targetSessionId) => {
+    if (!targetSessionId) return;
+    if (!window.confirm('Cancelar a liberação desta venda? O cliente não receberá as fotos por esta solicitação.')) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/cancel-release`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível cancelar a liberação.', response, data));
+        return;
+      }
+      setNotice('Liberação cancelada. Esta venda não poderá mais ser aprovada por esse pedido.');
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível cancelar a liberação.', error));
+    }
+  };
   return (
     <section className="admin-panel">
       <div className="period-tabs">
@@ -151,6 +170,7 @@ export function SalesStatsPanel({
         dashData={dashData}
         fetchDashboard={fetchDashboard}
         pricingOptions={pricingOptions}
+        cancelRelease={cancelRelease}
         retryDelivery={retryDelivery}
         setNotice={setNotice}
       />
@@ -158,7 +178,7 @@ export function SalesStatsPanel({
   );
 }
 
-function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions, retryDelivery, setNotice }) {
+function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard, pricingOptions, retryDelivery, setNotice }) {
   return (
     <div className="recent-sessions">
       <div className="recent-header">
@@ -166,7 +186,14 @@ function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions
       </div>
 
       {dashData.recent.map((session) => {
-        const paymentMeta = session.status === 'approved' ? PAYMENT_META.approved : PAYMENT_META.pending;
+        const paymentMeta =
+          session.status === 'approved'
+            ? PAYMENT_META.approved
+            : session.status === 'cancelled'
+              ? PAYMENT_META.cancelled
+              : session.paymentMethod === 'Dinheiro/Cartão'
+                ? { label: 'Aguardando aprovação', tone: 'info' }
+                : PAYMENT_META.pending;
         const deliveryMeta = DELIVERY_META[session.deliveryStatus || 'idle'] || DELIVERY_META.idle;
 
         return (
@@ -182,28 +209,33 @@ function RecentSessions({ adminHeaders, dashData, fetchDashboard, pricingOptions
               <span className={`badge badge-${paymentMeta.tone}`}>{paymentMeta.label}</span>
               <span className={`badge badge-${deliveryMeta.tone}`}>{deliveryMeta.label}</span>
               {session.status === 'pending' && session.paymentMethod === 'Dinheiro/Cartão' ? (
-                <button
-                  className="share-quick-btn approve-session-btn"
-                  onClick={async () => {
-                    try {
-                      const response = await fetch(`${API_BASE_URL}/api/admin/approve-manual-session/${session.id}`, {
-                        method: 'POST',
-                        headers: adminHeaders(),
-                      });
-                      const data = await readJsonResponse(response);
-                      if (!response.ok) {
-                        setNotice(buildApiErrorMessage('Não foi possível liberar as fotos.', response, data));
-                        return;
+                <>
+                  <button
+                    className="share-quick-btn approve-session-btn"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`${API_BASE_URL}/api/admin/approve-manual-session/${session.id}`, {
+                          method: 'POST',
+                          headers: adminHeaders(),
+                        });
+                        const data = await readJsonResponse(response);
+                        if (!response.ok) {
+                          setNotice(buildApiErrorMessage('Não foi possível liberar as fotos.', response, data));
+                          return;
+                        }
+                        setNotice('Fotos liberadas para entrega.');
+                        fetchDashboard({ silent: true });
+                      } catch (error) {
+                        setNotice(buildNetworkErrorMessage('Não foi possível liberar as fotos.', error));
                       }
-                      setNotice('Fotos liberadas para entrega.');
-                      fetchDashboard({ silent: true });
-                    } catch (error) {
-                      setNotice(buildNetworkErrorMessage('Não foi possível liberar as fotos.', error));
-                    }
-                  }}
-                >
-                  Liberar fotos
-                </button>
+                    }}
+                  >
+                    Liberar fotos
+                  </button>
+                  <button className="share-quick-btn share-quick-btn-danger" type="button" onClick={() => cancelRelease(session.id)}>
+                    Cancelar liberação
+                  </button>
+                </>
               ) : null}
               {session.status === 'approved' && session.deliveryStatus === 'failed' ? (
                 <button className="share-quick-btn approve-session-btn" onClick={() => retryDelivery(session.id)}>

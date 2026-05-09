@@ -17,12 +17,14 @@ SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso p
 - Botão para reenviar fotos quando uma entrega falha.
 - Pareamento do WhatsApp dentro do painel, com QR Code visível em Vendas/Galerias.
 - Galerias compartilhadas com link temporário, código de acesso e expiração.
+- Galerias grandes carregadas em lotes, evitando abrir centenas de fotos de uma vez.
 - Recriação/revalidação intencional de galeria sem duplicar links desnecessários.
 - Edição de galeria pelo admin: visualizar fotos, adicionar, remover, alterar telefone, cliente, código, pacote, total e tempo.
 - Revogar, estender, copiar e abrir links compartilhados.
 - Proteções no modo cliente para reduzir cópia indevida e acesso fora da galeria.
 - Dashboard de vendas com períodos diário, semanal, mensal e anual.
 - Botão para limpar estatísticas de vendas com confirmação dupla, sem apagar galerias.
+- Botão para cancelar liberação de pedidos manuais pendentes em testes ou desistências.
 - Configurações de retenção e limpeza de arquivos.
 - Credenciais editáveis pelo painel com um único salvamento global e confirmação de senha.
 - Modelos de mensagens WhatsApp editáveis, com variáveis como `{name}`, `{link}`, `{code}`, `{count}` e `{total}`.
@@ -374,6 +376,8 @@ Variáveis disponíveis:
 
 Cada galeria tem token/link, código e identificador de metadados. Recriar ou revalidar uma galeria deve reaproveitar o registro correto, evitando acúmulo de galerias duplicadas.
 
+Galerias com muitas fotos são carregadas em páginas internas de até 40 imagens por vez. O cliente vê a primeira leva rapidamente e pode usar `Carregar mais fotos` conforme navega, sem forçar o navegador, o backend ou o link Tailscale/Funnel a transferirem a galeria inteira de uma só vez. O Tailscale/Funnel deve ser tratado como camada de acesso/rede, não como CDN; para centenas de fotos e vários clientes simultâneos, prefira uma VPS ou conexão estável.
+
 No modo admin, `Ver/Editar` permite:
 
 - ver prévias das fotos daquela galeria;
@@ -384,6 +388,8 @@ No modo admin, `Ver/Editar` permite:
 - alterar pacote e total;
 - alterar código de acesso;
 - reabrir a galeria por mais minutos.
+
+Em `Vendas`, pedidos pendentes em dinheiro/cartão mostram `Liberar fotos` e `Cancelar liberação`. Use `Cancelar liberação` quando o cliente desistir, quando a solicitação for só um teste ou quando o pagamento não for concluído. A sessão fica registrada como cancelada e não pode mais ser aprovada por aquele pedido; se o cliente quiser comprar depois, gere uma nova solicitação.
 
 ## Privacidade e Git
 

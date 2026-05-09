@@ -4,6 +4,7 @@ import {
   buildNetworkErrorMessage,
   readJsonResponse,
 } from '../lib/apiClient';
+import { mergePhotoPages, normalizePhotosPage } from '../lib/photoPages';
 import { normalizePhotoUrl, photoIdFromUrl } from '../lib/photos';
 import { firstPackageKey } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
@@ -18,6 +19,7 @@ export function useSnapFlowActions(config) {
     clientPhone,
     count,
     fetchDashboard,
+    photos = [],
     selectedPhotoItems,
     sessionId,
     setBrokenPhotoIds,
@@ -25,10 +27,13 @@ export function useSnapFlowActions(config) {
     setClientEmail = () => {},
     setClientPhone,
     setIsGeneratingPix,
+    setHasLoadedPhotosPage = () => {},
     setIsUploading,
     setLiveOps,
     setNotice,
+    setPhotoPageError = () => {},
     setPhotos,
+    setPhotosPage = () => {},
     setPixCopyPaste,
     setPixWhatsAppMessage = () => {},
     setQrCodeBase64,
@@ -37,6 +42,7 @@ export function useSnapFlowActions(config) {
     setSessionId,
     setShareAccess,
     setShareActionLoading,
+    setIsLoadingPhotos = () => {},
     setType,
     setViewerIndex,
     shareAccess,
@@ -44,11 +50,29 @@ export function useSnapFlowActions(config) {
     shareDurationMinutes,
     shareSessionInfo,
     shareToken,
+    photosPage,
+    isLoadingPhotos,
     pricingOptions,
     total,
     type,
     withAdminMediaToken,
   } = config;
+
+  const mapSharedPhotos = (data) =>
+    Array.isArray(data.photos)
+      ? data.photos.map((item, index) => {
+          const rawUrl = typeof item === 'string' ? item : item?.url;
+          const rawThumbUrl =
+            typeof item === 'string' ? data.thumbUrls?.[index] : item?.thumbUrl || data.thumbUrls?.[index];
+          const normalizedUrl = normalizePhotoUrl(rawUrl);
+          const normalizedThumbUrl = rawThumbUrl ? normalizePhotoUrl(rawThumbUrl) : '';
+          return {
+            id: item?.id || photoIdFromUrl(rawUrl, index),
+            url: normalizedUrl,
+            thumbUrl: normalizedThumbUrl || normalizedUrl,
+          };
+        })
+      : [];
 
   const markBrokenPhoto = (photoId) => {
     setBrokenPhotoIds((previous) =>
@@ -58,6 +82,9 @@ export function useSnapFlowActions(config) {
 
   const resetSession = () => {
     setPhotos([]);
+    setPhotosPage(normalizePhotosPage());
+    setPhotoPageError('');
+    setHasLoadedPhotosPage(false);
     setSelected([]);
     setSessionId('');
     setQrCodeBase64('');
@@ -117,6 +144,13 @@ export function useSnapFlowActions(config) {
         });
 
         setPhotos(uploadedPhotos);
+        setHasLoadedPhotosPage(true);
+        setPhotosPage(normalizePhotosPage({
+          hasMore: false,
+          loadedCount: uploadedPhotos.length,
+          totalCount: uploadedPhotos.length,
+        }));
+        setPhotoPageError('');
         setSelected([]);
         setBrokenPhotoIds([]);
         setQrCodeBase64('');
@@ -273,22 +307,15 @@ export function useSnapFlowActions(config) {
   };
 
   const applySharedSession = (data) => {
-    const sharedPhotos = Array.isArray(data.photos)
-      ? data.photos.map((item, index) => {
-          const rawUrl = typeof item === 'string' ? item : item?.url;
-          const rawThumbUrl =
-            typeof item === 'string' ? data.thumbUrls?.[index] : item?.thumbUrl || data.thumbUrls?.[index];
-          const normalizedUrl = normalizePhotoUrl(rawUrl);
-          const normalizedThumbUrl = rawThumbUrl ? normalizePhotoUrl(rawThumbUrl) : '';
-          return {
-            id: item?.id || photoIdFromUrl(rawUrl, index),
-            url: normalizedUrl,
-            thumbUrl: normalizedThumbUrl || normalizedUrl,
-          };
-        })
-      : [];
+    const sharedPhotos = mapSharedPhotos(data);
 
     setPhotos(sharedPhotos);
+    setHasLoadedPhotosPage(true);
+    setPhotosPage(normalizePhotosPage(data.photosPage, {
+      loadedCount: sharedPhotos.length,
+      totalCount: Number(data.photoCount || sharedPhotos.length),
+    }));
+    setPhotoPageError('');
     setSelected([]);
     setBrokenPhotoIds([]);
     setQrCodeBase64('');
@@ -342,6 +369,43 @@ export function useSnapFlowActions(config) {
       setNotice(buildNetworkErrorMessage('Não foi possível abrir a galeria compartilhada.', error));
     } finally {
       setShareActionLoading(false);
+    }
+  };
+
+  const loadMorePhotos = async () => {
+    const shouldLoadFirstPage = photos.length === 0 && !photosPage?.nextCursor;
+    if (!shareToken || !shareAccess?.customerAccessToken || (!photosPage?.hasMore && !shouldLoadFirstPage) || isLoadingPhotos) return;
+
+    setIsLoadingPhotos(true);
+    setPhotoPageError('');
+
+    try {
+      const params = new URLSearchParams();
+      if (photosPage.nextCursor) params.set('cursor', photosPage.nextCursor);
+      if (photosPage.limit) params.set('limit', String(photosPage.limit));
+
+      const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/photos?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${shareAccess.customerAccessToken}`,
+        },
+      });
+      const data = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(buildApiErrorMessage('Não foi possível carregar mais fotos da galeria.', response, data));
+      }
+
+      const nextPhotos = mapSharedPhotos(data);
+      setPhotos((previous) => mergePhotoPages(previous, nextPhotos));
+      setHasLoadedPhotosPage(true);
+      setPhotosPage(normalizePhotosPage(data.photosPage, {
+        loadedCount: nextPhotos.length,
+        totalCount: photosPage.totalCount,
+      }));
+    } catch (error) {
+      setPhotoPageError(buildNetworkErrorMessage('Não foi possível carregar mais fotos da galeria.', error));
+    } finally {
+      setIsLoadingPhotos(false);
     }
   };
 
@@ -476,6 +540,7 @@ export function useSnapFlowActions(config) {
     handleManualPayment,
     handleRevokeShareSession,
     handleUnlockSharedSession,
+    loadMorePhotos,
     markBrokenPhoto,
     resetSession,
     startNewSession,

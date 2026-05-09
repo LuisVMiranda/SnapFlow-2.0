@@ -65,6 +65,7 @@ export function AdminApprovalScreen({
 
   const alreadyApproved = session?.status === 'approved';
   const isPending = session?.status === 'pending';
+  const isCancelled = session?.status === 'cancelled';
 
   return (
     <div className="dashboard-screen screen approval-screen">
@@ -99,7 +100,7 @@ export function AdminApprovalScreen({
             {session ? (
               <SessionOpsCard
                 title="Venda manual"
-                stage={alreadyApproved ? 'Pagamento aprovado' : 'Aguardando aprovação'}
+                stage={alreadyApproved ? 'Pagamento aprovado' : isCancelled ? 'Liberação cancelada' : 'Aguardando aprovação'}
                 count={session.photoCount || 0}
                 total={Number(session.amount || 0)}
                 phone={session.phone}
@@ -117,7 +118,7 @@ export function AdminApprovalScreen({
             )}
 
             <button className="btn-primary" type="button" onClick={approve} disabled={!isPending || status === 'saving'}>
-              {alreadyApproved ? 'Fotos já liberadas' : status === 'saving' ? 'Liberando...' : 'Liberar fotos'}
+              {alreadyApproved ? 'Fotos já liberadas' : isCancelled ? 'Liberação cancelada' : status === 'saving' ? 'Liberando...' : 'Liberar fotos'}
             </button>
             <button className="btn-manual btn-manual-card" type="button" onClick={loadSession} disabled={status === 'loading'}>
               Atualizar status

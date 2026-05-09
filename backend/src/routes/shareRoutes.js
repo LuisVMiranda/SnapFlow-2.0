@@ -16,6 +16,20 @@ function calculateTotal(count, packageType, packageOptions) {
   return { unit, total: count * unit };
 }
 
+function accessTokenFromRequest(req) {
+  const header = req.get('authorization') || '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return req.query.access_token || req.query.token || match?.[1] || '';
+}
+
+function sharePhotoPayload(photo, customerAccessToken) {
+  return {
+    id: photo.id,
+    url: `/api/media/${photo.id}/preview?access_token=${customerAccessToken}`,
+    thumbUrl: `/api/media/${photo.id}/thumb?access_token=${customerAccessToken}`,
+  };
+}
+
 async function resolveShareOrder({ packages, repos, req }) {
   const share = await repos.getShareSession(req.params.token);
   if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para conferir a galeria no painel e enviar um link atualizado.', 'share_not_found');
@@ -27,9 +41,8 @@ async function resolveShareOrder({ packages, repos, req }) {
     throw new HttpError(400, 'Selecione ao menos uma foto para pagar.', 'photos_required');
   }
 
-  const sharePhotos = await repos.listPhotosForShare(share.token);
-  const allowedIds = new Set(sharePhotos.map((photo) => photo.id));
-  const photoIds = requestedPhotoIds.filter((photoId) => allowedIds.has(photoId));
+  const sharePhotos = await repos.listPhotosForShareByIds(share.token, requestedPhotoIds);
+  const photoIds = sharePhotos.map((photo) => photo.id);
   if (photoIds.length !== requestedPhotoIds.length) {
     throw new HttpError(403, 'Uma ou mais fotos não pertencem a esta galeria. Atualize a página e selecione as fotos novamente.', 'photo_share_mismatch');
   }
@@ -62,16 +75,32 @@ function createShareRouter({ packages, payment, repos }) {
         throw new HttpError(401, 'Código inválido. Digite os 4 caracteres enviados pelo fotógrafo e tente novamente.', 'invalid_share_code');
       }
       await repos.markShareAccessGranted(share.token);
-      const photos = await repos.listPhotosForShare(share.token);
+      const { items, page } = await repos.listPhotosForSharePage(share.token, { limit: req.body?.limit });
       const customerAccessToken = issueCustomerAccessToken(share.token);
       res.json({
         ...publicSharePayload(share),
         customerAccessToken,
-        photos: photos.map((photo) => ({
-          id: photo.id,
-          url: `/api/media/${photo.id}/preview?access_token=${customerAccessToken}`,
-          thumbUrl: `/api/media/${photo.id}/thumb?access_token=${customerAccessToken}`,
-        })),
+        photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
+        photosPage: page,
+      });
+    })
+  );
+
+  router.get(
+    '/share-session/:token/photos',
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token);
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
+      validateCustomerAccess(req, share.token);
+      const customerAccessToken = accessTokenFromRequest(req);
+      const { items, page } = await repos.listPhotosForSharePage(share.token, {
+        cursor: req.query.cursor,
+        limit: req.query.limit,
+      });
+      res.json({
+        photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
+        photosPage: page,
       });
     })
   );

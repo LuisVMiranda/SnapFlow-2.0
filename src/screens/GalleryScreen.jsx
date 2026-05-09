@@ -10,9 +10,14 @@ export function GalleryScreen({
   clientPhone,
   count,
   hasDiscount,
+  isLoadingPhotos = false,
   liveOps,
+  loadMorePhotos = () => {},
   markBrokenPhoto,
+  photoPageCounts,
+  photoPageError = '',
   photos,
+  photosPage,
   pricingOptions = DEFAULT_PRICING,
   remaining,
   resetSession,
@@ -28,6 +33,10 @@ export function GalleryScreen({
   unit,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
+  const hasMorePhotos = Boolean(shareToken && photosPage?.hasMore);
+  const loadedCount = photoPageCounts?.loadedCount ?? photos.length;
+  const totalPhotoCount = photoPageCounts?.totalCount ?? photos.length;
+  const selectedLoadedCount = photoPageCounts?.selectedLoadedCount ?? selected.length;
   const manualPaymentNotice = shareToken
     ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
     : undefined;
@@ -133,12 +142,32 @@ export function GalleryScreen({
 
         <div className="gallery-toolbar" style={{ marginBottom: '16px' }}>
           <button className="gallery-toolbar-btn" onClick={toggleAllPhotos}>
-            {allPhotosSelected ? 'Limpar seleção' : 'Selecionar tudo'}
+            {allPhotosSelected ? 'Limpar seleção' : hasMorePhotos ? 'Selecionar fotos carregadas' : 'Selecionar tudo'}
           </button>
           <span className="gallery-toolbar-hint">
-            {selected.length} de {photos.length} fotos selecionadas
+            {shareToken
+              ? `${selected.length} selecionada(s) • ${loadedCount} de ${totalPhotoCount} fotos carregadas`
+              : `${selected.length} de ${photos.length} fotos selecionadas`}
           </span>
         </div>
+
+        {shareToken && hasMorePhotos ? (
+          <div className="gallery-pagination-panel">
+            <button className="gallery-toolbar-btn" type="button" disabled={isLoadingPhotos} onClick={loadMorePhotos}>
+              {isLoadingPhotos ? 'Carregando mais fotos...' : 'Carregar mais fotos'}
+            </button>
+            <small>{selectedLoadedCount} foto(s) selecionada(s) entre as carregadas.</small>
+          </div>
+        ) : null}
+
+        {shareToken && photoPageError ? (
+          <div className="ops-error gallery-page-error">
+            <span>{photoPageError}</span>
+            <button className="share-quick-btn approve-session-btn" type="button" onClick={loadMorePhotos}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : null}
 
         {count > 0 ? (
           <div className={`promo-banner ${hasDiscount ? 'active' : ''}`} style={{ borderRadius: '8px', marginBottom: '8px' }}>

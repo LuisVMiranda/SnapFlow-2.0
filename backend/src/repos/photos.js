@@ -1,4 +1,5 @@
 const { rowToPhoto } = require('./mappers');
+const { buildPhotoPage, decodePhotoCursor, normalizePhotoPageLimit } = require('../services/photoPagination');
 
 function createPhotoRepo({ config, pool, query, withTransaction }) {
   async function createPhotos(photos) {
@@ -49,9 +50,60 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     return result.rows.map((row) => rowToPhoto(row, config));
   }
 
+  async function listPhotosForShareByIds(shareToken, photoIds) {
+    if (!Array.isArray(photoIds) || photoIds.length === 0) return [];
+    const result = await query(
+      `select *
+       from photos
+       where share_token = $1
+         and id = any($2::text[])
+         and deleted_at is null`,
+      [shareToken, photoIds]
+    );
+    const byId = new Map(result.rows.map((row) => [row.id, rowToPhoto(row, config)]));
+    return photoIds.map((photoId) => byId.get(photoId)).filter(Boolean);
+  }
+
   async function listPhotosForShare(shareToken) {
     const result = await query('select * from photos where share_token = $1 and deleted_at is null order by created_at', [shareToken]);
     return result.rows.map((row) => rowToPhoto(row, config));
+  }
+
+  async function countPhotosForShare(shareToken) {
+    const result = await query('select count(*)::int as count from photos where share_token = $1 and deleted_at is null', [shareToken]);
+    return Number(result.rows[0]?.count || 0);
+  }
+
+  async function listPhotosForSharePage(shareToken, options = {}) {
+    const limit = normalizePhotoPageLimit(options.limit);
+    const cursor = decodePhotoCursor(options.cursor);
+    const params = [shareToken, limit + 1];
+    let cursorSql = '';
+
+    if (cursor) {
+      params.push(cursor.createdAt, cursor.id);
+      cursorSql = `and (
+        created_at > $3::timestamptz
+        or (created_at = $3::timestamptz and id > $4::text)
+      )`;
+    }
+
+    const [photosResult, countResult] = await Promise.all([
+      query(
+        `select *
+         from photos
+         where share_token = $1
+           and deleted_at is null
+           ${cursorSql}
+         order by created_at, id
+         limit $2`,
+        params
+      ),
+      query('select count(*)::int as count from photos where share_token = $1 and deleted_at is null', [shareToken]),
+    ]);
+
+    const photos = photosResult.rows.map((row) => rowToPhoto(row, config));
+    return buildPhotoPage(photos, limit, countResult.rows[0]?.count || 0);
   }
 
   async function deletePhotoFromShare(shareToken, photoId) {
@@ -77,10 +129,13 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
 
   return {
     attachPhotosToSession,
+    countPhotosForShare,
     createPhotos,
     deletePhotoFromShare,
     getPhoto,
     listPhotosByIds,
+    listPhotosForShareByIds,
+    listPhotosForSharePage,
     listPhotosForSession,
     listPhotosForShare,
   };

@@ -44,15 +44,20 @@ export default function App() {
     hasDiscount,
     isGeneratingPix,
     isAdminUnlocked,
+    isLoadingPhotos,
     isUploading,
     liveOps,
+    loadMorePhotos,
     loginAdmin,
     logoutAdmin,
     markBrokenPhoto,
     noticeBanner,
     packageSettingsStatus,
     period,
+    photoPageCounts,
+    photoPageError,
     photos,
+    photosPage,
     pricingOptions,
     pixCopyPaste,
     pixWhatsAppMessage,
@@ -223,6 +228,11 @@ export default function App() {
         hasDiscount={hasDiscount}
         liveOps={liveOps}
         markBrokenPhoto={markBrokenPhoto}
+        isLoadingPhotos={isLoadingPhotos}
+        loadMorePhotos={loadMorePhotos}
+        photoPageCounts={photoPageCounts}
+        photoPageError={photoPageError}
+        photosPage={photosPage}
         photos={photos}
         pricingOptions={pricingOptions}
         remaining={remaining}

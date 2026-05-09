@@ -178,3 +178,37 @@
   font-size: 12px;
   color: #9ca3af;
 }
+
+.gallery-pagination-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(30, 144, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(30, 144, 255, 0.08);
+}
+
+.gallery-pagination-panel small {
+  color: #9ca3af;
+  font-size: 12px;
+  text-align: right;
+}
+
+.gallery-page-error {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .gallery-pagination-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gallery-pagination-panel small {
+    text-align: left;
+  }
+}

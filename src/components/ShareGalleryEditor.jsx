@@ -7,6 +7,7 @@ export function ShareGalleryEditor({
   draft,
   isLoading,
   isPhotoBusy,
+  loadMorePhotos = () => {},
   pricingOptions,
   saveShare,
   shareSession,
@@ -14,6 +15,7 @@ export function ShareGalleryEditor({
   uploadPhotos,
 }) {
   const photos = detail?.photos || [];
+  const photosPage = detail?.photosPage || {};
   const sales = detail?.sales || shareSession.sales || {};
   const soldPhotoCount = Number(sales.soldPhotoCount || 0);
   const soldOrderCount = Number(sales.soldOrderCount || 0);
@@ -175,6 +177,16 @@ export function ShareGalleryEditor({
               </div>
             ))}
           </div>
+        ) : null}
+        {photosPage.hasMore ? (
+          <button
+            className="share-quick-btn"
+            type="button"
+            disabled={isLoading}
+            onClick={() => loadMorePhotos(shareSession)}
+          >
+            {isLoading ? 'Carregando mais fotos...' : 'Carregar mais fotos'}
+          </button>
         ) : null}
       </section>
 

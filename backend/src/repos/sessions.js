@@ -49,6 +49,23 @@ function createSessionRepo({ pool, query, withTransaction }) {
            delivery_status = case when delivery_status = 'sent' then delivery_status else 'queued' end,
            delivery_updated_at = now()
        where id = $1
+         and status <> 'cancelled'
+       returning *`,
+      [sessionId]
+    );
+    return rowToSession(result.rows[0]);
+  }
+
+  async function cancelManualSessionRelease(sessionId) {
+    const result = await query(
+      `update sessions
+       set status = 'cancelled',
+           delivery_status = 'cancelled',
+           delivery_error = 'Liberação cancelada pelo administrador.',
+           delivery_updated_at = now()
+       where id = $1
+         and status in ('pending', 'cancelled')
+         and payment_method = 'Dinheiro/Cartão'
        returning *`,
       [sessionId]
     );
@@ -225,6 +242,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
 
   return {
     approveSession,
+    cancelManualSessionRelease,
     clearSalesStats,
     createSession,
     dashboard,

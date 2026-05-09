@@ -3,10 +3,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const request = require('supertest');
 const { createApp } = require('../src/app');
+const { buildPhotoPage, decodePhotoCursor, normalizePhotoPageLimit } = require('../src/services/photoPagination');
 const { hashValue } = require('../src/tokens');
 
 function createTestApp({
   deliveryQueue = { enqueue: async () => null },
+  initialPhotos = null,
   whatsapp = {
     getStatus: () => ({ ready: true, status: 'ready', lastError: null }),
     reconnect: async () => ({ ready: true, status: 'ready', lastError: null }),
@@ -20,6 +22,7 @@ function createTestApp({
     soldAmount: 0,
     lastSoldAt: null,
   });
+  const basePhotos = initialPhotos || [{ id: 'photo_1', shareToken: 'share_1', sizeBytes: 100, createdAt: new Date(Date.now() - 1000).toISOString() }];
   let share = {
     token: 'share_1',
     galleryId: 'gallery_1',
@@ -31,7 +34,7 @@ function createTestApp({
     phone: '11999999999',
     clientName: 'Ana Cliente',
     clientEmail: '',
-    photoCount: 1,
+    photoCount: basePhotos.filter((photo) => photo.shareToken === 'share_1' && !photo.deletedAt).length,
     total: 10,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -43,7 +46,7 @@ function createTestApp({
   let deletedShareToken = null;
   let recreatedShare = null;
   const sessions = new Map();
-  let photos = [{ id: 'photo_1', shareToken: 'share_1', sizeBytes: 100 }];
+  let photos = basePhotos;
   let whatsappTemplateSettings = {
     shareLink: {
       label: 'Link da galeria',
@@ -94,10 +97,31 @@ function createTestApp({
     },
     markShareAccessGranted: async () => share,
     listPhotosForShare: async (token) => photos.filter((photo) => photo.shareToken === token && !photo.deletedAt),
+    listPhotosForShareByIds: async (token, photoIds) => {
+      const visible = photos.filter((photo) => photo.shareToken === token && !photo.deletedAt);
+      const byId = new Map(visible.map((photo) => [photo.id, photo]));
+      return photoIds.map((photoId) => byId.get(photoId)).filter(Boolean);
+    },
+    listPhotosForSharePage: async (token, options = {}) => {
+      const limit = normalizePhotoPageLimit(options.limit);
+      const cursor = decodePhotoCursor(options.cursor);
+      const visible = photos
+        .filter((photo) => photo.shareToken === token && !photo.deletedAt)
+        .sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')) || String(a.id).localeCompare(String(b.id)));
+      const afterCursor = cursor
+        ? visible.filter((photo) => String(photo.createdAt) > cursor.createdAt || (String(photo.createdAt) === cursor.createdAt && String(photo.id) > cursor.id))
+        : visible;
+      return buildPhotoPage(afterCursor.slice(0, limit + 1), limit, visible.length);
+    },
+    countPhotosForShare: async (token) => photos.filter((photo) => photo.shareToken === token && !photo.deletedAt).length,
     getPhoto: async (photoId) => photos.find((photo) => photo.id === photoId && !photo.deletedAt) || null,
     createPhotos: async (payload) => {
-      photos = [...photos, ...payload];
-      return payload;
+      const created = payload.map((photo, index) => ({
+        ...photo,
+        createdAt: photo.createdAt || new Date(Date.now() + index).toISOString(),
+      }));
+      photos = [...photos, ...created];
+      return created;
     },
     createShareSession: async (payload) => {
       recreatedShare = {
@@ -203,6 +227,7 @@ function createTestApp({
     approveSession: async (sessionId) => {
       const session = sessions.get(sessionId);
       if (!session) return null;
+      if (session.status === 'cancelled') return null;
       session.status = 'approved';
       session.deliveryStatus = 'queued';
       if (session.shareToken === share.token) {
@@ -216,6 +241,14 @@ function createTestApp({
           },
         };
       }
+      return session;
+    },
+    cancelManualSessionRelease: async (sessionId) => {
+      const session = sessions.get(sessionId);
+      if (!session || session.status === 'approved' || session.paymentMethod !== 'Dinheiro/Cartão') return null;
+      session.status = 'cancelled';
+      session.deliveryStatus = 'cancelled';
+      session.deliveryError = 'Liberação cancelada pelo administrador.';
       return session;
     },
     getSession: async (sessionId) => sessions.get(sessionId) || null,
@@ -455,6 +488,75 @@ test('admin manual cash/card payment stays pending until explicit approval', asy
   assert.deepEqual(enqueued, ['manual_1']);
 });
 
+test('admin can cancel a pending manual release and cannot approve it afterwards', async () => {
+  const enqueued = [];
+  const app = createTestApp({ deliveryQueue: { enqueue: async (id) => enqueued.push(id) } });
+
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_cancel',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  const cancelled = await request(app)
+    .post('/api/admin/sessions/manual_cancel/cancel-release')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.session.status, 'cancelled');
+  assert.equal(cancelled.body.session.deliveryStatus, 'cancelled');
+  assert.equal(cancelled.body.session.deliveryError, 'Liberação cancelada pelo administrador.');
+  assert.deepEqual(enqueued, []);
+
+  const duplicate = await request(app)
+    .post('/api/admin/sessions/manual_cancel/cancel-release')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(duplicate.status, 200);
+  assert.equal(duplicate.body.session.status, 'cancelled');
+
+  const approve = await request(app)
+    .post('/api/admin/approve-manual-session/manual_cancel')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(approve.status, 409);
+  assert.equal(approve.body.code, 'session_release_cancelled');
+  assert.deepEqual(enqueued, []);
+});
+
+test('admin cannot cancel a release after approval', async () => {
+  const app = createTestApp();
+
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_approved',
+      total: 30,
+      count: 2,
+      phone: '11999999999',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+  await request(app)
+    .post('/api/admin/approve-manual-session/manual_approved')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const response = await request(app)
+    .post('/api/admin/sessions/manual_approved/cancel-release')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.code, 'session_already_approved');
+});
+
 test('admin share link creation sends WhatsApp and returns send metadata', async () => {
   const sends = [];
   const app = createTestApp({ whatsapp: { sendText: async (phone, message) => sends.push({ phone, message }) } });
@@ -671,6 +773,46 @@ test('admin gallery details expose only that gallery photos for editing', async 
   assert.equal(response.body.photos.length, 1);
   assert.equal(response.body.photos[0].id, 'photo_1');
   assert.match(response.body.photos[0].thumbUrl, /\/api\/media\/photo_1\/thumb/);
+});
+
+test('admin gallery details return a paginated first photo page', async () => {
+  const initialPhotos = Array.from({ length: 45 }, (_, index) => ({
+    id: `photo_${String(index + 1).padStart(2, '0')}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const response = await request(createTestApp({ initialPhotos }))
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.photos.length, 40);
+  assert.equal(response.body.photosPage.hasMore, true);
+  assert.equal(response.body.photosPage.totalCount, 45);
+  assert.equal(response.body.photoCount, 45);
+});
+
+test('admin can load the next gallery photo page', async () => {
+  const initialPhotos = Array.from({ length: 45 }, (_, index) => ({
+    id: `photo_${String(index + 1).padStart(2, '0')}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const app = createTestApp({ initialPhotos });
+  const first = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  const response = await request(app)
+    .get('/api/admin/share-sessions/share_1/photos')
+    .query({ cursor: first.body.photosPage.nextCursor })
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.photos.length, 5);
+  assert.equal(response.body.photosPage.hasMore, false);
 });
 
 test('admin can upload and delete photos inside a shared gallery', async () => {
@@ -911,6 +1053,70 @@ test('share unlock returns short-lived media urls after valid code', async () =>
   assert.equal(response.status, 200);
   assert.ok(response.body.customerAccessToken);
   assert.match(response.body.photos[0].url, /access_token=/);
+  assert.equal(response.body.photosPage.hasMore, false);
+});
+
+test('share unlock returns the first paginated photo batch', async () => {
+  const initialPhotos = Array.from({ length: 45 }, (_, index) => ({
+    id: `photo_${String(index + 1).padStart(2, '0')}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const response = await request(createTestApp({ initialPhotos }))
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.photos.length, 40);
+  assert.equal(response.body.photosPage.hasMore, true);
+  assert.equal(response.body.photosPage.totalCount, 45);
+  assert.ok(response.body.photosPage.nextCursor);
+});
+
+test('unlocked share sessions load the next photo page', async () => {
+  const initialPhotos = Array.from({ length: 45 }, (_, index) => ({
+    id: `photo_${String(index + 1).padStart(2, '0')}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const app = createTestApp({ initialPhotos });
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .get('/api/share-session/share_1/photos')
+    .query({ cursor: unlock.body.photosPage.nextCursor, limit: 40 })
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.photos.length, 5);
+  assert.equal(response.body.photosPage.hasMore, false);
+});
+
+test('unlocked share photo pages reject invalid cursors', async () => {
+  const app = createTestApp();
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .get('/api/share-session/share_1/photos')
+    .query({ cursor: 'cursor-invalido' })
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`);
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'invalid_photo_cursor');
+});
+
+test('unlocked share photo pages require customer access token', async () => {
+  const response = await request(createTestApp())
+    .get('/api/share-session/share_1/photos');
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.code, 'media_access_denied');
 });
 
 test('unlocked share sessions can create Pix without admin bearer token', async () => {
