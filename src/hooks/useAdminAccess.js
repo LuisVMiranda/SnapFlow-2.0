@@ -6,6 +6,14 @@ const ADMIN_TOKEN_STORAGE_KEY = 'snapflow-admin-token';
 const ADMIN_TOKEN_COOKIE_NAME = 'snapflow-admin-token';
 const REMEMBER_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
+function lockDetailsFromResponse(data = {}) {
+  const details = data.details || {};
+  return {
+    lockedUntil: details.lockedUntil || '',
+    retryAfterSeconds: Number(details.retryAfterSeconds || 0),
+  };
+}
+
 function readStoredAdminToken() {
   if (typeof window === 'undefined') return { token: '', remembered: false };
   const cookieToken = getCookie(ADMIN_TOKEN_COOKIE_NAME);
@@ -25,6 +33,8 @@ export function useAdminAccess() {
   );
   const [adminAccessError, setAdminAccessError] = useState('');
   const [adminAttemptsRemaining, setAdminAttemptsRemaining] = useState(5);
+  const [adminLockedUntil, setAdminLockedUntil] = useState('');
+  const [adminRetryAfterSeconds, setAdminRetryAfterSeconds] = useState(0);
 
   const adminHeaders = useCallback(
     (extra = {}) => ({
@@ -63,6 +73,21 @@ export function useAdminAccess() {
     setAdminAccessStatus('idle');
     setAdminAccessError('');
     setAdminAttemptsRemaining(5);
+    setAdminLockedUntil('');
+    setAdminRetryAfterSeconds(0);
+    persistAdminToken('', false);
+  }, [persistAdminToken]);
+
+  const applyAccessFailure = useCallback((response, data, prefix) => {
+    const isLocked = response.status === 429;
+    const lockDetails = lockDetailsFromResponse(data);
+    setAdminToken('');
+    setAdminRemember(false);
+    setAdminAccessStatus(isLocked ? 'locked' : 'denied');
+    setAdminAccessError(buildApiErrorMessage(prefix, response, data));
+    setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
+    setAdminLockedUntil(isLocked ? lockDetails.lockedUntil : '');
+    setAdminRetryAfterSeconds(isLocked ? lockDetails.retryAfterSeconds : 0);
     persistAdminToken('', false);
   }, [persistAdminToken]);
 
@@ -84,18 +109,15 @@ export function useAdminAccess() {
           setAdminToken(cleanToken);
           setAdminRemember(Boolean(remember));
           setAdminAttemptsRemaining(5);
+          setAdminLockedUntil('');
+          setAdminRetryAfterSeconds(0);
           setAdminAccessStatus('granted');
           setAdminAccessError('');
           persistAdminToken(cleanToken, Boolean(remember));
           return true;
         }
 
-        setAdminAccessStatus(response.status === 429 ? 'locked' : 'denied');
-        setAdminAccessError(
-          buildApiErrorMessage('Não foi possível entrar na conta administrativa.', response, data)
-        );
-        setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
-        persistAdminToken('', false);
+        applyAccessFailure(response, data, 'Não foi possível entrar na conta administrativa.');
         return false;
       } catch (error) {
         setAdminAccessStatus('denied');
@@ -103,7 +125,7 @@ export function useAdminAccess() {
         return false;
       }
     },
-    [persistAdminToken, verifyAdminToken]
+    [applyAccessFailure, persistAdminToken, verifyAdminToken]
   );
 
   useEffect(() => {
@@ -119,15 +141,12 @@ export function useAdminAccess() {
         if (response.ok && data.ok) {
           setAdminAccessStatus('granted');
           setAdminAccessError('');
+          setAdminLockedUntil('');
+          setAdminRetryAfterSeconds(0);
           return;
         }
 
-        setAdminAccessStatus(response.status === 429 ? 'locked' : 'denied');
-        setAdminAccessError(
-          buildApiErrorMessage('Não foi possível validar a sessão administrativa.', response, data)
-        );
-        setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
-        persistAdminToken('', false);
+        applyAccessFailure(response, data, 'Não foi possível validar a sessão administrativa.');
       } catch (error) {
         if (cancelled) return;
         setAdminAccessStatus('denied');
@@ -140,7 +159,30 @@ export function useAdminAccess() {
     return () => {
       cancelled = true;
     };
-  }, [adminAccessStatus, adminToken, persistAdminToken, verifyAdminToken]);
+  }, [adminAccessStatus, adminToken, applyAccessFailure, verifyAdminToken]);
+
+  useEffect(() => {
+    if (adminAccessStatus !== 'locked' || !adminLockedUntil) return undefined;
+    const lockedUntilMs = new Date(adminLockedUntil).getTime();
+    const remainingMs = lockedUntilMs - Date.now();
+    if (!Number.isFinite(lockedUntilMs) || remainingMs <= 0) {
+      setAdminAccessStatus('idle');
+      setAdminAccessError('');
+      setAdminAttemptsRemaining(5);
+      setAdminLockedUntil('');
+      setAdminRetryAfterSeconds(0);
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAdminAccessStatus('idle');
+      setAdminAccessError('');
+      setAdminAttemptsRemaining(5);
+      setAdminLockedUntil('');
+      setAdminRetryAfterSeconds(0);
+    }, Math.min(remainingMs, 2_147_483_647));
+    return () => window.clearTimeout(timeout);
+  }, [adminAccessStatus, adminLockedUntil]);
 
   const isAdminUnlocked = adminAccessStatus === 'granted';
 
@@ -160,7 +202,9 @@ export function useAdminAccess() {
     adminAttemptsRemaining,
     adminHeaders,
     adminJsonHeaders,
+    adminLockedUntil,
     adminRemember,
+    adminRetryAfterSeconds,
     adminToken,
     isAdminUnlocked,
     loginAdmin,

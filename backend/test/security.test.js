@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const request = require('supertest');
 const { createApp } = require('../src/app');
+const { lockMsFromConfig } = require('../src/auth');
 const { buildPhotoPage, decodePhotoCursor, normalizePhotoPageLimit } = require('../src/services/photoPagination');
 const { hashValue } = require('../src/tokens');
 
@@ -450,6 +451,12 @@ test('admin access check only accepts the correct bearer token', async () => {
   assert.equal(valid.body.ok, true);
 });
 
+test('admin lock duration is bounded between 30 and 60 minutes', () => {
+  assert.equal(lockMsFromConfig({ adminLockMinutes: 5 }), 30 * 60 * 1000);
+  assert.equal(lockMsFromConfig({ adminLockMinutes: 45 }), 45 * 60 * 1000);
+  assert.equal(lockMsFromConfig({ adminLockMinutes: 90 }), 60 * 60 * 1000);
+});
+
 test('admin access locks after five invalid attempts', async () => {
   const app = createTestApp();
 
@@ -466,11 +473,17 @@ test('admin access locks after five invalid attempts', async () => {
     .set('Authorization', 'Bearer wrong-token-5');
   assert.equal(locked.status, 429);
   assert.equal(locked.body.code, 'admin_locked');
+  assert.equal(locked.body.details.cooldownMinutes, 30);
+  assert.match(locked.body.details.lockedUntil, /^\d{4}-\d{2}-\d{2}T/);
+  assert.ok(Number(locked.body.details.retryAfterSeconds) > 0);
+  assert.ok(Number(locked.body.details.retryAfterSeconds) <= 30 * 60);
+  assert.equal(locked.headers['retry-after'], String(locked.body.details.retryAfterSeconds));
 
   const stillLocked = await request(app)
     .get('/api/admin/access')
     .set('Authorization', 'Bearer admin-secret');
   assert.equal(stillLocked.status, 429);
+  assert.equal(stillLocked.body.details.cooldownMinutes, 30);
 });
 
 test('admin dashboard rejects missing bearer token', async () => {

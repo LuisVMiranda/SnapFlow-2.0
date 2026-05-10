@@ -1,7 +1,7 @@
 export const API_BASE_URL = '';
 
 const CODE_HINTS = {
-  admin_locked: 'Aguarde o bloqueio expirar antes de tentar novamente.',
+  admin_locked: 'O bloqueio é temporário. Aguarde a liberação automática antes de tentar novamente.',
   admin_required: 'Entre novamente com a credencial administrativa no botão Conta.',
   admin_token_missing: 'Configure ADMIN_ACCESS_TOKEN no arquivo backend\\.env.local e reinicie o servidor.',
   api_route_not_found: 'O backend em execução está desatualizado. Rode as migrações, reinicie a janela APP FOTOGRAFIA - SERVIDOR e tente de novo.',
@@ -92,6 +92,8 @@ export function buildApiErrorMessage(prefix, response, data = {}) {
   if (details.maxFilesPerUpload) parts.push(`Limite por envio: ${details.maxFilesPerUpload} arquivos`);
   if (details.receivedType) parts.push(`Tipo recebido: ${details.receivedType}`);
   if (details.reason) parts.push(`Detalhe técnico: ${details.reason}`);
+  if (details.lockedUntil) parts.push(`Liberação automática: ${new Date(details.lockedUntil).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+  if (details.retryAfterSeconds) parts.push(`Tempo aproximado: ${Math.ceil(Number(details.retryAfterSeconds) / 60)} minuto(s)`);
   if (Array.isArray(details.allowedTypes)) parts.push(`Tipos permitidos: ${details.allowedTypes.join(', ')}`);
 
   const hint = CODE_HINTS[data.code] || statusHint(response?.status);

@@ -189,6 +189,7 @@ call :validar_identificador "Usuário do banco PostgreSQL" "%POSTGRES_USER%" || 
 call :validar_senha_banco || exit /b 1
 call :validar_porta || exit /b 1
 call :perguntar ADMIN_ACCESS_TOKEN "Token administrativo do painel" "%ADMIN_DEFAULT%"
+call :perguntar ADMIN_LOCK_MINUTES "Bloqueio temporário administrativo em minutos, de 30 a 60" "30"
 call :perguntar CREDENTIALS_SECRET "Segredo para criptografar credenciais" "%CREDENTIALS_DEFAULT%"
 call :perguntar MP_ACCESS_TOKEN "Token Mercado Pago para Pix real" "APP_USR-your-mercado-pago-token"
 call :perguntar MP_WEBHOOK_SECRET "Segredo do webhook Mercado Pago" "%WEBHOOK_DEFAULT%"
@@ -393,7 +394,7 @@ if /i "%SOBRESCREVER_ROOT_ENV%"=="S" (
 if /i "%SOBRESCREVER_BACKEND_ENV%"=="S" (
   if exist "%ROOT%\backend\.env.local" copy /Y "%ROOT%\backend\.env.local" "%ROOT%\backend\.env.local.bak-%STAMP%" >nul
   set "SNAPFLOW_ROOT=%ROOT%"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=$env:SNAPFLOW_ROOT; $db='postgres://'+$env:POSTGRES_USER+':'+$env:POSTGRES_PASSWORD+'@127.0.0.1:'+$env:POSTGRES_PORT+'/'+$env:POSTGRES_DB; $lines=@('DATABASE_URL='+$db,'ADMIN_ACCESS_TOKEN='+$env:ADMIN_ACCESS_TOKEN,'CREDENTIALS_SECRET='+$env:CREDENTIALS_SECRET,'MP_ACCESS_TOKEN='+$env:MP_ACCESS_TOKEN,'MP_WEBHOOK_SECRET='+$env:MP_WEBHOOK_SECRET,'PUBLIC_BASE_URL='+$env:PUBLIC_BASE_URL,'HOST='+$env:HOST,'PORT='+$env:PORT,'STORAGE_ROOT='+$env:STORAGE_ROOT,'MAX_UPLOAD_MB=25','MAX_FILES_PER_UPLOAD=100','DEFAULT_GALLERY_RETENTION_DAYS=30','DELIVERED_PHOTO_RETENTION_DAYS=30','EXPIRED_SHARE_RETENTION_DAYS=7','AUTO_CLEANUP_ENABLED='+$env:AUTO_CLEANUP_ENABLED); [IO.File]::WriteAllLines((Join-Path $root 'backend\.env.local'), $lines, [Text.UTF8Encoding]::new($false))"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=$env:SNAPFLOW_ROOT; $db='postgres://'+$env:POSTGRES_USER+':'+$env:POSTGRES_PASSWORD+'@127.0.0.1:'+$env:POSTGRES_PORT+'/'+$env:POSTGRES_DB; $lines=@('DATABASE_URL='+$db,'ADMIN_ACCESS_TOKEN='+$env:ADMIN_ACCESS_TOKEN,'ADMIN_LOCK_MINUTES='+$env:ADMIN_LOCK_MINUTES,'CREDENTIALS_SECRET='+$env:CREDENTIALS_SECRET,'MP_ACCESS_TOKEN='+$env:MP_ACCESS_TOKEN,'MP_WEBHOOK_SECRET='+$env:MP_WEBHOOK_SECRET,'PUBLIC_BASE_URL='+$env:PUBLIC_BASE_URL,'HOST='+$env:HOST,'PORT='+$env:PORT,'STORAGE_ROOT='+$env:STORAGE_ROOT,'MAX_UPLOAD_MB=25','MAX_FILES_PER_UPLOAD=100','DEFAULT_GALLERY_RETENTION_DAYS=30','DELIVERED_PHOTO_RETENTION_DAYS=30','EXPIRED_SHARE_RETENTION_DAYS=7','AUTO_CLEANUP_ENABLED='+$env:AUTO_CLEANUP_ENABLED); [IO.File]::WriteAllLines((Join-Path $root 'backend\.env.local'), $lines, [Text.UTF8Encoding]::new($false))"
   if errorlevel 1 exit /b 1
   echo Criado: backend\.env.local
 ) else (

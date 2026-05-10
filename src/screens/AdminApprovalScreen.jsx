@@ -9,7 +9,9 @@ export function AdminApprovalScreen({
   adminAccessStatus,
   adminAttemptsRemaining,
   adminHeaders,
+  adminLockedUntil,
   adminRemember,
+  adminRetryAfterSeconds,
   fetchDashboard,
   isAdminUnlocked,
   loginAdmin,
@@ -78,7 +80,9 @@ export function AdminApprovalScreen({
             adminAccessError={adminAccessError}
             adminAccessStatus={adminAccessStatus}
             adminAttemptsRemaining={adminAttemptsRemaining}
+            adminLockedUntil={adminLockedUntil}
             adminRemember={adminRemember}
+            adminRetryAfterSeconds={adminRetryAfterSeconds}
             isAdminUnlocked={isAdminUnlocked}
             loginAdmin={loginAdmin}
             logoutAdmin={logoutAdmin}

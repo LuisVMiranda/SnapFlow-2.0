@@ -5,6 +5,11 @@ function numberFromEnv(name, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
+function boundedNumberFromEnv(name, fallback, min, max) {
+  const value = numberFromEnv(name, fallback);
+  return Math.min(max, Math.max(min, value));
+}
+
 function createConfig() {
   return {
     port: Number(process.env.PORT) || 3000,
@@ -15,6 +20,7 @@ function createConfig() {
     mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || '',
     mercadoPagoWebhookSecret: process.env.MP_WEBHOOK_SECRET || '',
     credentialsSecret: process.env.CREDENTIALS_SECRET || process.env.ADMIN_ACCESS_TOKEN || '',
+    adminLockMinutes: boundedNumberFromEnv('ADMIN_LOCK_MINUTES', 30, 30, 60),
     storageRoot: process.env.STORAGE_ROOT
       ? path.resolve(process.env.STORAGE_ROOT)
       : path.join(__dirname, '..', 'storage'),

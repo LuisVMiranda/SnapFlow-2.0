@@ -19,7 +19,9 @@ export default function App() {
     adminAttemptsRemaining,
     adminHeaders,
     adminJsonHeaders,
+    adminLockedUntil,
     adminRemember,
+    adminRetryAfterSeconds,
     allPhotosSelected,
     brokenPhotoIds,
     cleanupPreview,
@@ -125,7 +127,9 @@ export default function App() {
         adminAccessStatus={adminAccessStatus}
         adminAttemptsRemaining={adminAttemptsRemaining}
         adminHeaders={adminHeaders}
+        adminLockedUntil={adminLockedUntil}
         adminRemember={adminRemember}
+        adminRetryAfterSeconds={adminRetryAfterSeconds}
         fetchDashboard={fetchDashboard}
         isAdminUnlocked={isAdminUnlocked}
         loginAdmin={loginAdmin}
@@ -178,7 +182,9 @@ export default function App() {
         adminAttemptsRemaining={adminAttemptsRemaining}
         adminHeaders={adminHeaders}
         adminJsonHeaders={adminJsonHeaders}
+        adminLockedUntil={adminLockedUntil}
         adminRemember={adminRemember}
+        adminRetryAfterSeconds={adminRetryAfterSeconds}
         cleanupPreview={cleanupPreview}
         clientPhone={clientPhone}
         count={count}

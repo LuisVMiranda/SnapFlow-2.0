@@ -1,11 +1,23 @@
 import { LogOut, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+function formatLockedUntil(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 export function AccountMenu({
   adminAccessError,
   adminAccessStatus,
   adminAttemptsRemaining,
+  adminLockedUntil,
   adminRemember,
+  adminRetryAfterSeconds,
   isAdminUnlocked,
   loginAdmin,
   logoutAdmin,
@@ -20,12 +32,16 @@ export function AccountMenu({
 
   const isChecking = adminAccessStatus === 'checking';
   const isLocked = adminAccessStatus === 'locked';
+  const lockedUntilLabel = formatLockedUntil(adminLockedUntil);
+  const lockFallback = adminRetryAfterSeconds
+    ? `Tente novamente em aproximadamente ${Math.ceil(adminRetryAfterSeconds / 60)} minuto(s).`
+    : 'Aguarde o bloqueio expirar antes de tentar novamente.';
   const statusLabel = {
     checking: 'Validando credenciais...',
     denied: adminAccessError || 'Credencial inválida. Confira o token informado no instalador ou em backend\\.env.local.',
     granted: 'Conta administrativa ativa.',
     idle: 'Entre com a credencial administrativa.',
-    locked: adminAccessError || 'Limite de tentativas atingido. Aguarde alguns minutos antes de tentar novamente.',
+    locked: adminAccessError || `Limite de tentativas atingido. ${lockedUntilLabel ? `Liberação automática às ${lockedUntilLabel}.` : lockFallback}`,
   }[adminAccessStatus || 'idle'];
 
   const handleSubmit = async (event) => {

@@ -45,4 +45,25 @@ describe('AccountMenu', () => {
 
     expect(logoutAdmin).toHaveBeenCalledTimes(1);
   });
+
+  it('explains temporary lockout with the automatic release time', async () => {
+    render(
+      <AccountMenu
+        adminAccessError=""
+        adminAccessStatus="locked"
+        adminAttemptsRemaining={0}
+        adminLockedUntil="2026-05-10T14:30:00.000Z"
+        adminRemember={false}
+        adminRetryAfterSeconds={1800}
+        isAdminUnlocked={false}
+        loginAdmin={vi.fn()}
+        logoutAdmin={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir conta administrativa' }));
+
+    expect(screen.getByText(/Limite de tentativas atingido/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeDisabled();
+  });
 });

@@ -158,6 +158,7 @@ copy backend\.env.example backend\.env.local
 ```env
 DATABASE_URL=postgres://snapflow:sua-senha-local@127.0.0.1:55432/snapflow
 ADMIN_ACCESS_TOKEN=um-token-longo-e-secreto
+ADMIN_LOCK_MINUTES=30
 CREDENTIALS_SECRET=outro-segredo-longo-para-criptografar-credenciais
 MP_ACCESS_TOKEN=APP_USR-seu-token-mercado-pago
 MP_WEBHOOK_SECRET=seu-segredo-de-webhook
@@ -328,6 +329,8 @@ Os diretórios de sessão do WhatsApp são locais e ignorados pelo Git.
 ## Painel administrativo
 
 O painel é protegido por `ADMIN_ACCESS_TOKEN`.
+
+Depois de 5 tentativas inválidas, o backend bloqueia temporariamente aquele endereço IP administrativo. O padrão é `ADMIN_LOCK_MINUTES=30`, e o valor pode ficar entre 30 e 60 minutos em `backend\.env.local`. A resposta da API informa o horário de liberação e o painel limpa tokens antigos salvos no navegador para evitar novos bloqueios automáticos.
 
 Depois de entrar, o administrador pode:
 

@@ -2,7 +2,16 @@ const crypto = require('crypto');
 const { HttpError } = require('./errors');
 
 const MAX_ADMIN_FAILURES = 5;
-const ADMIN_LOCK_MS = 15 * 60 * 1000;
+const DEFAULT_ADMIN_LOCK_MINUTES = 30;
+const MAX_ADMIN_LOCK_MINUTES = 60;
+
+function lockMsFromConfig(config) {
+  const minutes = Number(config.adminLockMinutes);
+  const safeMinutes = Number.isFinite(minutes) && minutes > 0
+    ? Math.min(MAX_ADMIN_LOCK_MINUTES, Math.max(DEFAULT_ADMIN_LOCK_MINUTES, minutes))
+    : DEFAULT_ADMIN_LOCK_MINUTES;
+  return safeMinutes * 60 * 1000;
+}
 
 function safeEqual(leftValue, rightValue) {
   const left = Buffer.from(String(leftValue || ''));
@@ -12,6 +21,8 @@ function safeEqual(leftValue, rightValue) {
 
 function createAuth(config) {
   const attempts = new Map();
+  const adminLockMs = lockMsFromConfig(config);
+  const cooldownMinutes = Math.round(adminLockMs / 60_000);
 
   function attemptKey(req) {
     const forwarded = req.get('x-forwarded-for') || '';
@@ -28,13 +39,29 @@ function createAuth(config) {
     return state;
   }
 
+  function lockedDetails(lockedUntil, now) {
+    return {
+      attemptsRemaining: 0,
+      cooldownMinutes,
+      lockedUntil: new Date(lockedUntil).toISOString(),
+      retryAfterSeconds: Math.max(1, Math.ceil((lockedUntil - now) / 1000)),
+    };
+  }
+
+  function lockedError(lockedUntil, now) {
+    const details = lockedDetails(lockedUntil, now);
+    return new HttpError(
+      429,
+      `Muitas tentativas administrativas. O acesso deste endereço IP foi bloqueado temporariamente por ${details.cooldownMinutes} minuto(s). Tente novamente após ${details.lockedUntil}.`,
+      'admin_locked',
+      details
+    );
+  }
+
   function rejectIfLocked(key, now) {
     const state = currentAttemptState(key, now);
     if (state.lockedUntil && state.lockedUntil > now) {
-      throw new HttpError(429, 'Muitas tentativas administrativas. Aguarde antes de tentar novamente.', 'admin_locked', {
-        attemptsRemaining: 0,
-        lockedUntil: new Date(state.lockedUntil).toISOString(),
-      });
+      throw lockedError(state.lockedUntil, now);
     }
   }
 
@@ -44,12 +71,9 @@ function createAuth(config) {
     const attemptsRemaining = Math.max(0, MAX_ADMIN_FAILURES - count);
 
     if (count >= MAX_ADMIN_FAILURES) {
-      const lockedUntil = now + ADMIN_LOCK_MS;
+      const lockedUntil = now + adminLockMs;
       attempts.set(key, { count, lockedUntil });
-      throw new HttpError(429, 'Muitas tentativas administrativas. Aguarde antes de tentar novamente.', 'admin_locked', {
-        attemptsRemaining,
-        lockedUntil: new Date(lockedUntil).toISOString(),
-      });
+      throw lockedError(lockedUntil, now);
     }
 
     attempts.set(key, { count, lockedUntil: 0 });
@@ -78,6 +102,9 @@ function createAuth(config) {
       attempts.delete(key);
       next();
     } catch (error) {
+      if (error?.code === 'admin_locked' && error.details?.retryAfterSeconds) {
+        res.set('Retry-After', String(error.details.retryAfterSeconds));
+      }
       next(error);
     }
   }
@@ -85,4 +112,4 @@ function createAuth(config) {
   return { requireAdmin };
 }
 
-module.exports = { createAuth, safeEqual, MAX_ADMIN_FAILURES };
+module.exports = { createAuth, lockMsFromConfig, safeEqual, MAX_ADMIN_FAILURES };

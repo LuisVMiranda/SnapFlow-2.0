@@ -14,7 +14,9 @@ export function DashboardScreen({
   adminAttemptsRemaining,
   adminHeaders,
   adminJsonHeaders,
+  adminLockedUntil,
   adminRemember,
+  adminRetryAfterSeconds,
   cleanupPreview,
   clientPhone,
   count,
@@ -152,7 +154,9 @@ export function DashboardScreen({
             adminAccessError={adminAccessError}
             adminAccessStatus={adminAccessStatus}
             adminAttemptsRemaining={adminAttemptsRemaining}
+            adminLockedUntil={adminLockedUntil}
             adminRemember={adminRemember}
+            adminRetryAfterSeconds={adminRetryAfterSeconds}
             isAdminUnlocked={isAdminUnlocked}
             loginAdmin={loginAdmin}
             logoutAdmin={logoutAdmin}
