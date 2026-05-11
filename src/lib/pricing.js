@@ -71,12 +71,24 @@ export function firstPackageKey(pricingOptions = DEFAULT_PRICING) {
   return Object.keys(pricingOptions)[0] || 'eventos';
 }
 
+export function pricingForType(type, pricingOptions = DEFAULT_PRICING) {
+  return pricingOptions[type] || pricingOptions[firstPackageKey(pricingOptions)];
+}
+
 export function packageLabel(type, pricingOptions = DEFAULT_PRICING, fallback = 'Sem pacote') {
   return type && pricingOptions[type] ? pricingOptions[type].shortLabel : fallback;
 }
 
 export function calcTotal(count, type, pricingOptions = DEFAULT_PRICING) {
-  const pricing = pricingOptions[type] || pricingOptions[firstPackageKey(pricingOptions)];
+  const pricing = pricingForType(type, pricingOptions);
   const unit = count >= pricing.threshold ? pricing.bulk : pricing.unit;
   return { unit, total: count * unit };
+}
+
+export function reachesPackageThreshold(count, type, pricingOptions = DEFAULT_PRICING) {
+  const pricing = pricingForType(type, pricingOptions);
+  return {
+    eligible: Number(count || 0) >= Number(pricing.threshold || 0),
+    threshold: Number(pricing.threshold || 0),
+  };
 }

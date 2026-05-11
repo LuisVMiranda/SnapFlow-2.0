@@ -81,4 +81,18 @@ describe('GalleryScreen paginated shared galleries', () => {
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     expect(loadMorePhotos).toHaveBeenCalledTimes(1);
   });
+  it('does not expose manual discount pricing before checkout', () => {
+    render(
+      <GalleryScreen
+        {...baseProps}
+        photoPageCounts={{ loadedCount: 2, selectedCount: 1, selectedLoadedCount: 1, totalCount: 5 }}
+        photosPage={{ hasMore: false, nextCursor: null, totalCount: 5 }}
+        subtotal={10}
+        total={10}
+      />
+    );
+
+    expect(screen.queryByText(/Desconto concedido pelo fotógrafo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Subtotal/i)).not.toBeInTheDocument();
+  });
 });

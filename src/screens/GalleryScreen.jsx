@@ -10,7 +10,6 @@ export function GalleryScreen({
   brokenPhotoIds,
   clientPhone,
   count,
-  discountAmount = 0,
   hasDiscount,
   isLoadingPhotos = false,
   liveOps,
@@ -188,8 +187,9 @@ export function GalleryScreen({
           stage={activeStage}
           count={count}
           subtotal={subtotal}
-          discountAmount={discountAmount}
+          discountAmount={0}
           total={total}
+          showPricingBreakdown={false}
           phone={clientPhone}
           packageType={type}
           pricingOptions={pricingOptions}

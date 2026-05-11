@@ -35,6 +35,8 @@ export default function App() {
     dashData,
     deleteCredential,
     discountAmount,
+    discountEligible,
+    discountThreshold,
     discountValidation,
     fetchDashboard,
     handleCreateShareSession,
@@ -171,7 +173,7 @@ export default function App() {
         shareToken={shareToken}
         photos={photos}
         count={count}
-        total={total}
+        total={subtotal}
         setViewerIndex={setViewerIndex}
         markBrokenPhoto={markBrokenPhoto}
         toggle={toggle}
@@ -245,7 +247,6 @@ export default function App() {
         brokenPhotoIds={brokenPhotoIds}
         clientPhone={clientPhone}
         count={count}
-        discountAmount={discountAmount}
         hasDiscount={hasDiscount}
         liveOps={liveOps}
         markBrokenPhoto={markBrokenPhoto}
@@ -266,7 +267,7 @@ export default function App() {
         subtotal={subtotal}
         toggle={toggle}
         toggleAllPhotos={toggleAllPhotos}
-        total={total}
+        total={subtotal}
         type={type}
         unit={unit}
         watermarkSettings={shareSessionInfo?.watermarkSettings || watermarkSettings}
@@ -283,6 +284,8 @@ export default function App() {
         clientPhone={clientPhone}
         count={count}
         discountAmount={discountAmount}
+        discountEligible={discountEligible}
+        discountThreshold={discountThreshold}
         discountValidation={discountValidation}
         handleCreateShareSession={handleCreateShareSession}
         handleExtendShareSession={handleExtendShareSession}

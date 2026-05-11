@@ -720,7 +720,7 @@ test('admin share link creation stores manual discount metadata', async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.subtotal, 10);
   assert.equal(response.body.discountAmount, 3);
-  assert.equal(response.body.total, 7);
+  assert.equal(response.body.total, 10);
 });
 
 test('admin share link creation restores the existing gallery for the same photo set', async () => {
@@ -1125,7 +1125,8 @@ test('admin can edit shared gallery metadata and visible access code', async () 
       clientEmail: 'bruna@cliente.com',
       galleryName: 'Ensaio editado',
       galleryDescription: 'Entrega revisada para o cliente.',
-      packageType: 'escola',
+      packageType: 'eventos',
+      count: 5,
       subtotal: 42,
       discountAmount: 5,
       total: 37,
@@ -1139,7 +1140,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
   assert.equal(response.body.clientEmail, 'bruna@cliente.com');
   assert.equal(response.body.galleryName, 'Ensaio editado');
   assert.equal(response.body.galleryDescription, 'Entrega revisada para o cliente.');
-  assert.equal(response.body.packageType, 'escola');
+  assert.equal(response.body.packageType, 'eventos');
   assert.equal(response.body.subtotal, 42);
   assert.equal(response.body.discountAmount, 5);
   assert.equal(response.body.total, 37);
@@ -1429,12 +1430,12 @@ test('unlocked share sessions can create Pix without admin bearer token', async 
   assert.equal(stored.body.amount, 15);
 });
 
-test('unlocked share sessions apply the gallery discount to Pix totals', async () => {
+test('unlocked share sessions ignore gallery discount below the package minimum', async () => {
   const app = createTestApp();
   await request(app)
     .patch('/api/admin/share-sessions/share_1')
     .set('Authorization', 'Bearer admin-secret')
-    .send({ subtotal: 15, discountAmount: 5 });
+    .send({ packageType: 'escola', subtotal: 15, discountAmount: 5 });
   const unlock = await request(app)
     .post('/api/share-session/share_1/unlock')
     .send({ code: '1234' });
@@ -1442,7 +1443,40 @@ test('unlocked share sessions apply the gallery discount to Pix totals', async (
   const response = await request(app)
     .post('/api/share-session/share_1/pix')
     .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
-    .send({ sessionId: 'guest_pix_discount', photoIds: ['photo_1'] });
+    .send({ sessionId: 'guest_pix_threshold_guard', photoIds: ['photo_1'] });
+
+  assert.equal(response.status, 200);
+
+  const stored = await request(app)
+    .get('/api/admin/session/guest_pix_threshold_guard')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(stored.status, 200);
+  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.discountAmount, 0);
+  assert.equal(stored.body.amount, 15);
+});
+
+test('unlocked share sessions apply the gallery discount to Pix totals after the package minimum', async () => {
+  const initialPhotos = Array.from({ length: 5 }, (_, index) => ({
+    id: `photo_${index + 1}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const app = createTestApp({ initialPhotos });
+  await request(app)
+    .patch('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ packageType: 'eventos', count: 5, subtotal: 50, discountAmount: 5 });
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .post('/api/share-session/share_1/pix')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ sessionId: 'guest_pix_discount', photoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'] });
 
   assert.equal(response.status, 200);
 
@@ -1451,17 +1485,23 @@ test('unlocked share sessions apply the gallery discount to Pix totals', async (
     .set('Authorization', 'Bearer admin-secret');
 
   assert.equal(stored.status, 200);
-  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.subtotal, 50);
   assert.equal(stored.body.discountAmount, 5);
-  assert.equal(stored.body.amount, 10);
+  assert.equal(stored.body.amount, 45);
 });
 
-test('unlocked share sessions apply the gallery discount to manual payment requests', async () => {
-  const app = createTestApp();
+test('unlocked share sessions apply the gallery discount to manual payment requests after the package minimum', async () => {
+  const initialPhotos = Array.from({ length: 5 }, (_, index) => ({
+    id: `photo_${index + 1}`,
+    shareToken: 'share_1',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() + index * 1000).toISOString(),
+  }));
+  const app = createTestApp({ initialPhotos });
   await request(app)
     .patch('/api/admin/share-sessions/share_1')
     .set('Authorization', 'Bearer admin-secret')
-    .send({ subtotal: 15, discountAmount: 5 });
+    .send({ packageType: 'eventos', count: 5, subtotal: 50, discountAmount: 5 });
   const unlock = await request(app)
     .post('/api/share-session/share_1/unlock')
     .send({ code: '1234' });
@@ -1469,7 +1509,7 @@ test('unlocked share sessions apply the gallery discount to manual payment reque
   const response = await request(app)
     .post('/api/share-session/share_1/manual-payment')
     .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
-    .send({ sessionId: 'guest_manual_discount', photoIds: ['photo_1'] });
+    .send({ sessionId: 'guest_manual_discount', photoIds: ['photo_1', 'photo_2', 'photo_3', 'photo_4', 'photo_5'] });
 
   assert.equal(response.status, 200);
 
@@ -1478,9 +1518,9 @@ test('unlocked share sessions apply the gallery discount to manual payment reque
     .set('Authorization', 'Bearer admin-secret');
 
   assert.equal(stored.status, 200);
-  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.subtotal, 50);
   assert.equal(stored.body.discountAmount, 5);
-  assert.equal(stored.body.amount, 10);
+  assert.equal(stored.body.amount, 45);
   assert.equal(stored.body.status, 'pending');
 });
 

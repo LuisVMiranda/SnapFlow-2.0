@@ -13,6 +13,8 @@ export function SummaryScreen({
   clientPhone,
   count,
   discountAmount = 0,
+  discountEligible = true,
+  discountThreshold = 0,
   discountValidation = { valid: true, message: '' },
   handleCreateShareSession,
   handleExtendShareSession,
@@ -61,7 +63,13 @@ export function SummaryScreen({
   const hasManualDiscount = Number(discountAmount || 0) > 0;
 
   const confirmFreeOrder = () => {
-    if (shareToken || !manualDiscountEnabled || Number(discountAmount || 0) !== Number(subtotal || 0) || subtotal <= 0) {
+    if (
+      shareToken
+      || !manualDiscountEnabled
+      || !discountEligible
+      || Number(discountAmount || 0) !== Number(subtotal || 0)
+      || subtotal <= 0
+    ) {
       return true;
     }
     return window.confirm('Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim?');
@@ -166,9 +174,11 @@ export function SummaryScreen({
                 className="phone-input"
               />
               <small className={`summary-help ${discountValidation.valid ? 'success' : 'danger'}`}>
-                {discountValidation.valid
-                  ? `Subtotal atual: ${formatMoney(subtotal)}. Total final após desconto: ${formatMoney(total)}.`
-                  : discountValidation.message}
+                {!discountValidation.valid
+                  ? discountValidation.message
+                  : !discountEligible
+                    ? `Este desconto só será aplicado quando o pacote atingir ${discountThreshold} foto(s). Até lá, o total segue ${formatMoney(subtotal)}.`
+                    : `Subtotal atual: ${formatMoney(subtotal)}. Total final após desconto: ${formatMoney(total)}.`}
               </small>
             </>
           ) : (

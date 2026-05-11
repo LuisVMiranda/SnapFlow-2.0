@@ -46,10 +46,25 @@ function normalizeGalleryDescription(value) {
     .slice(0, 800);
 }
 
-function resolveSaleAmounts(body = {}) {
+async function resolveSaleAmounts(body = {}, packages) {
   const subtotal = normalizeSubtotal(body.subtotal ?? body.total);
-  const discountAmount = normalizeDiscountAmount(body.discountAmount, subtotal);
-  return applyManualDiscount(subtotal, discountAmount);
+  const configuredDiscountAmount = normalizeDiscountAmount(body.discountAmount, subtotal);
+  if (!packages) {
+    return {
+      ...applyManualDiscount(subtotal, configuredDiscountAmount),
+      configuredDiscountAmount,
+    };
+  }
+  const packageOptions = await packages.getSettings();
+  const fallbackKey = Object.keys(packageOptions)[0];
+  const pricing = packageOptions[body.packageType] || packageOptions[fallbackKey];
+  const count = Math.max(0, Number(body.count) || 0);
+  const discountEligible = !pricing || count >= Number(pricing.threshold || 0);
+  return {
+    ...applyManualDiscount(subtotal, discountEligible ? configuredDiscountAmount : 0),
+    configuredDiscountAmount,
+    discountEligible,
+  };
 }
 
 async function resolvePublicBaseUrl(req, config, credentials) {
@@ -182,7 +197,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const phone = validateBrazilPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const pix = await payment.createPixPayment({
-        ...resolveSaleAmounts(req.body),
+        ...(await resolveSaleAmounts(req.body, packages)),
         count: req.body.count,
         sessionId: req.body.sessionId,
         phone: phone.normalized,
@@ -202,7 +217,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       const phone = validateBrazilPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
-      const totals = resolveSaleAmounts(req.body);
+      const totals = await resolveSaleAmounts(req.body, packages);
       const session = await repos.createSession(
         {
           id: req.body.sessionId,
@@ -267,7 +282,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const accessCode = generateAccessCode(4);
       const expiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
-      const totals = resolveSaleAmounts(req.body);
+      const totals = await resolveSaleAmounts(req.body, packages);
       const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
         baseUrl: await resolvePublicBaseUrl(req, config, credentials),
@@ -281,7 +296,9 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
           ...req.body,
           clientName,
           clientEmail,
-          ...totals,
+          subtotal: totals.subtotal,
+          discountAmount: totals.configuredDiscountAmount,
+          total: totals.total,
         },
         retentionExpiresAt,
       });
@@ -451,6 +468,16 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const body = req.body || {};
+      const currentShare = await repos.getShareSession(req.params.token, { includeAccessCode: true });
+      if (!currentShare) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
+      const saleAmounts = (body.total !== undefined || body.subtotal !== undefined || body.discountAmount !== undefined)
+        ? await resolveSaleAmounts({
+            subtotal: body.subtotal ?? body.total,
+            discountAmount: body.discountAmount,
+            count: body.count ?? body.photoCount ?? currentShare.photoCount ?? 0,
+            packageType: body.packageType ?? currentShare.packageType,
+          }, packages)
+        : null;
       let accessCode = null;
       if (body.accessCode !== undefined && String(body.accessCode).trim() !== '') {
         accessCode = normalizeAccessCode(body.accessCode);
@@ -471,11 +498,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
         phone: body.phone ? String(body.phone) : undefined,
         packageType: body.packageType ? String(body.packageType) : undefined,
-        ...((body.total !== undefined || body.subtotal !== undefined || body.discountAmount !== undefined)
-          ? resolveSaleAmounts({
-              subtotal: body.subtotal ?? body.total,
-              discountAmount: body.discountAmount,
-            })
+        ...(saleAmounts
+          ? {
+              subtotal: saleAmounts.subtotal,
+              discountAmount: saleAmounts.configuredDiscountAmount,
+              total: saleAmounts.total,
+            }
           : {}),
         expiresAt,
         accessCode,

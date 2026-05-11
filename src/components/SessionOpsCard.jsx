@@ -8,6 +8,7 @@ export function SessionOpsCard({
   subtotal = 0,
   discountAmount = 0,
   total,
+  showPricingBreakdown = true,
   clientName,
   phone,
   packageType,
@@ -32,7 +33,7 @@ export function SessionOpsCard({
     paymentMethod === 'Dinheiro/Cartão' &&
     paymentStatus !== 'approved' &&
     manualPaymentNotice;
-  const hasManualDiscount = Number(discountAmount || 0) > 0;
+  const hasManualDiscount = showPricingBreakdown && Number(discountAmount || 0) > 0;
 
   return (
     <div className="ops-card">
