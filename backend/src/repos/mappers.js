@@ -11,6 +11,8 @@ function rowToSession(row) {
   return {
     id: row.id,
     amount: fromCents(row.amount_cents),
+    subtotal: fromCents(row.subtotal_cents),
+    discountAmount: fromCents(row.discount_cents),
     photoCount: row.photo_count,
     packageType: row.package_type,
     phone: row.phone,
@@ -61,6 +63,8 @@ function rowToShare(row, options = {}) {
     clientName: row.client_name || '',
     clientEmail: row.client_email || '',
     photoCount: row.photo_count,
+    subtotal: fromCents(row.subtotal_cents),
+    discountAmount: fromCents(row.discount_cents),
     total: fromCents(row.total_cents),
     createdAt: row.created_at,
     expiresAt: row.expires_at,

@@ -39,6 +39,12 @@ export function ShareLockScreen({
           <span>Status</span>
           <strong>{shareExpired ? 'Bloqueado' : 'Ativo'}</strong>
         </div>
+        {Number(shareSessionInfo?.discountAmount || 0) > 0 ? (
+          <div className="summary-row">
+            <span>Desconto do fotógrafo</span>
+            <strong>- R$ {Number(shareSessionInfo.discountAmount).toFixed(2).replace('.', ',')}</strong>
+          </div>
+        ) : null}
 
         {shareSessionInfo?.error ? <div className="ops-error">{shareSessionInfo.error}</div> : null}
 

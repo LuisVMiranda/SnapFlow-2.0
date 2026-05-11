@@ -10,6 +10,7 @@ export function GalleryScreen({
   brokenPhotoIds,
   clientPhone,
   count,
+  discountAmount = 0,
   hasDiscount,
   isLoadingPhotos = false,
   liveOps,
@@ -27,6 +28,7 @@ export function GalleryScreen({
   setViewerIndex,
   shareSessionInfo,
   shareToken,
+  subtotal = 0,
   toggle,
   toggleAllPhotos,
   total,
@@ -185,6 +187,8 @@ export function GalleryScreen({
           title="Sessão atual"
           stage={activeStage}
           count={count}
+          subtotal={subtotal}
+          discountAmount={discountAmount}
           total={total}
           phone={clientPhone}
           packageType={type}

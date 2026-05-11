@@ -5,10 +5,12 @@ function createSessionRepo({ pool, query, withTransaction }) {
     return withTransaction(pool, async (client) => {
       const result = await client.query(
         `insert into sessions
-          (id, amount_cents, photo_count, package_type, phone, client_name, client_email, status, payment_method, payment_id, share_token, delivery_status)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          (id, amount_cents, subtotal_cents, discount_cents, photo_count, package_type, phone, client_name, client_email, status, payment_method, payment_id, share_token, delivery_status)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
          on conflict (id) do update set
           amount_cents = excluded.amount_cents,
+          subtotal_cents = excluded.subtotal_cents,
+          discount_cents = excluded.discount_cents,
           photo_count = excluded.photo_count,
           package_type = excluded.package_type,
           phone = excluded.phone,
@@ -22,6 +24,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
         [
           session.id,
           toCents(session.amount),
+          toCents(session.subtotal === undefined ? session.amount : session.subtotal),
+          toCents(session.discountAmount),
           session.photoCount,
           session.packageType || 'eventos',
           session.phone || '',
@@ -221,6 +225,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.client_email,
                 ss.package_type,
                 coalesce(photo_counts.photo_count, ss.photo_count, 0)::int as photo_count,
+                ss.subtotal_cents,
+                ss.discount_cents,
                 ss.total_cents,
                 ss.created_at,
                 ss.expires_at,

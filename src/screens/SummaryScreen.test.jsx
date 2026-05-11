@@ -1,46 +1,60 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SummaryScreen } from './SummaryScreen';
 
-const baseProps = {
-  activeStage: 'Conferindo valor',
-  clientName: '',
-  clientEmail: '',
-  clientPhone: '11999999999',
-  count: 2,
-  handleCreateShareSession: vi.fn(),
-  handleExtendShareSession: vi.fn(),
-  handleGeneratePix: vi.fn(),
-  handleManualPayment: vi.fn(),
-  handleRevokeShareSession: vi.fn(),
-  isGeneratingPix: false,
-  liveOps: {
-    paymentStatus: 'draft',
-    deliveryStatus: 'idle',
-    deliveryError: null,
-    paymentMethod: null,
-  },
-  noticeBanner: null,
-  resetSession: vi.fn(),
-  selectedPhotoItems: [{ id: 'p1' }, { id: 'p2' }],
-  setClientEmail: vi.fn(),
-  setClientName: vi.fn(),
-  setClientPhone: vi.fn(),
-  setScreen: vi.fn(),
-  setShareDurationMinutes: vi.fn(),
-  shareAccess: null,
-  shareActionLoading: false,
-  shareDurationMinutes: 30,
-  shareToken: '',
-  total: 30,
-  type: 'eventos',
-  unit: 15,
-};
+function buildProps(overrides = {}) {
+  return {
+    activeStage: 'Conferindo valor',
+    clientName: '',
+    clientEmail: '',
+    clientPhone: '11999999999',
+    count: 2,
+    discountAmount: 0,
+    discountValidation: { valid: true, amount: 0, message: '' },
+    handleCreateShareSession: vi.fn(),
+    handleExtendShareSession: vi.fn(),
+    handleGeneratePix: vi.fn(),
+    handleManualPayment: vi.fn(),
+    handleRevokeShareSession: vi.fn(),
+    isGeneratingPix: false,
+    liveOps: {
+      paymentStatus: 'draft',
+      deliveryStatus: 'idle',
+      deliveryError: null,
+      paymentMethod: null,
+    },
+    manualDiscountDraft: '',
+    manualDiscountEnabled: false,
+    noticeBanner: null,
+    resetSession: vi.fn(),
+    selectedPhotoItems: [{ id: 'p1' }, { id: 'p2' }],
+    setClientEmail: vi.fn(),
+    setClientName: vi.fn(),
+    setClientPhone: vi.fn(),
+    setManualDiscountDraft: vi.fn(),
+    setManualDiscountEnabled: vi.fn(),
+    setScreen: vi.fn(),
+    setShareDurationMinutes: vi.fn(),
+    shareAccess: null,
+    shareActionLoading: false,
+    shareDurationMinutes: 30,
+    shareToken: '',
+    subtotal: 30,
+    total: 30,
+    type: 'eventos',
+    unit: 15,
+    ...overrides,
+  };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('SummaryScreen', () => {
   it('lets the client name be typed without exposing template internals in checkout', async () => {
-    const props = { ...baseProps, setClientName: vi.fn() };
+    const props = buildProps({ setClientName: vi.fn() });
     render(<SummaryScreen {...props} />);
 
     await userEvent.type(screen.getByPlaceholderText('Nome de quem vai acessar e pagar'), 'Ana Cliente');
@@ -51,50 +65,93 @@ describe('SummaryScreen', () => {
   });
 
   it('accepts an optional client email for manual checkout actions', async () => {
-    const props = {
-      ...baseProps,
+    const props = buildProps({
       clientEmail: 'ana@cliente.com',
       setClientEmail: vi.fn(),
       handleManualPayment: vi.fn(),
-    };
+    });
     render(<SummaryScreen {...props} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Pagamento Dinheiro/Cartão' }));
+    await userEvent.click(screen.getByRole('button', { name: /Pagamento Dinheiro\/Cart/i }));
 
     expect(screen.getByDisplayValue('ana@cliente.com')).toBeInTheDocument();
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
+  it('shows discount controls only for direct admin sales', () => {
+    render(<SummaryScreen {...buildProps()} />);
+
+    expect(screen.getByText(/Aplicar desconto manual nesta venda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ative apenas quando quiser reduzir manualmente/i)).toBeInTheDocument();
+  });
+
+  it('keeps gallery discount read-only for clients and shows the granted discount', () => {
+    render(
+      <SummaryScreen
+        {...buildProps({
+          shareToken: 'share_123',
+          discountAmount: 10,
+          subtotal: 30,
+          total: 20,
+        })}
+      />
+    );
+
+    expect(screen.queryByText(/Aplicar desconto manual nesta venda/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Desconto concedido pelo fotógrafo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Este desconto foi concedido pelo fotógrafo para esta galeria/i)).toBeInTheDocument();
+  });
+
   it('shows client-facing delivery help in shared gallery checkout', () => {
-    render(<SummaryScreen {...baseProps} shareToken="share_123" />);
+    render(<SummaryScreen {...buildProps({ shareToken: 'share_123' })} />);
 
     expect(screen.getByText(/suas fotos serão liberadas pelo fotógrafo/i)).toBeInTheDocument();
     expect(screen.queryByText(/por você no painel/i)).not.toBeInTheDocument();
   });
 
   it('fires Pix and manual payment actions from the checkout buttons', async () => {
-    const props = { ...baseProps, handleGeneratePix: vi.fn(), handleManualPayment: vi.fn() };
+    const props = buildProps({ handleGeneratePix: vi.fn(), handleManualPayment: vi.fn() });
     render(<SummaryScreen {...props} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Gerar QR Code' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Pagamento Dinheiro/Cartão' }));
+    await userEvent.click(screen.getByRole('button', { name: /Gerar QR Code/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Pagamento Dinheiro\/Cart/i }));
 
     expect(props.handleGeneratePix).toHaveBeenCalledTimes(1);
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
+  it('asks for confirmation before creating a free order', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const props = buildProps({
+      discountAmount: 30,
+      manualDiscountEnabled: true,
+      handleGeneratePix: vi.fn(),
+      subtotal: 30,
+      total: 0,
+    });
+    render(<SummaryScreen {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Gerar QR Code/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim?'
+    );
+    expect(props.handleGeneratePix).not.toHaveBeenCalled();
+  });
+
   it('uses client-safe manual payment notice in shared gallery checkout', () => {
     render(
       <SummaryScreen
-        {...baseProps}
-        activeStage="Conferindo pedido"
-        liveOps={{
-          paymentStatus: 'pending',
-          deliveryStatus: 'idle',
-          deliveryError: null,
-          paymentMethod: 'Dinheiro/Cartão',
-        }}
-        shareToken="share_123"
+        {...buildProps({
+          activeStage: 'Conferindo pedido',
+          liveOps: {
+            paymentStatus: 'pending',
+            deliveryStatus: 'idle',
+            deliveryError: null,
+            paymentMethod: 'Dinheiro/Cartão',
+          },
+          shareToken: 'share_123',
+        })}
       />
     );
 
@@ -107,13 +164,14 @@ describe('SummaryScreen', () => {
     const open = vi.spyOn(window, 'open').mockImplementation(() => null);
     render(
       <SummaryScreen
-        {...baseProps}
-        shareAccess={{
-          code: 'AB12',
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          link: 'https://snap.test/s/share_1',
-          whatsappMessage: 'Abra a galeria https://snap.test/s/share_1 com codigo AB12',
-        }}
+        {...buildProps({
+          shareAccess: {
+            code: 'AB12',
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+            link: 'https://snap.test/s/share_1',
+            whatsappMessage: 'Abra a galeria https://snap.test/s/share_1 com codigo AB12',
+          },
+        })}
       />
     );
 
@@ -124,6 +182,5 @@ describe('SummaryScreen', () => {
       '_blank',
       'noopener,noreferrer'
     );
-    open.mockRestore();
   });
 });

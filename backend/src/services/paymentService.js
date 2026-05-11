@@ -66,6 +66,8 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
       {
         id: payload.sessionId,
         amount: payload.total,
+        subtotal: payload.subtotal === undefined ? payload.total : payload.subtotal,
+        discountAmount: payload.discountAmount || 0,
         photoCount: payload.count,
         packageType: payload.packageType,
         phone: payload.phone,

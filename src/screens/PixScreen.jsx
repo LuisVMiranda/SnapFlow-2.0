@@ -6,6 +6,7 @@ export function PixScreen({
   clientName,
   clientPhone,
   count,
+  discountAmount = 0,
   liveOps,
   noticeBanner,
   pricingOptions,
@@ -17,6 +18,7 @@ export function PixScreen({
   setQrCodeBase64,
   setScreen,
   shareToken,
+  subtotal = 0,
   total,
   type,
 }) {
@@ -34,6 +36,8 @@ export function PixScreen({
         title="Sessão atual"
         stage={activeStage}
         count={count}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
         total={total}
         clientName={clientName}
         phone={clientPhone}

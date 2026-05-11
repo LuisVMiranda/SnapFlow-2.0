@@ -1,5 +1,6 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
+const { applyManualDiscount } = require('../services/discounts');
 const { randomToken } = require('../tokens');
 const { toPhotoIds } = require('./helpers');
 const {
@@ -13,7 +14,7 @@ const {
 function calculateTotal(count, packageType, packageOptions) {
   const pricing = packageOptions[packageType] || packageOptions[Object.keys(packageOptions)[0]];
   const unit = count >= pricing.threshold ? pricing.bulk : pricing.unit;
-  return { unit, total: count * unit };
+  return { unit, subtotal: count * unit };
 }
 
 function accessTokenFromRequest(req) {
@@ -49,8 +50,9 @@ async function resolveShareOrder({ packages, repos, req }) {
 
   const packageOptions = await packages.getSettings();
   const count = photoIds.length;
-  const { total } = calculateTotal(count, share.packageType, packageOptions);
-  return { count, photoIds, share, total };
+  const { subtotal } = calculateTotal(count, share.packageType, packageOptions);
+  const totals = applyManualDiscount(subtotal, share.discountAmount);
+  return { count, photoIds, share, ...totals };
 }
 
 function createShareRouter({ packages, payment, repos, watermark }) {
@@ -121,6 +123,8 @@ function createShareRouter({ packages, payment, repos, watermark }) {
       const pix = await payment.createPixPayment({
         sessionId,
         total: order.total,
+        subtotal: order.subtotal,
+        discountAmount: order.discountAmount,
         count: order.count,
         phone: order.share.phone,
         clientName: order.share.clientName || '',
@@ -142,6 +146,8 @@ function createShareRouter({ packages, payment, repos, watermark }) {
         {
           id: sessionId,
           amount: order.total,
+          subtotal: order.subtotal,
+          discountAmount: order.discountAmount,
           photoCount: order.count,
           packageType: order.share.packageType,
           phone: order.share.phone,

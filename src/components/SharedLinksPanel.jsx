@@ -22,12 +22,13 @@ function draftFromShare(shareSession) {
     accessCode: shareSession.accessCode || '',
     clientName: shareSession.clientName || '',
     clientEmail: shareSession.clientEmail || '',
+    discountAmount: String(shareSession.discountAmount ?? ''),
     expiresMinutes: '',
     galleryDescription: shareSession.galleryDescription || '',
     galleryName: shareSession.galleryName || '',
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
-    total: String(shareSession.total ?? ''),
+    subtotal: String(shareSession.subtotal ?? shareSession.total ?? ''),
   };
 }
 
@@ -298,14 +299,34 @@ export function SharedLinksPanel({
   const saveShare = async (event, shareSession) => {
     event.preventDefault();
     const draft = drafts[shareSession.token] || draftFromShare(shareSession);
+    const subtotalRaw = String(draft.subtotal ?? '').trim();
+    const discountRaw = String(draft.discountAmount ?? '').trim();
+    const subtotal = subtotalRaw === '' ? NaN : Number(draft.subtotal);
+    const discountAmount = discountRaw === '' ? NaN : Number(draft.discountAmount);
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      setNotice('Informe um subtotal válido para a galeria. Use zero apenas se a venda realmente não tiver valor base.');
+      return;
+    }
+    if (discountRaw !== '' && (!Number.isFinite(discountAmount) || discountAmount <= 0)) {
+      setNotice('Informe um desconto em dinheiro maior que zero ou deixe o campo em branco para remover o desconto manual.');
+      return;
+    }
+    if (discountRaw !== '' && discountAmount > subtotal) {
+      setNotice('O desconto não pode ser maior que o subtotal configurado para esta galeria.');
+      return;
+    }
+    if (discountRaw !== '' && subtotal > 0 && discountAmount === subtotal && !window.confirm('Esse desconto deixa a galeria gratuita para o cliente. Deseja salvar mesmo assim?')) {
+      return;
+    }
     const body = {
       clientName: draft.clientName,
       clientEmail: draft.clientEmail,
+      discountAmount: discountRaw === '' ? '' : discountAmount,
       galleryName: draft.galleryName,
       galleryDescription: draft.galleryDescription,
       packageType: draft.packageType,
       phone: draft.phone,
-      total: draft.total === '' ? undefined : Number(draft.total),
+      subtotal,
     };
     if (draft.accessCode) body.accessCode = draft.accessCode;
     if (draft.expiresMinutes) body.expiresMinutes = Number(draft.expiresMinutes);
@@ -351,6 +372,7 @@ export function SharedLinksPanel({
               {shareSession.galleryDescription ? <small>{shareSession.galleryDescription}</small> : null}
               {shareSession.clientName ? <small>Cliente: {shareSession.clientName}</small> : null}
               {shareSession.clientEmail ? <small>E-mail: {shareSession.clientEmail}</small> : null}
+              {Number(shareSession.discountAmount || 0) > 0 ? <small>Desconto manual: {formatMoney(shareSession.discountAmount)}</small> : null}
               <small>{gallerySalesLabel(shareSession)}</small>
               <small>
                 Expira em <ShareCountdown isoDate={shareSession.expiresAt} />

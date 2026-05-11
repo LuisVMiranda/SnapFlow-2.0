@@ -34,6 +34,8 @@ export default function App() {
     credentialsStatus,
     dashData,
     deleteCredential,
+    discountAmount,
+    discountValidation,
     fetchDashboard,
     handleCreateShareSession,
     handleExtendShareSession,
@@ -49,6 +51,8 @@ export default function App() {
     isLoadingPhotos,
     isUploading,
     liveOps,
+    manualDiscountDraft,
+    manualDiscountEnabled,
     loadMorePhotos,
     loginAdmin,
     logoutAdmin,
@@ -82,6 +86,8 @@ export default function App() {
     setClientEmail,
     setClientName,
     setClientPhone,
+    setManualDiscountDraft,
+    setManualDiscountEnabled,
     setNotice,
     setPeriod,
     setPixCopyPaste,
@@ -98,6 +104,7 @@ export default function App() {
     shareDurationMinutes,
     shareSessionInfo,
     shareToken,
+    subtotal,
     startNewSession,
     toggle,
     toggleAllPhotos,
@@ -238,6 +245,7 @@ export default function App() {
         brokenPhotoIds={brokenPhotoIds}
         clientPhone={clientPhone}
         count={count}
+        discountAmount={discountAmount}
         hasDiscount={hasDiscount}
         liveOps={liveOps}
         markBrokenPhoto={markBrokenPhoto}
@@ -255,6 +263,7 @@ export default function App() {
         setViewerIndex={setViewerIndex}
         shareSessionInfo={shareSessionInfo}
         shareToken={shareToken}
+        subtotal={subtotal}
         toggle={toggle}
         toggleAllPhotos={toggleAllPhotos}
         total={total}
@@ -273,6 +282,8 @@ export default function App() {
         clientEmail={clientEmail}
         clientPhone={clientPhone}
         count={count}
+        discountAmount={discountAmount}
+        discountValidation={discountValidation}
         handleCreateShareSession={handleCreateShareSession}
         handleExtendShareSession={handleExtendShareSession}
         handleGeneratePix={handleGeneratePix}
@@ -280,6 +291,8 @@ export default function App() {
         handleRevokeShareSession={handleRevokeShareSession}
         isGeneratingPix={isGeneratingPix}
         liveOps={liveOps}
+        manualDiscountDraft={manualDiscountDraft}
+        manualDiscountEnabled={manualDiscountEnabled}
         noticeBanner={noticeBanner}
         pricingOptions={pricingOptions}
         resetSession={resetSession}
@@ -287,12 +300,15 @@ export default function App() {
         setClientEmail={setClientEmail}
         setClientName={setClientName}
         setClientPhone={setClientPhone}
+        setManualDiscountDraft={setManualDiscountDraft}
+        setManualDiscountEnabled={setManualDiscountEnabled}
         setScreen={setScreen}
         setShareDurationMinutes={setShareDurationMinutes}
         shareAccess={shareAccess}
         shareActionLoading={shareActionLoading}
         shareDurationMinutes={shareDurationMinutes}
         shareToken={shareToken}
+        subtotal={subtotal}
         total={total}
         type={type}
         unit={unit}
@@ -307,12 +323,14 @@ export default function App() {
         clientName={clientName}
         clientPhone={clientPhone}
         count={count}
+        discountAmount={discountAmount}
         liveOps={liveOps}
         noticeBanner={noticeBanner}
         pricingOptions={pricingOptions}
         sessionId={sessionId}
         setScreen={setScreen}
         shareToken={shareToken}
+        subtotal={subtotal}
         total={total}
         type={type}
       />
@@ -326,6 +344,7 @@ export default function App() {
         clientName={clientName}
         clientPhone={clientPhone}
         count={count}
+        discountAmount={discountAmount}
         liveOps={liveOps}
         noticeBanner={noticeBanner}
         pixCopyPaste={pixCopyPaste}
@@ -337,6 +356,7 @@ export default function App() {
         setQrCodeBase64={setQrCodeBase64}
         setScreen={setScreen}
         shareToken={shareToken}
+        subtotal={subtotal}
         total={total}
         type={type}
       />
@@ -350,6 +370,7 @@ export default function App() {
         clientName={clientName}
         clientPhone={clientPhone}
         count={count}
+        discountAmount={discountAmount}
         fetchDashboard={fetchDashboard}
         liveOps={liveOps}
         noticeBanner={noticeBanner}
@@ -357,6 +378,7 @@ export default function App() {
         resetSession={resetSession}
         setScreen={setScreen}
         shareToken={shareToken}
+        subtotal={subtotal}
         total={total}
         type={type}
       />

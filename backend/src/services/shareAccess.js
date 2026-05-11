@@ -20,6 +20,8 @@ function publicSharePayload(share) {
     clientName: share.clientName || '',
     clientEmail: share.clientEmail || '',
     photoCount: share.photoCount,
+    subtotal: share.subtotal,
+    discountAmount: share.discountAmount,
     total: share.total,
     link: share.link,
     createdAt: share.createdAt,

@@ -12,6 +12,8 @@ export function SummaryScreen({
   clientEmail,
   clientPhone,
   count,
+  discountAmount = 0,
+  discountValidation = { valid: true, message: '' },
   handleCreateShareSession,
   handleExtendShareSession,
   handleGeneratePix,
@@ -19,6 +21,8 @@ export function SummaryScreen({
   handleRevokeShareSession,
   isGeneratingPix,
   liveOps,
+  manualDiscountDraft = '',
+  manualDiscountEnabled = false,
   noticeBanner,
   pricingOptions = DEFAULT_PRICING,
   resetSession,
@@ -26,12 +30,15 @@ export function SummaryScreen({
   setClientName,
   setClientEmail,
   setClientPhone,
+  setManualDiscountDraft = () => {},
+  setManualDiscountEnabled = () => {},
   setScreen,
   setShareDurationMinutes,
   shareAccess,
   shareActionLoading,
   shareDurationMinutes,
   shareToken,
+  subtotal = 0,
   total,
   type,
   unit,
@@ -40,7 +47,8 @@ export function SummaryScreen({
   const phoneValidation = validateBrazilPhone(clientPhone);
   const emailValidation = validateOptionalEmail(clientEmail);
   const canSubmitPhone = phoneValidation.valid;
-  const canGeneratePix = canSubmitPhone && emailValidation.valid;
+  const canUseDiscount = shareToken ? true : discountValidation.valid;
+  const canGeneratePix = canSubmitPhone && emailValidation.valid && canUseDiscount;
   const shareMessage = shareAccess
     ? shareAccess.whatsappMessage || buildShareWhatsAppMessage(shareAccess.link, shareAccess.code)
     : '';
@@ -50,6 +58,19 @@ export function SummaryScreen({
   const manualPaymentNotice = shareToken
     ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
     : undefined;
+  const hasManualDiscount = Number(discountAmount || 0) > 0;
+
+  const confirmFreeOrder = () => {
+    if (shareToken || !manualDiscountEnabled || Number(discountAmount || 0) !== Number(subtotal || 0) || subtotal <= 0) {
+      return true;
+    }
+    return window.confirm('Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim?');
+  };
+
+  const runWithDiscountConfirmation = (action) => {
+    if (!confirmFreeOrder()) return;
+    action();
+  };
 
   return (
     <div className="screen center-screen">
@@ -66,6 +87,8 @@ export function SummaryScreen({
         stage={activeStage}
         count={count}
         total={total}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
         clientName={clientName}
         phone={clientPhone}
         packageType={type}
@@ -90,12 +113,71 @@ export function SummaryScreen({
           <span>Preço unitário</span>
           <strong>{formatMoney(unit)}</strong>
         </div>
+        {hasManualDiscount ? (
+          <>
+            <div className="summary-row">
+              <span>Subtotal antes do desconto</span>
+              <strong>{formatMoney(subtotal)}</strong>
+            </div>
+            <div className="summary-row">
+              <span>Desconto concedido pelo fotógrafo</span>
+              <strong style={{ color: '#86efac' }}>- {formatMoney(discountAmount)}</strong>
+            </div>
+          </>
+        ) : null}
         <div className="summary-divider" />
         <div className="summary-row total-row">
-          <span>Total</span>
+          <span>{hasManualDiscount ? 'Total final' : 'Total'}</span>
           <strong className="total-big">{formatMoney(total)}</strong>
         </div>
+        {shareToken && hasManualDiscount ? (
+          <small className="summary-help success">
+            Este desconto foi concedido pelo fotógrafo para esta galeria.
+          </small>
+        ) : null}
       </div>
+
+      {!shareToken ? (
+        <div className="summary-card" style={{ marginTop: '16px' }}>
+          <label className="summary-label" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={manualDiscountEnabled}
+              onChange={(event) => {
+                const nextEnabled = event.target.checked;
+                setManualDiscountEnabled(nextEnabled);
+                if (!nextEnabled) setManualDiscountDraft('');
+              }}
+            />
+            Aplicar desconto manual nesta venda
+          </label>
+
+          {manualDiscountEnabled ? (
+            <>
+              <div className="summary-label summary-label-spaced">Valor do desconto em reais</div>
+              <input
+                type="number"
+                min="0.01"
+                max={subtotal}
+                step="0.01"
+                placeholder="Ex.: 10"
+                value={manualDiscountDraft}
+                onChange={(event) => setManualDiscountDraft(event.target.value)}
+                className="phone-input"
+              />
+              <small className={`summary-help ${discountValidation.valid ? 'success' : 'danger'}`}>
+                {discountValidation.valid
+                  ? `Subtotal atual: ${formatMoney(subtotal)}. Total final após desconto: ${formatMoney(total)}.`
+                  : discountValidation.message}
+              </small>
+            </>
+          ) : (
+            <small className="summary-help">
+              Ative apenas quando quiser reduzir manualmente o valor cobrado deste cliente.
+            </small>
+          )}
+        </div>
+      ) : null}
 
       <div className="summary-card" style={{ marginTop: '16px' }}>
         <div className="summary-label">Cliente</div>
@@ -143,14 +225,14 @@ export function SummaryScreen({
         <button
           className="btn-primary"
           disabled={isGeneratingPix || !canGeneratePix}
-          onClick={handleGeneratePix}
+          onClick={() => runWithDiscountConfirmation(handleGeneratePix)}
         >
           {isGeneratingPix ? 'Conectando ao banco...' : 'Gerar QR Code'}
         </button>
         <button
           className="btn-manual btn-manual-cash"
-          disabled={isGeneratingPix || !canSubmitPhone || !emailValidation.valid}
-          onClick={() => handleManualPayment('manual')}
+          disabled={isGeneratingPix || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
+          onClick={() => runWithDiscountConfirmation(() => handleManualPayment('manual'))}
         >
           {shareToken ? 'Solicitar Pagto em Dinheiro/Cartão' : 'Pagamento Dinheiro/Cartão'}
         </button>
@@ -205,8 +287,8 @@ export function SummaryScreen({
           <div className="action-stack" style={{ padding: '14px 0 0' }}>
             <button
               className="btn-manual btn-manual-cash"
-              disabled={shareActionLoading || selectedPhotoItems.length === 0 || !canSubmitPhone || !emailValidation.valid}
-              onClick={handleCreateShareSession}
+              disabled={shareActionLoading || selectedPhotoItems.length === 0 || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
+              onClick={() => runWithDiscountConfirmation(handleCreateShareSession)}
             >
               {shareActionLoading ? 'Gerando e enviando...' : 'Criar link e enviar WhatsApp'}
             </button>

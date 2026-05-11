@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/formatters';
+import { applyManualDiscount } from '../lib/discounts';
 
 export function ShareGalleryEditor({
   closeEditor,
@@ -23,6 +24,9 @@ export function ShareGalleryEditor({
   const uploadInputId = `share-upload-${shareSession.galleryId || shareSession.token}`;
   const clientInputId = `share-client-${shareSession.galleryId || shareSession.token}`;
   const clientHelpId = `${clientInputId}-help`;
+  const subtotal = Number(draft.subtotal || 0);
+  const discountAmount = Number(draft.discountAmount || 0);
+  const totals = applyManualDiscount(subtotal, discountAmount);
 
   return (
     <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
@@ -118,16 +122,31 @@ export function ShareGalleryEditor({
         </select>
       </label>
       <label>
-        Total
+        Subtotal base
         <input
           className="phone-input"
           min="0"
           step="0.01"
           type="number"
-          value={draft.total}
-          onChange={(event) => updateDraft(shareSession.token, 'total', event.target.value)}
+          value={draft.subtotal}
+          onChange={(event) => updateDraft(shareSession.token, 'subtotal', event.target.value)}
         />
       </label>
+      <label>
+        Desconto manual
+        <input
+          className="phone-input"
+          min="0"
+          step="0.01"
+          type="number"
+          value={draft.discountAmount || ''}
+          onChange={(event) => updateDraft(shareSession.token, 'discountAmount', event.target.value)}
+          placeholder="Deixe em branco para remover"
+        />
+      </label>
+      <div className="share-sales-summary">
+        Total final para o cliente: {formatMoney(totals.total)}
+      </div>
       <label>
         Reabrir por minutos
         <input

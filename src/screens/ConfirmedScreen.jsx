@@ -6,6 +6,7 @@ export function ConfirmedScreen({
   clientName,
   clientPhone,
   count,
+  discountAmount = 0,
   fetchDashboard,
   liveOps,
   noticeBanner,
@@ -13,6 +14,7 @@ export function ConfirmedScreen({
   resetSession,
   setScreen,
   shareToken,
+  subtotal = 0,
   total,
   type,
 }) {
@@ -33,6 +35,8 @@ export function ConfirmedScreen({
         title="Sessão atual"
         stage={activeStage}
         count={count}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
         total={total}
         clientName={clientName}
         phone={clientPhone}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { applyManualDiscount, validateDiscountDraft } from '../lib/discounts';
 import { resolveInitialScreen } from '../lib/navigation';
 import { EMPTY_PHOTOS_PAGE, derivePhotoPageCounts, normalizePhotosPage } from '../lib/photoPages';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey } from '../lib/pricing';
@@ -62,6 +63,8 @@ export function useSnapFlowController() {
   const [clientPhone, setClientPhone] = useState(() => getSavedState('clientPhone', ''));
   const [clientName, setClientName] = useState(() => getSavedState('clientName', ''));
   const [clientEmail, setClientEmail] = useState(() => getSavedState('clientEmail', ''));
+  const [manualDiscountEnabled, setManualDiscountEnabled] = useState(() => getSavedState('manualDiscountEnabled', false));
+  const [manualDiscountDraft, setManualDiscountDraft] = useState(() => getSavedState('manualDiscountDraft', ''));
   const [sessionId, setSessionId] = useState(() => getSavedState('sessionId', ''));
   const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedState('qrCodeBase64', ''));
   const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedState('pixCopyPaste', ''));
@@ -175,6 +178,8 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'clientPhone', JSON.stringify(clientPhone));
         window.localStorage.setItem(prefix + 'clientName', JSON.stringify(clientName));
         window.localStorage.setItem(prefix + 'clientEmail', JSON.stringify(clientEmail));
+        window.localStorage.setItem(prefix + 'manualDiscountEnabled', JSON.stringify(manualDiscountEnabled));
+        window.localStorage.setItem(prefix + 'manualDiscountDraft', JSON.stringify(manualDiscountDraft));
         window.localStorage.setItem(prefix + 'sessionId', JSON.stringify(sessionId));
         window.localStorage.setItem(prefix + 'qrCodeBase64', JSON.stringify(qrCodeBase64));
         window.localStorage.setItem(prefix + 'pixCopyPaste', JSON.stringify(pixCopyPaste));
@@ -182,7 +187,7 @@ export function useSnapFlowController() {
         window.localStorage.setItem(prefix + 'liveOps', JSON.stringify(liveOps));
       } catch { /* ignore */ }
     }
-  }, [screen, type, selected, clientPhone, clientName, clientEmail, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
+  }, [screen, type, selected, clientPhone, clientName, clientEmail, manualDiscountEnabled, manualDiscountDraft, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && shareToken) {
@@ -201,7 +206,16 @@ export function useSnapFlowController() {
 
   const count = selected.length;
   const activePackageType = pricingOptions[type] ? type : firstPackageKey(pricingOptions);
-  const { unit, total } = calcTotal(count, activePackageType, pricingOptions);
+  const { unit, total: subtotal } = calcTotal(count, activePackageType, pricingOptions);
+  const discountValidation = validateDiscountDraft({
+    enabled: !shareToken && manualDiscountEnabled,
+    subtotal,
+    value: manualDiscountDraft,
+  });
+  const configuredDiscountAmount = shareToken
+    ? Number(shareSessionInfo?.discountAmount || 0)
+    : discountValidation.amount;
+  const { discountAmount, total } = applyManualDiscount(subtotal, configuredDiscountAmount);
   const pricing = pricingOptions[activePackageType];
   const remaining = Math.max(0, pricing.threshold - count);
   const hasDiscount = count >= pricing.threshold;
@@ -478,6 +492,7 @@ export function useSnapFlowController() {
     clientEmail,
     clientPhone,
     count,
+    discountAmount: shareToken ? configuredDiscountAmount : manualDiscountEnabled ? manualDiscountDraft : '',
     fetchDashboard,
     photos,
     selectedPhotoItems,
@@ -514,6 +529,7 @@ export function useSnapFlowController() {
     photosPage,
     isLoadingPhotos,
     pricingOptions,
+    subtotal,
     total,
     type: activePackageType,
     withAdminMediaToken,
@@ -552,6 +568,8 @@ export function useSnapFlowController() {
     credentialsStatus,
     dashData,
     deleteCredential,
+    discountAmount,
+    discountValidation,
     fetchDashboard,
     handleCreateShareSession,
     handleExtendShareSession,
@@ -568,6 +586,8 @@ export function useSnapFlowController() {
     isUploading,
     liveOps,
     loadMorePhotos,
+    manualDiscountDraft,
+    manualDiscountEnabled,
     loginAdmin,
     logoutAdmin,
     markBrokenPhoto,
@@ -600,6 +620,8 @@ export function useSnapFlowController() {
     setClientEmail,
     setClientPhone,
     setClientName,
+    setManualDiscountDraft,
+    setManualDiscountEnabled,
     setNotice,
     setPeriod,
     setPixCopyPaste,
@@ -616,6 +638,7 @@ export function useSnapFlowController() {
     shareDurationMinutes,
     shareSessionInfo,
     shareToken,
+    subtotal,
     startNewSession,
     toggle,
     toggleAllPhotos,

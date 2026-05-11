@@ -23,8 +23,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, total_cents, expires_at, retention_expires_at, link)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        returning *`,
       [
         share.token,
@@ -38,6 +38,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         share.clientEmail || '',
         share.packageType || 'eventos',
         share.photoCount,
+        toCents(share.subtotal === undefined ? share.total : share.subtotal),
+        toCents(share.discountAmount),
         toCents(share.total),
         share.expiresAt,
         share.retentionExpiresAt,
@@ -102,14 +104,16 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            client_name = coalesce($3, client_name),
            client_email = coalesce($4, client_email),
            package_type = coalesce($5, package_type),
-           total_cents = coalesce($6, total_cents),
-           expires_at = coalesce($7, expires_at),
-           access_code_hash = coalesce($8, access_code_hash),
-           access_code = coalesce($9, access_code),
-           gallery_name = coalesce($10, gallery_name),
-           gallery_description = coalesce($11, gallery_description),
-           status = case when $12::boolean then 'active' else status end,
-           revoked_at = case when $12::boolean then null else revoked_at end
+           subtotal_cents = coalesce($6, subtotal_cents),
+           discount_cents = coalesce($7, discount_cents),
+           total_cents = coalesce($8, total_cents),
+           expires_at = coalesce($9, expires_at),
+           access_code_hash = coalesce($10, access_code_hash),
+           access_code = coalesce($11, access_code),
+           gallery_name = coalesce($12, gallery_name),
+           gallery_description = coalesce($13, gallery_description),
+           status = case when $14::boolean then 'active' else status end,
+           revoked_at = case when $14::boolean then null else revoked_at end
        where token = $1 and deleted_at is null
        returning *`,
       [
@@ -118,6 +122,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.clientName ?? null,
         updates.clientEmail ?? null,
         updates.packageType ?? null,
+        updates.subtotal === undefined ? null : toCents(updates.subtotal),
+        updates.discountAmount === undefined ? null : toCents(updates.discountAmount),
         updates.total === undefined ? null : toCents(updates.total),
         updates.expiresAt || null,
         updates.accessCodeHash || null,
@@ -168,12 +174,14 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            gallery_name = coalesce($5, gallery_name),
            gallery_description = coalesce($6, gallery_description),
            package_type = coalesce($7, package_type),
-           total_cents = coalesce($8, total_cents),
-           expires_at = coalesce($9, expires_at),
-           retention_expires_at = coalesce($10, retention_expires_at),
-           access_code_hash = coalesce($11, access_code_hash),
-           access_code = coalesce($12, access_code),
-           link = coalesce($13, link),
+           subtotal_cents = coalesce($8, subtotal_cents),
+           discount_cents = coalesce($9, discount_cents),
+           total_cents = coalesce($10, total_cents),
+           expires_at = coalesce($11, expires_at),
+           retention_expires_at = coalesce($12, retention_expires_at),
+           access_code_hash = coalesce($13, access_code_hash),
+           access_code = coalesce($14, access_code),
+           link = coalesce($15, link),
            status = 'active',
            revoked_at = null,
            deleted_at = null,
@@ -192,6 +200,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.galleryName ?? null,
         updates.galleryDescription ?? null,
         updates.packageType ?? null,
+        updates.subtotal === undefined ? null : toCents(updates.subtotal),
+        updates.discountAmount === undefined ? null : toCents(updates.discountAmount),
         updates.total === undefined ? null : toCents(updates.total),
         updates.expiresAt || null,
         updates.retentionExpiresAt || null,

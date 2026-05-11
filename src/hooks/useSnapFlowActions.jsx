@@ -18,6 +18,7 @@ export function useSnapFlowActions(config) {
     clientEmail,
     clientPhone,
     count,
+    discountAmount,
     fetchDashboard,
     photos = [],
     selectedPhotoItems,
@@ -26,6 +27,8 @@ export function useSnapFlowActions(config) {
     setClientName,
     setClientEmail = () => {},
     setClientPhone,
+    setManualDiscountDraft = () => {},
+    setManualDiscountEnabled = () => {},
     setIsGeneratingPix,
     setHasLoadedPhotosPage = () => {},
     setIsUploading,
@@ -54,6 +57,7 @@ export function useSnapFlowActions(config) {
     photosPage,
     isLoadingPhotos,
     pricingOptions,
+    subtotal,
     total,
     type,
     withAdminMediaToken,
@@ -94,6 +98,8 @@ export function useSnapFlowActions(config) {
     setClientName('');
     setClientEmail('');
     setClientPhone('');
+    setManualDiscountEnabled(false);
+    setManualDiscountDraft('');
     setViewerIndex(null);
     setBrokenPhotoIds([]);
     setNotice(null);
@@ -161,6 +167,8 @@ export function useSnapFlowActions(config) {
         setClientName('');
         setClientEmail('');
         setClientPhone('');
+        setManualDiscountEnabled(false);
+        setManualDiscountDraft('');
         setViewerIndex(null);
         setLiveOps({
           paymentStatus: 'draft',
@@ -189,6 +197,8 @@ export function useSnapFlowActions(config) {
       setSessionId(generatedId);
 
       const payload = {
+        subtotal,
+        discountAmount,
         total,
         count,
         sessionId: generatedId,
@@ -258,6 +268,8 @@ export function useSnapFlowActions(config) {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          subtotal,
+          discountAmount,
           total,
           count,
           sessionId: generatedId,
@@ -430,6 +442,8 @@ export function useSnapFlowActions(config) {
           clientEmail,
           packageType: type,
           count,
+          subtotal,
+          discountAmount,
           total,
           expiresMinutes: shareDurationMinutes,
         }),

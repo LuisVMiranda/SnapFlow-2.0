@@ -5,6 +5,8 @@ export function SessionOpsCard({
   title,
   stage,
   count,
+  subtotal = 0,
+  discountAmount = 0,
   total,
   clientName,
   phone,
@@ -30,6 +32,7 @@ export function SessionOpsCard({
     paymentMethod === 'Dinheiro/Cartão' &&
     paymentStatus !== 'approved' &&
     manualPaymentNotice;
+  const hasManualDiscount = Number(discountAmount || 0) > 0;
 
   return (
     <div className="ops-card">
@@ -37,6 +40,7 @@ export function SessionOpsCard({
         <div>
           <strong>{title}</strong>
           <small>{stage}</small>
+          {hasManualDiscount ? <small>{`Subtotal ${formatMoney(subtotal)} • Desconto ${formatMoney(discountAmount)}`}</small> : null}
         </div>
         <span className="ops-total">{formatMoney(total)}</span>
       </div>

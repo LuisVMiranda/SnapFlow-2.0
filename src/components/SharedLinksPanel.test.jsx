@@ -26,6 +26,8 @@ const baseProps = {
         photoCount: 2,
         clientName: 'Ana Cliente',
         phone: '11999999999',
+        subtotal: 20,
+        discountAmount: 0,
         total: 20,
         accessCode: '1234',
         expiresAt: '2026-05-02T12:00:00.000Z',
@@ -86,6 +88,10 @@ describe('SharedLinksPanel', () => {
     await user.type(screen.getByLabelText('Código de acesso'), 'ab12');
     await user.clear(screen.getByLabelText('Cliente'));
     await user.type(screen.getByLabelText('Cliente'), 'Bruna Compradora');
+    await user.clear(screen.getByLabelText('Subtotal base'));
+    await user.type(screen.getByLabelText('Subtotal base'), '42');
+    await user.clear(screen.getByLabelText('Desconto manual'));
+    await user.type(screen.getByLabelText('Desconto manual'), '5');
     await user.type(screen.getByLabelText('Reabrir por minutos'), '20');
     await user.click(screen.getByRole('button', { name: 'Salvar galeria' }));
 
@@ -114,7 +120,52 @@ describe('SharedLinksPanel', () => {
         body: expect.stringContaining('"galleryDescription":"Entrega revisada"'),
       })
     );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token',
+      expect.objectContaining({
+        body: expect.stringContaining('"subtotal":42'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token',
+      expect.objectContaining({
+        body: expect.stringContaining('"discountAmount":5'),
+      })
+    );
     await waitFor(() => expect(baseProps.fetchDashboard).toHaveBeenCalled());
+  });
+
+  it('lets the admin remove a gallery discount by leaving the field blank', async () => {
+    const user = userEvent.setup();
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    render(
+      <SharedLinksPanel
+        {...baseProps}
+        dashData={{
+          shareRecent: [{
+            ...baseProps.dashData.shareRecent[0],
+            subtotal: 20,
+            discountAmount: 4,
+            total: 16,
+          }],
+        }}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    await user.clear(screen.getByLabelText('Desconto manual'));
+    await user.click(screen.getByRole('button', { name: 'Salvar galeria' }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token',
+      expect.objectContaining({
+        body: expect.stringContaining('"discountAmount":""'),
+      })
+    );
   });
 
   it('loads scoped photo previews when viewing a gallery', async () => {

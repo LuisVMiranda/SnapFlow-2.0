@@ -1,5 +1,6 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
+const { applyManualDiscount, normalizeDiscountAmount, normalizeSubtotal } = require('../services/discounts');
 const { optionalEmail } = require('../services/email');
 const { validateBrazilPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
@@ -43,6 +44,12 @@ function normalizeGalleryDescription(value) {
     .filter(Boolean)
     .join('\n')
     .slice(0, 800);
+}
+
+function resolveSaleAmounts(body = {}) {
+  const subtotal = normalizeSubtotal(body.subtotal ?? body.total);
+  const discountAmount = normalizeDiscountAmount(body.discountAmount, subtotal);
+  return applyManualDiscount(subtotal, discountAmount);
 }
 
 async function resolvePublicBaseUrl(req, config, credentials) {
@@ -112,6 +119,8 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
     galleryDescription,
     packageType: requestBody.packageType || 'eventos',
     photoCount: Number(requestBody.count) || photoIds.length,
+    subtotal: Number(requestBody.subtotal) || 0,
+    discountAmount: Number(requestBody.discountAmount) || 0,
     total: Number(requestBody.total) || 0,
     expiresAt,
     retentionExpiresAt,
@@ -173,7 +182,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const phone = validateBrazilPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const pix = await payment.createPixPayment({
-        total: req.body.total,
+        ...resolveSaleAmounts(req.body),
         count: req.body.count,
         sessionId: req.body.sessionId,
         phone: phone.normalized,
@@ -193,10 +202,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       const phone = validateBrazilPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
+      const totals = resolveSaleAmounts(req.body);
       const session = await repos.createSession(
         {
           id: req.body.sessionId,
-          amount: req.body.total,
+          ...totals,
+          amount: totals.total,
           photoCount: req.body.count,
           packageType: req.body.packageType,
           phone: phone.normalized,
@@ -256,6 +267,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const accessCode = generateAccessCode(4);
       const expiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
+      const totals = resolveSaleAmounts(req.body);
       const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
         baseUrl: await resolvePublicBaseUrl(req, config, credentials),
@@ -269,6 +281,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
           ...req.body,
           clientName,
           clientEmail,
+          ...totals,
         },
         retentionExpiresAt,
       });
@@ -287,6 +300,9 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         clientEmail,
         galleryName: share.galleryName,
         galleryDescription: share.galleryDescription,
+        subtotal: share.subtotal,
+        discountAmount: share.discountAmount,
+        total: share.total,
         sales: share.sales,
         ...whatsappResult,
       });
@@ -455,7 +471,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
         phone: body.phone ? String(body.phone) : undefined,
         packageType: body.packageType ? String(body.packageType) : undefined,
-        total: body.total === undefined ? undefined : Number(body.total),
+        ...((body.total !== undefined || body.subtotal !== undefined || body.discountAmount !== undefined)
+          ? resolveSaleAmounts({
+              subtotal: body.subtotal ?? body.total,
+              discountAmount: body.discountAmount,
+            })
+          : {}),
         expiresAt,
         accessCode,
         accessCodeHash: accessCode ? hashValue(accessCode) : undefined,

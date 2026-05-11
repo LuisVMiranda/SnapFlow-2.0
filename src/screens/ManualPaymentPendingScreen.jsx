@@ -12,12 +12,14 @@ export function ManualPaymentPendingScreen({
   clientName,
   clientPhone,
   count,
+  discountAmount = 0,
   liveOps,
   noticeBanner,
   pricingOptions = DEFAULT_PRICING,
   sessionId,
   setScreen,
   shareToken = '',
+  subtotal = 0,
   total,
   type,
 }) {
@@ -52,6 +54,8 @@ export function ManualPaymentPendingScreen({
         title={opsTitle}
         stage={opsStage}
         count={count}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
         total={total}
         clientName={clientName}
         phone={clientPhone}
@@ -74,6 +78,12 @@ export function ManualPaymentPendingScreen({
           <span>Total</span>
           <strong>{formatMoney(total)}</strong>
         </div>
+        {Number(discountAmount || 0) > 0 ? (
+          <div className="summary-row">
+            <span>Desconto concedido</span>
+            <strong>- {formatMoney(discountAmount)}</strong>
+          </div>
+        ) : null}
         <div className="summary-row">
           <span>Cliente</span>
           <strong>{clientName || 'Não informado'}</strong>

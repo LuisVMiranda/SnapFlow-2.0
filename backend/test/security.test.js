@@ -37,6 +37,8 @@ function createTestApp({
     clientName: 'Ana Cliente',
     clientEmail: '',
     photoCount: basePhotos.filter((photo) => photo.shareToken === 'share_1' && !photo.deletedAt).length,
+    subtotal: 10,
+    discountAmount: 0,
     total: 10,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
@@ -98,6 +100,9 @@ function createTestApp({
         clientName: share.clientName,
         galleryName: share.galleryName,
         galleryDescription: share.galleryDescription,
+        subtotal: share.subtotal,
+        discountAmount: share.discountAmount,
+        total: share.total,
         sales: share.sales,
       }],
     }),
@@ -148,6 +153,8 @@ function createTestApp({
         galleryName: payload.galleryName || '',
         galleryDescription: payload.galleryDescription || '',
         photoCount: payload.photoCount,
+        subtotal: payload.subtotal ?? payload.total,
+        discountAmount: payload.discountAmount || 0,
         total: payload.total,
         createdAt: new Date().toISOString(),
         expiresAt: payload.expiresAt.toISOString(),
@@ -183,6 +190,8 @@ function createTestApp({
         galleryName: updates.galleryName === undefined ? target.galleryName : updates.galleryName,
         galleryDescription: updates.galleryDescription === undefined ? target.galleryDescription : updates.galleryDescription,
         photoCount: photos.filter((photo) => photo.shareToken === token && !photo.deletedAt).length,
+        subtotal: updates.subtotal === undefined ? target.subtotal : updates.subtotal,
+        discountAmount: updates.discountAmount === undefined ? target.discountAmount : updates.discountAmount,
         total: updates.total === undefined ? target.total : updates.total,
         expiresAt: updates.expiresAt.toISOString(),
         retentionExpiresAt: updates.retentionExpiresAt?.toISOString?.() || updates.retentionExpiresAt || target.retentionExpiresAt,
@@ -251,6 +260,8 @@ function createTestApp({
         galleryName: updates.galleryName === undefined ? share.galleryName : updates.galleryName,
         galleryDescription: updates.galleryDescription === undefined ? share.galleryDescription : updates.galleryDescription,
         packageType: updates.packageType || share.packageType,
+        subtotal: updates.subtotal === undefined ? share.subtotal : updates.subtotal,
+        discountAmount: updates.discountAmount === undefined ? share.discountAmount : updates.discountAmount,
         total: updates.total === undefined ? share.total : updates.total,
         expiresAt: updates.expiresAt ? updates.expiresAt.toISOString() : share.expiresAt,
         accessCode: updates.accessCode || share.accessCode,
@@ -264,6 +275,8 @@ function createTestApp({
       const stored = {
         id: session.id,
         amount: session.amount,
+        subtotal: session.subtotal === undefined ? session.amount : session.subtotal,
+        discountAmount: session.discountAmount || 0,
         photoCount: session.photoCount,
         packageType: session.packageType,
         phone: session.phone,
@@ -378,14 +391,36 @@ function createTestApp({
   };
 
   const payment = {
-    createPixPayment: async (payload) => ({
-      qr_code: 'pix-code',
-      qr_code_base64: 'pix-base64',
-      payment_id: 'payment_1',
-      sessionId: payload.sessionId,
-      shareToken: payload.shareToken,
-      total: payload.total,
-    }),
+    createPixPayment: async (payload) => {
+      await repos.createSession(
+        {
+          id: payload.sessionId,
+          amount: payload.total,
+          subtotal: payload.subtotal === undefined ? payload.total : payload.subtotal,
+          discountAmount: payload.discountAmount || 0,
+          photoCount: payload.count,
+          packageType: payload.packageType,
+          phone: payload.phone,
+          clientName: payload.clientName || '',
+          clientEmail: payload.clientEmail || '',
+          status: 'pending',
+          paymentMethod: 'PIX',
+          paymentId: 'payment_1',
+          shareToken: payload.shareToken || null,
+          deliveryStatus: 'idle',
+        },
+        payload.photoIds
+      );
+
+      return {
+        qr_code: 'pix-code',
+        qr_code_base64: 'pix-base64',
+        payment_id: 'payment_1',
+        sessionId: payload.sessionId,
+        shareToken: payload.shareToken,
+        total: payload.total,
+      };
+    },
   };
   const whatsappTemplates = {
     getSettings: async () => whatsappTemplateSettings,
@@ -662,6 +697,30 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.equal(sends[0].phone, '5511999999999');
   assert.match(sends[0].message, /Ana Cliente/);
   assert.match(sends[0].message, /Código/);
+});
+
+test('admin share link creation stores manual discount metadata', async () => {
+  const app = createTestApp();
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      subtotal: 10,
+      discountAmount: 3,
+      total: 7,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.subtotal, 10);
+  assert.equal(response.body.discountAmount, 3);
+  assert.equal(response.body.total, 7);
 });
 
 test('admin share link creation restores the existing gallery for the same photo set', async () => {
@@ -1067,7 +1126,9 @@ test('admin can edit shared gallery metadata and visible access code', async () 
       galleryName: 'Ensaio editado',
       galleryDescription: 'Entrega revisada para o cliente.',
       packageType: 'escola',
-      total: 42,
+      subtotal: 42,
+      discountAmount: 5,
+      total: 37,
       accessCode: 'ab12',
       expiresMinutes: 20,
     });
@@ -1079,7 +1140,9 @@ test('admin can edit shared gallery metadata and visible access code', async () 
   assert.equal(response.body.galleryName, 'Ensaio editado');
   assert.equal(response.body.galleryDescription, 'Entrega revisada para o cliente.');
   assert.equal(response.body.packageType, 'escola');
-  assert.equal(response.body.total, 42);
+  assert.equal(response.body.subtotal, 42);
+  assert.equal(response.body.discountAmount, 5);
+  assert.equal(response.body.total, 37);
   assert.equal(response.body.accessCode, 'AB12');
 });
 
@@ -1203,6 +1266,9 @@ test('share metadata hides photo urls before unlock', async () => {
   assert.equal(response.body.clientEmail, '');
   assert.equal(response.body.galleryName, 'Galeria Família');
   assert.equal(response.body.galleryDescription, 'Seleção final do aniversário');
+  assert.equal(response.body.subtotal, 10);
+  assert.equal(response.body.discountAmount, 0);
+  assert.equal(response.body.total, 10);
   assert.equal(response.body.photos, undefined);
   assert.equal(response.body.thumbUrls, undefined);
 });
@@ -1352,6 +1418,70 @@ test('unlocked share sessions can create Pix without admin bearer token', async 
   assert.equal(response.status, 200);
   assert.equal(response.body.qr_code_base64, 'pix-base64');
   assert.equal(response.body.shareToken, 'share_1');
+
+  const stored = await request(app)
+    .get('/api/admin/session/guest_pix_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(stored.status, 200);
+  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.discountAmount, 0);
+  assert.equal(stored.body.amount, 15);
+});
+
+test('unlocked share sessions apply the gallery discount to Pix totals', async () => {
+  const app = createTestApp();
+  await request(app)
+    .patch('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ subtotal: 15, discountAmount: 5 });
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .post('/api/share-session/share_1/pix')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ sessionId: 'guest_pix_discount', photoIds: ['photo_1'] });
+
+  assert.equal(response.status, 200);
+
+  const stored = await request(app)
+    .get('/api/admin/session/guest_pix_discount')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(stored.status, 200);
+  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.discountAmount, 5);
+  assert.equal(stored.body.amount, 10);
+});
+
+test('unlocked share sessions apply the gallery discount to manual payment requests', async () => {
+  const app = createTestApp();
+  await request(app)
+    .patch('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ subtotal: 15, discountAmount: 5 });
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .post('/api/share-session/share_1/manual-payment')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ sessionId: 'guest_manual_discount', photoIds: ['photo_1'] });
+
+  assert.equal(response.status, 200);
+
+  const stored = await request(app)
+    .get('/api/admin/session/guest_manual_discount')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(stored.status, 200);
+  assert.equal(stored.body.subtotal, 15);
+  assert.equal(stored.body.discountAmount, 5);
+  assert.equal(stored.body.amount, 10);
+  assert.equal(stored.body.status, 'pending');
 });
 
 test('unlocked share sessions reject Pix for photos outside the share', async () => {
