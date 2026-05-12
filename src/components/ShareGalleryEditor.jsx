@@ -1,5 +1,7 @@
-import { formatMoney } from '../lib/formatters';
+import { useState } from 'react';
 import { applyManualDiscount } from '../lib/discounts';
+import { formatMoney } from '../lib/formatters';
+import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
 
 export function ShareGalleryEditor({
   closeEditor,
@@ -27,6 +29,13 @@ export function ShareGalleryEditor({
   const subtotal = Number(draft.subtotal || 0);
   const discountAmount = Number(draft.discountAmount || 0);
   const totals = applyManualDiscount(subtotal, discountAmount);
+  const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(draft.phone));
+  const updatePhoneValue = (nextParts) => {
+    const nextDraft = { ...phoneDraft, ...nextParts };
+    setPhoneDraft(nextDraft);
+    if (!nextDraft.countryCode) return;
+    updateDraft(shareSession.token, 'phone', buildStoredPhone(nextDraft));
+  };
 
   return (
     <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
@@ -47,7 +56,7 @@ export function ShareGalleryEditor({
         />
       </label>
       <label>
-        Descrição da galeria
+        Descricao da galeria
         <textarea
           className="phone-input"
           maxLength={800}
@@ -58,10 +67,10 @@ export function ShareGalleryEditor({
         />
       </label>
       <div className="share-sales-summary">
-        {soldPhotoCount} foto(s) vendidas até agora em {soldOrderCount} pedido(s) - {formatMoney(soldAmount)}
+        {soldPhotoCount} foto(s) vendidas ate agora em {soldOrderCount} pedido(s) - {formatMoney(soldAmount)}
       </div>
       <label>
-        Código de acesso
+        Codigo de acesso
         <input
           className="phone-input"
           maxLength={4}
@@ -87,7 +96,7 @@ export function ShareGalleryEditor({
           }}
           placeholder="Nome de quem acessa e paga"
         />
-        <small className="summary-help" id={clientHelpId}>Este nome alimenta o parâmetro {'{name}'} nos modelos de WhatsApp.</small>
+        <small className="summary-help" id={clientHelpId}>Este nome alimenta o parametro {'{name}'} nos modelos de WhatsApp.</small>
       </div>
       <label>
         E-mail do cliente
@@ -102,12 +111,21 @@ export function ShareGalleryEditor({
       </label>
       <label>
         WhatsApp
-        <input
-          className="phone-input"
-          value={draft.phone}
-          onChange={(event) => updateDraft(shareSession.token, 'phone', event.target.value)}
-          placeholder="DDD + número"
-        />
+        <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '12px' }}>
+          <input
+            className="phone-input"
+            value={phoneDraft.countryCode}
+            onChange={(event) => updatePhoneValue({ countryCode: phoneDigits(event.target.value).slice(0, 4) })}
+            placeholder="DDI"
+          />
+          <input
+            className="phone-input"
+            value={phoneDraft.localNumber}
+            onChange={(event) => updatePhoneValue({ localNumber: phoneDigits(event.target.value).slice(0, 14) })}
+            placeholder={phoneDraft.countryCode === '55' ? 'DDD + numero' : 'Numero sem o DDI'}
+          />
+        </div>
+        <small className="summary-help">DDI editavel. O padrao inicial continua Brasil (55).</small>
       </label>
       <label>
         Pacote

@@ -1,25 +1,45 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fc = require('fast-check');
-const { normalizeBrazilPhone } = require('../src/services/whatsappClient');
+const { normalizeClientPhone, validateClientPhone } = require('../src/services/whatsappClient');
 
 const digitText = (minLength, maxLength) =>
   fc.array(fc.integer({ min: 0, max: 9 }), { minLength, maxLength }).map((digits) => digits.join(''));
 
-test('normalizeBrazilPhone prefixes Brazilian 10/11 digit numbers with 55', () => {
+test('normalizeClientPhone keeps explicit international numbers normalized to digits only', () => {
   fc.assert(
-    fc.property(digitText(10, 11), (digits) => {
-      const normalized = normalizeBrazilPhone(digits);
-      assert.equal(normalized, `55${digits}`);
+    fc.property(
+      fc.integer({ min: 1, max: 9999 }).map(String),
+      digitText(6, 11),
+      (countryCode, localNumber) => {
+        const normalized = normalizeClientPhone(`+${countryCode} ${localNumber}`);
+        assert.equal(normalized, `${countryCode}${localNumber}`);
+      }
+    )
+  );
+});
+
+test('normalizeClientPhone keeps invalid short inputs invalid', () => {
+  fc.assert(
+    fc.property(digitText(0, 5), (digits) => {
+      const normalized = normalizeClientPhone(`+54 ${digits}`);
+      assert.ok(normalized.length <= 7);
     })
   );
 });
 
-test('normalizeBrazilPhone keeps invalid short inputs invalid', () => {
+test('validateClientPhone preserves total digit limits', () => {
   fc.assert(
-    fc.property(digitText(0, 9), (digits) => {
-      const normalized = normalizeBrazilPhone(`(${digits})`);
-      assert.ok(normalized.length < 10);
-    })
+    fc.property(
+      fc.integer({ min: 1, max: 9999 }).map(String),
+      digitText(1, 14),
+      (countryCode, localNumber) => {
+        const result = validateClientPhone({ countryCode, localNumber });
+        if (result.valid) {
+          assert.ok(result.normalized.length >= 7);
+          assert.ok(result.normalized.length <= 15);
+        }
+      }
+    )
   );
 });

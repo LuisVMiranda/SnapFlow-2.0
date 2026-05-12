@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/formatters';
+import { formatClientPhone } from '../lib/phone';
 import { DEFAULT_PRICING, DELIVERY_META, PAYMENT_META, packageLabel } from '../lib/pricing';
 
 export function SessionOpsCard({
@@ -20,20 +21,22 @@ export function SessionOpsCard({
   manualPaymentNotice = 'Aguardando sua confirmação no painel para liberar o envio automático das fotos.',
   onRetryDelivery,
 }) {
+  const isManualPayment = paymentMethod === 'Dinheiro/Cartão' || paymentMethod === 'Dinheiro/Cartao';
   const paymentMeta =
     paymentStatus === 'cancelled'
       ? PAYMENT_META.cancelled
-      : paymentMethod === 'Dinheiro/Cartão' && paymentStatus === 'pending'
-      ? { label: 'Aguardando aprovação', tone: 'info' }
-      : PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
+      : isManualPayment && paymentStatus === 'pending'
+        ? { label: 'Aguardando aprovação', tone: 'info' }
+        : PAYMENT_META[paymentStatus] || PAYMENT_META.draft;
   const deliveryMeta = DELIVERY_META[deliveryStatus] || DELIVERY_META.idle;
   const activePackageLabel = packageLabel(packageType, pricingOptions, 'Não definido');
   const paymentMethodLabel = paymentMethod || 'Não definido';
   const showManualPaymentNotice =
-    paymentMethod === 'Dinheiro/Cartão' &&
+    isManualPayment &&
     paymentStatus !== 'approved' &&
     manualPaymentNotice;
   const hasManualDiscount = showPricingBreakdown && Number(discountAmount || 0) > 0;
+  const formattedPhone = formatClientPhone(phone);
 
   return (
     <div className="ops-card">
@@ -54,7 +57,7 @@ export function SessionOpsCard({
         <div className="ops-stat">
           <span>Cliente</span>
           <strong>{clientName || 'Não informado'}</strong>
-          {phone ? <small>{phone}</small> : null}
+          {formattedPhone ? <small>{formattedPhone}</small> : null}
         </div>
         <div className="ops-stat">
           <span>Pacote ativo</span>

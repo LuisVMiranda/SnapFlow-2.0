@@ -4,35 +4,67 @@ function roundMoney(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
+function invalidSubtotalError() {
+  return new HttpError(
+    400,
+    'Subtotal invalido. Revise o valor calculado da venda e tente novamente.',
+    'invalid_subtotal_amount'
+  );
+}
+
+function invalidDiscountError() {
+  return new HttpError(
+    400,
+    'Desconto invalido. Informe um valor em dinheiro maior que zero.',
+    'invalid_discount_amount'
+  );
+}
+
 function normalizeSubtotal(value, fallback = 0) {
   if (value === undefined || value === null || value === '') return roundMoney(fallback);
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new HttpError(
-      400,
-      'Subtotal inválido. Revise o valor calculado da venda e tente novamente.',
-      'invalid_subtotal_amount'
-    );
+
+  let parsed;
+  try {
+    parsed = Number(value);
+  } catch {
+    parsed = Number.NaN;
   }
-  return roundMoney(parsed);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw invalidSubtotalError();
+  }
+
+  const rounded = roundMoney(parsed);
+  if (!Number.isFinite(rounded) || rounded < 0) {
+    throw invalidSubtotalError();
+  }
+
+  return rounded;
 }
 
 function normalizeDiscountAmount(value, subtotal) {
   if (value === undefined || value === null || value === '') return 0;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new HttpError(
-      400,
-      'Desconto inválido. Informe um valor em dinheiro maior que zero.',
-      'invalid_discount_amount'
-    );
+
+  let parsed;
+  try {
+    parsed = Number(value);
+  } catch {
+    parsed = Number.NaN;
   }
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw invalidDiscountError();
+  }
+
   const normalizedSubtotal = normalizeSubtotal(subtotal);
   const normalizedDiscount = roundMoney(parsed);
+  if (!Number.isFinite(normalizedDiscount) || normalizedDiscount <= 0) {
+    throw invalidDiscountError();
+  }
   if (normalizedDiscount > normalizedSubtotal) {
     throw new HttpError(
       400,
-      'O desconto não pode ser maior que o subtotal desta venda. Revise a quantidade de fotos ou reduza o desconto.',
+      'O desconto nao pode ser maior que o subtotal desta venda. Revise a quantidade de fotos ou reduza o desconto.',
       'discount_exceeds_total',
       { subtotal: normalizedSubtotal }
     );

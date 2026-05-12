@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
-const { normalizeBrazilPhone, validateBrazilPhone } = require('./phone');
+const { normalizeClientPhone, validateClientPhone } = require('./phone');
 
 const RETRY_DELAYS_MS = [5000, 10000, 30000, 60000];
 
@@ -211,29 +211,29 @@ function createWhatsAppClient({
       await ensureClientIdLoaded();
       let profileRotationsRemaining = 2;
       try {
-      while (true) {
-        client = makeClient();
-        try {
-          await client.initialize();
-          return getStatus();
-        } catch (error) {
-          ready = false;
-          latestQr = null;
-          await destroyClient();
-          if (isProfileLockedError(error) && profileRotationsRemaining > 0) {
-            const previousClientId = await rotateClientId();
-            profileRotationsRemaining -= 1;
-            status = 'profile_locked';
+        while (true) {
+          client = makeClient();
+          try {
+            await client.initialize();
+            return getStatus();
+          } catch (error) {
+            ready = false;
+            latestQr = null;
+            await destroyClient();
+            if (isProfileLockedError(error) && profileRotationsRemaining > 0) {
+              const previousClientId = await rotateClientId();
+              profileRotationsRemaining -= 1;
+              status = 'profile_locked';
+              lastError = friendlyWhatsAppError(error);
+              console.warn(`Perfil WhatsApp ${previousClientId} está bloqueado por Chromium. Tentando novo perfil ${activeClientId}.`);
+              continue;
+            }
             lastError = friendlyWhatsAppError(error);
-            console.warn(`Perfil WhatsApp ${previousClientId} está bloqueado por Chromium. Tentando novo perfil ${activeClientId}.`);
-            continue;
+            status = 'failed';
+            if (isTransientWhatsAppError(error) || isProfileLockedError(error)) scheduleReconnect();
+            throw lastError;
           }
-          lastError = friendlyWhatsAppError(error);
-          status = 'failed';
-          if (isTransientWhatsAppError(error) || isProfileLockedError(error)) scheduleReconnect();
-          throw lastError;
         }
-      }
       } finally {
         initializing = null;
       }
@@ -286,12 +286,12 @@ function createWhatsAppClient({
 
   async function sendText(phone, message) {
     return withWhatsAppOperation(async () => {
-      const validation = validateBrazilPhone(phone);
+      const validation = validateClientPhone(phone);
       if (!validation.valid) throw new Error(validation.message);
       const number = validation.normalized;
       const contactId = await client.getNumberId(number);
       if (!contactId) {
-        throw new Error(`Número não encontrado no WhatsApp: ${validation.formatted}. Confira o DDD, o nono dígito e se o cliente usa WhatsApp neste número.`);
+        throw new Error(`Numero nao encontrado no WhatsApp: ${validation.formatted}. Confira o DDI, o numero local e se o cliente realmente usa WhatsApp neste contato.`);
       }
       await client.sendMessage(contactId._serialized, message);
       return number;
@@ -320,4 +320,4 @@ function createWhatsAppClient({
   return { getStatus, initialize, reconnect, resetAuth, sendText, sendPhotos, shutdown };
 }
 
-module.exports = { createWhatsAppClient, normalizeBrazilPhone, validateBrazilPhone };
+module.exports = { createWhatsAppClient, normalizeClientPhone, validateClientPhone };

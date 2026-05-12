@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
 import { validateOptionalEmail } from '../lib/email';
 import { formatMoney } from '../lib/formatters';
-import { phoneDigits, validateBrazilPhone } from '../lib/phone';
+import { buildStoredPhone, phoneDigits, splitStoredPhone, validateClientPhone } from '../lib/phone';
 import { DEFAULT_PRICING } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
 
@@ -46,7 +47,9 @@ export function SummaryScreen({
   unit,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
-  const phoneValidation = validateBrazilPhone(clientPhone);
+  const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(clientPhone));
+
+  const phoneValidation = validateClientPhone(phoneDraft);
   const emailValidation = validateOptionalEmail(clientEmail);
   const canSubmitPhone = phoneValidation.valid;
   const canUseDiscount = shareToken ? true : discountValidation.valid;
@@ -58,9 +61,16 @@ export function SummaryScreen({
     ? `https://wa.me/${phoneValidation.normalized}?text=${encodeURIComponent(shareMessage)}`
     : '';
   const manualPaymentNotice = shareToken
-    ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
+    ? 'Pedido enviado ao fotografo. Assim que o pagamento for aprovado, o envio das fotos sera liberado automaticamente.'
     : undefined;
   const hasManualDiscount = Number(discountAmount || 0) > 0;
+
+  const updatePhoneValue = (nextParts) => {
+    const nextDraft = { ...phoneDraft, ...nextParts };
+    setPhoneDraft(nextDraft);
+    if (!nextDraft.countryCode) return;
+    setClientPhone(buildStoredPhone(nextDraft));
+  };
 
   const confirmFreeOrder = () => {
     if (
@@ -86,12 +96,12 @@ export function SummaryScreen({
         <button className="back-btn" onClick={() => setScreen('gallery')}>
           Voltar
         </button>
-        <span className="topbar-title">Cobrança final</span>
+        <span className="topbar-title">Cobranca final</span>
         <span />
       </header>
 
       <SessionOpsCard
-        title="Sessão atual"
+        title="Sessao atual"
         stage={activeStage}
         count={count}
         total={total}
@@ -118,7 +128,7 @@ export function SummaryScreen({
           <strong>{count} fotos originais</strong>
         </div>
         <div className="summary-row">
-          <span>Preço unitário</span>
+          <span>Preco unitario</span>
           <strong>{formatMoney(unit)}</strong>
         </div>
         {hasManualDiscount ? (
@@ -128,7 +138,7 @@ export function SummaryScreen({
               <strong>{formatMoney(subtotal)}</strong>
             </div>
             <div className="summary-row">
-              <span>Desconto concedido pelo fotógrafo</span>
+              <span>Desconto concedido pelo fotografo</span>
               <strong style={{ color: '#86efac' }}>- {formatMoney(discountAmount)}</strong>
             </div>
           </>
@@ -140,7 +150,7 @@ export function SummaryScreen({
         </div>
         {shareToken && hasManualDiscount ? (
           <small className="summary-help success">
-            Este desconto foi concedido pelo fotógrafo para esta galeria.
+            Este desconto foi concedido pelo fotografo para esta galeria.
           </small>
         ) : null}
       </div>
@@ -177,8 +187,8 @@ export function SummaryScreen({
                 {!discountValidation.valid
                   ? discountValidation.message
                   : !discountEligible
-                    ? `Este desconto só será aplicado quando o pacote atingir ${discountThreshold} foto(s). Até lá, o total segue ${formatMoney(subtotal)}.`
-                    : `Subtotal atual: ${formatMoney(subtotal)}. Total final após desconto: ${formatMoney(total)}.`}
+                    ? `Este desconto so sera aplicado quando o pacote atingir ${discountThreshold} foto(s). Ate la, o total segue ${formatMoney(subtotal)}.`
+                    : `Subtotal atual: ${formatMoney(subtotal)}. Total final apos desconto: ${formatMoney(total)}.`}
               </small>
             </>
           ) : (
@@ -212,22 +222,40 @@ export function SummaryScreen({
         </small>
 
         <div className="summary-label summary-label-spaced">WhatsApp do cliente</div>
-        <input
-          type="tel"
-          placeholder="(11) 99999-9999"
-          value={clientPhone}
-          onChange={(event) => setClientPhone(phoneDigits(event.target.value).slice(0, 13))}
-          className="phone-input"
-        />
+        <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '12px' }}>
+          <div>
+            <small className="summary-help" style={{ display: 'block', marginBottom: '6px' }}>DDI</small>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="55"
+              value={phoneDraft.countryCode}
+              onChange={(event) => updatePhoneValue({ countryCode: phoneDigits(event.target.value).slice(0, 4) })}
+              className="phone-input"
+            />
+          </div>
+          <div>
+              <small className="summary-help" style={{ display: 'block', marginBottom: '6px' }}>Numero local</small>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder={phoneDraft.countryCode === '55' ? 'DDD + numero' : 'Numero sem o DDI'}
+              value={phoneDraft.localNumber}
+              onChange={(event) => updatePhoneValue({ localNumber: phoneDigits(event.target.value).slice(0, 14) })}
+              className="phone-input"
+            />
+          </div>
+        </div>
         <small className={`summary-help ${phoneValidation.valid ? 'success' : 'danger'}`}>
           {phoneValidation.valid
-            ? `Número validado para envio: ${phoneValidation.formatted}`
+            ? `Numero validado para envio: ${phoneValidation.formatted}`
             : phoneValidation.message}
         </small>
+        <small className="summary-help">DDI editavel. O padrao inicial continua Brasil (55).</small>
         <small className="summary-help">
           {shareToken
-            ? 'Assim que o pagamento for confirmado, suas fotos serão liberadas pelo fotógrafo.'
-            : 'Assim que o pagamento for confirmado por você no painel, as imagens serão disparadas para ele em formato de documento, sem compressão.'}
+            ? 'Assim que o pagamento for confirmado, suas fotos serao liberadas pelo fotografo.'
+            : 'Assim que o pagamento for confirmado por voce no painel, as imagens serao disparadas para ele em formato de documento, sem compressao.'}
         </small>
       </div>
 
@@ -244,7 +272,7 @@ export function SummaryScreen({
           disabled={isGeneratingPix || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
           onClick={() => runWithDiscountConfirmation(() => handleManualPayment('manual'))}
         >
-          {shareToken ? 'Solicitar Pagto em Dinheiro/Cartão' : 'Pagamento Dinheiro/Cartão'}
+          {shareToken ? 'Solicitar Pagto em Dinheiro/Cartao' : 'Pagamento Dinheiro/Cartao'}
         </button>
 
         {!shareToken ? (
@@ -257,7 +285,7 @@ export function SummaryScreen({
               color: '#ff9999',
             }}
             onClick={() => {
-              if (confirm('Deseja realmente cancelar esta venda? O cliente não receberá as fotos.')) {
+              if (confirm('Deseja realmente cancelar esta venda? O cliente nao recebera as fotos.')) {
                 resetSession();
                 setScreen('dashboard');
               }
@@ -272,7 +300,7 @@ export function SummaryScreen({
         <div className="summary-card" style={{ marginTop: '16px' }}>
           <div className="summary-label">Teste de link compartilhado</div>
           <small className="summary-help">
-            Digite o WhatsApp do cliente, crie o link temporário e ele recebe automaticamente a mensagem com o código de 4 caracteres.
+            Digite o WhatsApp do cliente, crie o link temporario e ele recebe automaticamente a mensagem com o codigo de 4 caracteres.
           </small>
           <div style={{ marginTop: '12px' }}>
             <label className="share-duration-label" htmlFor="share-duration">
@@ -311,7 +339,7 @@ export function SummaryScreen({
                 <strong className="share-link-text">{shareAccess.link}</strong>
               </div>
               <div className="summary-row">
-                <span>Código</span>
+                <span>Codigo</span>
                 <strong>{shareAccess.code}</strong>
               </div>
               <div className="summary-row">

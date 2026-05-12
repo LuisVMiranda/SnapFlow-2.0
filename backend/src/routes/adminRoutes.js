@@ -2,7 +2,7 @@ const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
 const { applyManualDiscount, normalizeDiscountAmount, normalizeSubtotal } = require('../services/discounts');
 const { optionalEmail } = require('../services/email');
-const { validateBrazilPhone } = require('../services/phone');
+const { validateClientPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
 const { publicBaseUrlForRequest, toPhotoIds } = require('./helpers');
 
@@ -127,7 +127,7 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
     token,
     accessCodeHash: existingShare?.accessCodeHash || hashValue(stableAccessCode),
     accessCode: stableAccessCode,
-    phone: phone.normalized,
+    phone: phone.stored,
     clientName: requestBody.clientName,
     clientEmail: requestBody.clientEmail,
     galleryName,
@@ -194,13 +194,13 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
-      const phone = validateBrazilPhone(req.body.phone);
+      const phone = validateClientPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const pix = await payment.createPixPayment({
         ...(await resolveSaleAmounts(req.body, packages)),
         count: req.body.count,
         sessionId: req.body.sessionId,
-        phone: phone.normalized,
+        phone: phone.stored,
         clientName: normalizeClientName(req.body.clientName),
         clientEmail: normalizeClientEmail(req.body.clientEmail),
         packageType: req.body.packageType,
@@ -215,7 +215,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
-      const phone = validateBrazilPhone(req.body.phone);
+      const phone = validateClientPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const totals = await resolveSaleAmounts(req.body, packages);
       const session = await repos.createSession(
@@ -225,7 +225,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
           amount: totals.total,
           photoCount: req.body.count,
           packageType: req.body.packageType,
-          phone: phone.normalized,
+          phone: phone.stored,
           clientName: normalizeClientName(req.body.clientName),
           clientEmail: normalizeClientEmail(req.body.clientEmail),
           status: 'pending',
@@ -270,7 +270,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
     asyncHandler(async (req, res) => {
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       if (!photoIds.length) throw new HttpError(400, 'Selecione ao menos uma foto para compartilhar.', 'photos_required');
-      const phone = validateBrazilPhone(req.body.phone);
+      const phone = validateClientPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
       const clientName = normalizeClientName(req.body.clientName);
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
@@ -491,12 +491,17 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         ? new Date(Date.now() + Math.min(180, Math.max(5, minutes)) * 60 * 1000)
         : null;
 
+      const validatedPhone = body.phone === undefined ? null : validateClientPhone(body.phone);
+      if (validatedPhone && !validatedPhone.valid) {
+        throw new HttpError(400, validatedPhone.message, validatedPhone.code);
+      }
+
       const updated = await repos.updateShareSession(req.params.token, {
         clientName: body.clientName === undefined ? undefined : normalizeClientName(body.clientName),
         clientEmail: body.clientEmail === undefined ? undefined : normalizeClientEmail(body.clientEmail),
         galleryName: body.galleryName === undefined ? undefined : normalizeGalleryName(body.galleryName),
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
-        phone: body.phone ? String(body.phone) : undefined,
+        phone: body.phone === undefined ? undefined : validatedPhone.stored,
         packageType: body.packageType ? String(body.packageType) : undefined,
         ...(saleAmounts
           ? {

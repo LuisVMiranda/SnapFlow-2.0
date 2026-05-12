@@ -1120,7 +1120,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
     .patch('/api/admin/share-sessions/share_1')
     .set('Authorization', 'Bearer admin-secret')
     .send({
-      phone: '11888888888',
+      phone: '+55 11988888888',
       clientName: 'Bruna Cliente',
       clientEmail: 'bruna@cliente.com',
       galleryName: 'Ensaio editado',
@@ -1135,7 +1135,7 @@ test('admin can edit shared gallery metadata and visible access code', async () 
     });
 
   assert.equal(response.status, 200);
-  assert.equal(response.body.phone, '11888888888');
+  assert.equal(response.body.phone, '+55 11988888888');
   assert.equal(response.body.clientName, 'Bruna Cliente');
   assert.equal(response.body.clientEmail, 'bruna@cliente.com');
   assert.equal(response.body.galleryName, 'Ensaio editado');
