@@ -8,7 +8,7 @@ describe('NoticeBanner', () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    render(<NoticeBanner notice="Pix confirmado pelo Mercado Pago." onClose={onClose} />);
+    render(<NoticeBanner notice={{ message: 'Pix confirmado pelo Mercado Pago.', tone: 'success' }} onClose={onClose} />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Pix confirmado pelo Mercado Pago.');
     await user.click(screen.getByRole('button', { name: 'Fechar notificação' }));

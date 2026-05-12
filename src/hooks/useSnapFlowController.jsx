@@ -5,10 +5,12 @@ import { resolveInitialScreen } from '../lib/navigation';
 import { EMPTY_PHOTOS_PAGE, derivePhotoPageCounts, normalizePhotosPage } from '../lib/photoPages';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey, pricingForType, reachesPackageThreshold } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
+import { NotificationCenterButton } from '../components/NotificationCenterButton';
 import { NoticeBanner } from '../components/NoticeBanner';
 import { useAdminAccess } from './useAdminAccess';
 import { useDashboardPolling } from './useDashboardPolling';
 import { useCredentialsSettings } from './useCredentialsSettings';
+import { useNoticeCenter } from './useNoticeCenter';
 import { usePackageSettings } from './usePackageSettings';
 import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
@@ -17,7 +19,18 @@ import { useWatermarkSettings } from './useWatermarkSettings';
 
 export function useSnapFlowController() {
   const [shareToken] = useState(() => detectShareToken());
-  const [notice, setNotice] = useState(null);
+  const {
+    activeNotice,
+    clearNotificationHistory,
+    dismissNotice,
+    hasSeenNotification,
+    noticeHistory,
+    notificationCenterOpen,
+    rememberNotifications,
+    setNotice,
+    toggleNotificationCenter,
+    unreadNoticeCount,
+  } = useNoticeCenter();
   
   useShareProtections(shareToken, setNotice);
 
@@ -128,7 +141,6 @@ export function useSnapFlowController() {
     shareRecent: [],
   });
   const [, setPendingManualSessions] = useState([]);
-  const [notifiedSessions, setNotifiedSessions] = useState(new Set());
   const { packageSettingsStatus, pricingOptions, savePackageSettings } = usePackageSettings({
     adminJsonHeaders,
     currentType: type,
@@ -193,7 +205,7 @@ export function useSnapFlowController() {
     if (typeof window !== 'undefined' && shareToken) {
       try { window.localStorage.removeItem('snapflow-photos'); } catch { /* ignore */ }
     }
-  }, [shareToken]);
+  }, [shareToken, setNotice]);
 
   const toggle = (id) =>
     setSelected((previous) =>
@@ -356,12 +368,12 @@ export function useSnapFlowController() {
 
   useDashboardPolling({
     adminHeaders,
+    hasSeenNotification,
     isAdminUnlocked,
-    notifiedSessions,
+    rememberNotifications,
     screen,
     setDashData,
     setNotice,
-    setNotifiedSessions,
     setPendingManualSessions,
     shareToken,
   });
@@ -397,7 +409,7 @@ export function useSnapFlowController() {
     loadSharedSession();
 
     return undefined;
-  }, [shareToken]);
+  }, [shareToken, setNotice]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return undefined;
@@ -420,13 +432,6 @@ export function useSnapFlowController() {
 
     return undefined;
   }, [shareAccess]);
-
-  useEffect(() => {
-    if (!notice) return undefined;
-
-    const timer = setTimeout(() => setNotice(null), 4500);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   useEffect(() => {
     if (viewerIndex === null) return undefined;
@@ -475,7 +480,7 @@ export function useSnapFlowController() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [screen, sessionId, liveOps.paymentStatus, fetchDashboard]);
+  }, [screen, sessionId, liveOps.paymentStatus, fetchDashboard, setNotice]);
 
   const {
     handleCreateShareSession,
@@ -547,7 +552,16 @@ export function useSnapFlowController() {
 
   const currentPhoto = viewerIndex !== null ? photos[viewerIndex] : null;
   const hasActiveSession = photos.length > 0 || Boolean(sessionId);
-  const noticeBanner = notice ? <NoticeBanner notice={notice} onClose={() => setNotice(null)} /> : null;
+  const noticeBanner = activeNotice ? <NoticeBanner notice={activeNotice} onClose={dismissNotice} /> : null;
+  const notificationCenter = isAdminUnlocked && !shareToken ? (
+    <NotificationCenterButton
+      items={noticeHistory}
+      onClear={clearNotificationHistory}
+      onToggle={toggleNotificationCenter}
+      open={notificationCenterOpen}
+      unreadCount={unreadNoticeCount}
+    />
+  ) : null;
 
   return {
     activeStage,
@@ -598,6 +612,7 @@ export function useSnapFlowController() {
     logoutAdmin,
     markBrokenPhoto,
     noticeBanner,
+    notificationCenter,
     packageSettingsStatus,
     period,
     photoPageCounts,

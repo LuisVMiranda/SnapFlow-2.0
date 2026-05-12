@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { API_BASE_URL } from '../lib/apiClient';
 import { formatMoney } from '../lib/formatters';
+import { isFreshApprovalNotification } from '../lib/notifications';
 
 function browserNotify(notification) {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -12,34 +13,39 @@ function browserNotify(notification) {
   });
 }
 
-function paymentNotifications(sessions = [], notifiedSessions) {
+export function paymentNotifications(sessions = [], hasSeenNotification = () => false, now = Date.now()) {
   const pendingManual = sessions.filter(
     (session) => session.status === 'pending' && session.paymentMethod === 'Dinheiro/Cartão'
   );
   const confirmedPix = sessions.filter(
-    (session) => session.status === 'approved' && session.paymentMethod === 'PIX'
+    (session) =>
+      session.status === 'approved'
+      && session.paymentMethod === 'PIX'
+      && isFreshApprovalNotification(session, now)
   );
   const notifications = [];
 
   pendingManual.forEach((session) => {
     const key = `manual-pending:${session.id}`;
-    if (notifiedSessions.has(key)) return;
+    if (hasSeenNotification(key)) return;
     notifications.push({
       key,
       title: 'SnapFlow - Pagamento pendente',
       message: 'Novo pagamento em dinheiro/cartão. Cliente: ' + (session.clientName || session.phone || session.accessCode),
       browserBody: 'Cliente solicitou pagamento em dinheiro/cartão. ' + session.photoCount + ' foto(s) - ' + formatMoney(session.amount),
+      tone: 'info',
     });
   });
 
   confirmedPix.forEach((session) => {
     const key = `pix-approved:${session.id}`;
-    if (notifiedSessions.has(key)) return;
+    if (hasSeenNotification(key)) return;
     notifications.push({
       key,
       title: 'SnapFlow - Pix confirmado',
       message: 'Pix confirmado pelo Mercado Pago. ' + (session.clientName || session.phone || 'Cliente') + ' teve as fotos liberadas.',
       browserBody: 'Pagamento aprovado: ' + formatMoney(session.amount) + ' - ' + session.photoCount + ' foto(s).',
+      tone: 'success',
     });
   });
 
@@ -48,12 +54,12 @@ function paymentNotifications(sessions = [], notifiedSessions) {
 
 export function useDashboardPolling({
   adminHeaders,
+  hasSeenNotification,
   isAdminUnlocked,
-  notifiedSessions,
+  rememberNotifications,
   screen,
   setDashData,
   setNotice,
-  setNotifiedSessions,
   setPendingManualSessions,
   shareToken,
 }) {
@@ -74,15 +80,11 @@ export function useDashboardPolling({
         setDashData(data);
         if (shareToken) return;
 
-        const { notifications, pendingManual } = paymentNotifications(data.recent, notifiedSessions);
+        const { notifications, pendingManual } = paymentNotifications(data.recent, hasSeenNotification);
         if (notifications.length) {
-          setNotice(notifications[0].message);
+          setNotice(notifications[0]);
           notifications.forEach(browserNotify);
-          setNotifiedSessions((previous) => {
-            const next = new Set(previous);
-            notifications.forEach((notification) => next.add(notification.key));
-            return next;
-          });
+          rememberNotifications(notifications.map((notification) => notification.key));
         }
         setPendingManualSessions(pendingManual);
       } catch {
@@ -106,12 +108,12 @@ export function useDashboardPolling({
     };
   }, [
     adminHeaders,
+    hasSeenNotification,
     isAdminUnlocked,
-    notifiedSessions,
+    rememberNotifications,
     screen,
     setDashData,
     setNotice,
-    setNotifiedSessions,
     setPendingManualSessions,
     shareToken,
   ]);

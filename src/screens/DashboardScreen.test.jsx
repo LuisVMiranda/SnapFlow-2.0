@@ -47,6 +47,7 @@ const baseProps = {
   loginAdmin: vi.fn(),
   logoutAdmin: vi.fn(),
   noticeBanner: null,
+  notificationCenter: null,
   packageSettingsStatus: 'idle',
   period: 'hoje',
   pricingOptions: {
@@ -129,5 +130,18 @@ describe('DashboardScreen admin unlock', () => {
     await user.click(screen.getByRole('button', { name: /Pacotes e preços/i }));
     expect(screen.getByRole('button', { name: /Pacotes e preços/i })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: /Editar pacotes/i })).toBeInTheDocument();
+  });
+
+  it('renders the notification center next to the account menu when provided', () => {
+    render(
+      <DashboardScreen
+        {...baseProps}
+        adminAccessStatus="granted"
+        isAdminUnlocked
+        notificationCenter={<button type="button">Notificações</button>}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Notificações' })).toBeInTheDocument();
   });
 });

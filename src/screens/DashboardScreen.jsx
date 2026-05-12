@@ -33,6 +33,7 @@ export function DashboardScreen({
   loginAdmin,
   logoutAdmin,
   noticeBanner,
+  notificationCenter,
   packageSettingsStatus,
   period,
   pricingOptions = DEFAULT_PRICING,
@@ -150,6 +151,7 @@ export function DashboardScreen({
           <img src="/logo-transparent.png" alt="SnapFlow" className="brand-logo-image" />
         </div>
         <nav className="dash-nav" aria-label="Conta">
+          {notificationCenter}
           <AccountMenu
             adminAccessError={adminAccessError}
             adminAccessStatus={adminAccessStatus}

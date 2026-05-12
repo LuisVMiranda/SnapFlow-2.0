@@ -17,7 +17,7 @@ function deliveryFailureHint(error) {
     return `${message} Abra Galerias > WhatsApp de envio, escaneie o QR Code no painel quando aparecer e tente reenviar.`;
   }
   if (message.includes('Número não encontrado') || message.includes('Telefone') || message.includes('WhatsApp brasileiro')) {
-    return `${message} Corrija o WhatsApp do cliente na galeria/venda antes de reenviar.`;
+    return `${message} Corrija o WhatsApp do cliente na galeria ou na venda antes de reenviar.`;
   }
   return message;
 }
@@ -35,6 +35,50 @@ function MiniBarChart({ series = [] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function StatsBreakdownTable({ periodConfig, series = [] }) {
+  const rows = [...series].reverse();
+  const title = periodConfig.key === 'hoje' ? 'Detalhamento por dia' : `Detalhamento ${periodConfig.label.toLowerCase()}`;
+  const subtitle = periodConfig.key === 'hoje'
+    ? 'Valores agrupados pela data em que o pagamento foi aprovado nos últimos 7 dias.'
+    : 'Valores agrupados pela data em que o pagamento foi aprovado no período selecionado.';
+
+  return (
+    <div className="stats-breakdown-card">
+      <div>
+        <strong>{title}</strong>
+        <small>{subtitle}</small>
+      </div>
+
+      {rows.length ? (
+        <div className="stats-breakdown-scroll">
+          <table className="stats-breakdown-table">
+            <thead>
+              <tr>
+                <th>{periodConfig.key === 'hoje' ? 'Dia' : 'Período'}</th>
+                <th>Valor</th>
+                <th>Sessões</th>
+                <th>Fotos</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((item) => (
+                <tr key={`${periodConfig.key}-${item.label}`}>
+                  <td>{item.label}</td>
+                  <td className="positive">{formatMoney(item.valor)}</td>
+                  <td>{item.sessoes}</td>
+                  <td>{item.fotos}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <small>Nenhuma venda aprovada neste período ainda.</small>
+      )}
     </div>
   );
 }
@@ -59,6 +103,7 @@ export function SalesStatsPanel({
   const periodConfig = PERIODS.find((item) => item.key === period) || PERIODS[0];
   const stats = dashData.stats?.[period] || { valor: 0, fotos: 0, sessoes: 0 };
   const series = dashData.chartSeries?.[periodConfig.seriesKey] || [];
+
   const retryDelivery = async (targetSessionId) => {
     if (!targetSessionId) return;
     try {
@@ -83,6 +128,7 @@ export function SalesStatsPanel({
       setNotice(buildNetworkErrorMessage('Não foi possível reenfileirar o envio.', error));
     }
   };
+
   const clearStats = async () => {
     if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas? As galerias compartilhadas continuarão na aba Galerias.')) return;
     if (!window.confirm('Confirme novamente: esta ação apaga as sessões de venda do painel.')) return;
@@ -102,6 +148,7 @@ export function SalesStatsPanel({
       setNotice(buildNetworkErrorMessage('Não foi possível limpar as estatísticas.', error));
     }
   };
+
   const cancelRelease = async (targetSessionId) => {
     if (!targetSessionId) return;
     if (!window.confirm('Cancelar a liberação desta venda? O cliente não receberá as fotos por esta solicitação.')) return;
@@ -121,6 +168,7 @@ export function SalesStatsPanel({
       setNotice(buildNetworkErrorMessage('Não foi possível cancelar a liberação.', error));
     }
   };
+
   return (
     <section className="admin-panel">
       <div className="period-tabs">
@@ -143,6 +191,10 @@ export function SalesStatsPanel({
           {stats.sessoes} sessões • {stats.fotos} fotos vendidas
         </div>
         <MiniBarChart series={series} />
+        <div className="stats-footnote">
+          O resumo financeiro usa a data em que o pagamento foi aprovado, para o valor entrar no dia correto.
+        </div>
+        <StatsBreakdownTable periodConfig={periodConfig} series={series} />
       </div>
 
       {hasActiveSession ? (

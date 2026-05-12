@@ -125,18 +125,18 @@ function createSessionRepo({ pool, query, withTransaction }) {
   async function dashboard() {
     const statsResult = await query(
       `select
-        coalesce(sum(amount_cents) filter (where created_at >= now() - interval '1 day'), 0) as hoje_valor,
-        coalesce(sum(photo_count) filter (where created_at >= now() - interval '1 day'), 0) as hoje_fotos,
-        count(*) filter (where created_at >= now() - interval '1 day') as hoje_sessoes,
-        coalesce(sum(amount_cents) filter (where created_at >= now() - interval '7 days'), 0) as semana_valor,
-        coalesce(sum(photo_count) filter (where created_at >= now() - interval '7 days'), 0) as semana_fotos,
-        count(*) filter (where created_at >= now() - interval '7 days') as semana_sessoes,
-        coalesce(sum(amount_cents) filter (where created_at >= now() - interval '30 days'), 0) as mes_valor,
-        coalesce(sum(photo_count) filter (where created_at >= now() - interval '30 days'), 0) as mes_fotos,
-        count(*) filter (where created_at >= now() - interval '30 days') as mes_sessoes,
-        coalesce(sum(amount_cents) filter (where created_at >= date_trunc('year', now())), 0) as ano_valor,
-        coalesce(sum(photo_count) filter (where created_at >= date_trunc('year', now())), 0) as ano_fotos,
-        count(*) filter (where created_at >= date_trunc('year', now())) as ano_sessoes
+        coalesce(sum(amount_cents) filter (where coalesce(approved_at, created_at) >= current_date), 0) as hoje_valor,
+        coalesce(sum(photo_count) filter (where coalesce(approved_at, created_at) >= current_date), 0) as hoje_fotos,
+        count(*) filter (where coalesce(approved_at, created_at) >= current_date) as hoje_sessoes,
+        coalesce(sum(amount_cents) filter (where coalesce(approved_at, created_at) >= date_trunc('week', now())), 0) as semana_valor,
+        coalesce(sum(photo_count) filter (where coalesce(approved_at, created_at) >= date_trunc('week', now())), 0) as semana_fotos,
+        count(*) filter (where coalesce(approved_at, created_at) >= date_trunc('week', now())) as semana_sessoes,
+        coalesce(sum(amount_cents) filter (where coalesce(approved_at, created_at) >= date_trunc('month', now())), 0) as mes_valor,
+        coalesce(sum(photo_count) filter (where coalesce(approved_at, created_at) >= date_trunc('month', now())), 0) as mes_fotos,
+        count(*) filter (where coalesce(approved_at, created_at) >= date_trunc('month', now())) as mes_sessoes,
+        coalesce(sum(amount_cents) filter (where coalesce(approved_at, created_at) >= date_trunc('year', now())), 0) as ano_valor,
+        coalesce(sum(photo_count) filter (where coalesce(approved_at, created_at) >= date_trunc('year', now())), 0) as ano_fotos,
+        count(*) filter (where coalesce(approved_at, created_at) >= date_trunc('year', now())) as ano_sessoes
        from sessions where status = 'approved'`
     );
     const dailySeries = await query(
@@ -145,7 +145,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
               coalesce(sum(photo_count), 0) as fotos,
               count(sessions.id) as sessoes
        from generate_series(current_date - interval '6 days', current_date, interval '1 day') day
-       left join sessions on sessions.status = 'approved' and sessions.created_at::date = day::date
+       left join sessions on sessions.status = 'approved' and coalesce(sessions.approved_at, sessions.created_at)::date = day::date
        group by day order by day`
     );
     const weeklySeries = await query(
@@ -155,8 +155,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
               count(sessions.id) as sessoes
        from generate_series(date_trunc('week', now()) - interval '7 weeks', date_trunc('week', now()), interval '1 week') week_start
        left join sessions on sessions.status = 'approved'
-        and sessions.created_at >= week_start
-        and sessions.created_at < week_start + interval '1 week'
+        and coalesce(sessions.approved_at, sessions.created_at) >= week_start
+        and coalesce(sessions.approved_at, sessions.created_at) < week_start + interval '1 week'
        group by week_start order by week_start`
     );
     const monthlySeries = await query(
@@ -166,8 +166,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
               count(sessions.id) as sessoes
        from generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') month_start
        left join sessions on sessions.status = 'approved'
-        and sessions.created_at >= month_start
-        and sessions.created_at < month_start + interval '1 month'
+        and coalesce(sessions.approved_at, sessions.created_at) >= month_start
+        and coalesce(sessions.approved_at, sessions.created_at) < month_start + interval '1 month'
        group by month_start order by month_start`
     );
     const s = statsResult.rows[0] || {};

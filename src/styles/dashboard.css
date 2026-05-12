@@ -27,6 +27,136 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+.notification-center {
+  position: relative;
+}
+
+.notification-center-toggle {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: #f5f8ff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  position: relative;
+}
+
+.notification-center-count {
+  align-items: center;
+  background: rgba(0, 200, 81, 0.2);
+  border: 1px solid rgba(0, 200, 81, 0.36);
+  border-radius: 999px;
+  color: #7ef0ad;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: center;
+  min-width: 20px;
+  padding: 2px 6px;
+}
+
+.notification-center-panel {
+  background: rgba(17, 17, 17, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  width: min(360px, calc(100vw - 32px));
+  z-index: 50;
+}
+
+.notification-center-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notification-center-header strong {
+  color: #fff;
+  font-size: 13px;
+}
+
+.notification-center-clear {
+  background: transparent;
+  border: 0;
+  color: var(--gray);
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.notification-center-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(320px, 55vh);
+  overflow-y: auto;
+}
+
+.notification-center-item {
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+}
+
+.notification-center-item.success {
+  background: rgba(0, 200, 81, 0.08);
+  border: 1px solid rgba(0, 200, 81, 0.22);
+  color: #c9f9da;
+}
+
+.notification-center-item.info {
+  background: rgba(30, 144, 255, 0.08);
+  border: 1px solid rgba(30, 144, 255, 0.2);
+  color: #d7ebff;
+}
+
+.notification-center-item.danger {
+  background: rgba(255, 99, 99, 0.08);
+  border: 1px solid rgba(255, 99, 99, 0.2);
+  color: #ffd2d2;
+}
+
+.notification-center-item-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.notification-center-item small,
+.notification-center-empty {
+  color: var(--gray);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.notification-center-item span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.notification-center-empty {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .share-screen {
@@ -370,6 +500,8 @@
   align-self: end;
   background: linear-gradient(180deg, rgba(0, 200, 81, 0.95), rgba(30, 144, 255, 0.72));
   border-radius: 8px 8px 3px 3px;
+  border: 0;
+  cursor: default;
   min-height: 8px;
   width: 100%;
 }
@@ -471,6 +603,72 @@
 .stats-subtitle {
   font-size: 13px;
   color: var(--gray);
+}
+
+.stats-footnote {
+  color: var(--gray);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 14px;
+  text-align: left;
+}
+
+.stats-breakdown-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.stats-breakdown-card strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.stats-breakdown-card small {
+  color: var(--gray);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.stats-breakdown-scroll {
+  overflow-x: auto;
+}
+
+.stats-breakdown-table {
+  border-collapse: collapse;
+  min-width: 100%;
+  width: 100%;
+}
+
+.stats-breakdown-table th,
+.stats-breakdown-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  padding: 10px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.stats-breakdown-table th {
+  color: var(--gray);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.stats-breakdown-table td {
+  color: #f3f6ff;
+}
+
+.stats-breakdown-table td.positive {
+  color: var(--green);
+  font-weight: 700;
 }
 
 .recent-header {
@@ -744,6 +942,17 @@
 }
 
 @media (max-width: 640px) {
+  .dash-nav {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .notification-center-panel {
+    left: 0;
+    right: auto;
+    width: min(100vw - 32px, 360px);
+  }
+
   .admin-tabs {
     gap: 6px;
     overflow-x: auto;

@@ -144,4 +144,32 @@ describe('SalesStatsPanel manual release cancellation', () => {
     expect(screen.getByText('Envio cancelado')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Liberar fotos' })).not.toBeInTheDocument();
   });
+
+  it('renders a readable daily breakdown table under the chart', () => {
+    render(
+      <SalesStatsPanel
+        {...baseProps}
+        dashData={{
+          ...baseDashData,
+          stats: {
+            ...baseDashData.stats,
+            hoje: { valor: 80, fotos: 8, sessoes: 2 },
+          },
+          chartSeries: {
+            ...baseDashData.chartSeries,
+            diario: [
+              { label: '10/05', valor: 50, sessoes: 1, fotos: 6 },
+              { label: '11/05', valor: 30, sessoes: 1, fotos: 2 },
+            ],
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText('Detalhamento por dia')).toBeInTheDocument();
+    expect(screen.getAllByText(/data em que o pagamento foi aprovado/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('11/05').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('R$ 30,00').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('R$ 50,00').length).toBeGreaterThan(0);
+  });
 });

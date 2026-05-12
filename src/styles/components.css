@@ -182,6 +182,19 @@
   right: max(12px, env(safe-area-inset-right));
   top: max(12px, env(safe-area-inset-top));
   z-index: 1200;
+  animation: notice-fade-in 0.18s ease-out;
+}
+
+.floating-notice.info {
+  background: rgba(30, 144, 255, 0.18);
+  border-color: rgba(30, 144, 255, 0.34);
+  color: #d8ebff;
+}
+
+.floating-notice.danger {
+  background: rgba(255, 99, 99, 0.16);
+  border-color: rgba(255, 99, 99, 0.32);
+  color: #ffd4d4;
 }
 
 .floating-notice-close {
@@ -201,6 +214,17 @@
   right: 9px;
   top: 9px;
   width: 26px;
+}
+
+@keyframes notice-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (min-width: 1024px) {

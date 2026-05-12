@@ -60,6 +60,7 @@ export default function App() {
     logoutAdmin,
     markBrokenPhoto,
     noticeBanner,
+    notificationCenter,
     packageSettingsStatus,
     period,
     photoPageCounts,
@@ -210,6 +211,7 @@ export default function App() {
         loginAdmin={loginAdmin}
         logoutAdmin={logoutAdmin}
         noticeBanner={noticeBanner}
+        notificationCenter={notificationCenter}
         packageSettingsStatus={packageSettingsStatus}
         period={period}
         pricingOptions={pricingOptions}
