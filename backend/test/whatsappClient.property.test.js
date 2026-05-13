@@ -1,7 +1,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const fc = require('fast-check');
-const { normalizeClientPhone, validateClientPhone } = require('../src/services/whatsappClient');
+const {
+  friendlyWhatsAppError,
+  isTransientWhatsAppError,
+  normalizeClientPhone,
+  validateClientPhone,
+} = require('../src/services/whatsappClient');
 
 const digitText = (minLength, maxLength) =>
   fc.array(fc.integer({ min: 0, max: 9 }), { minLength, maxLength }).map((digits) => digits.join(''));
@@ -42,4 +47,10 @@ test('validateClientPhone preserves total digit limits', () => {
       }
     )
   );
+});
+
+test('detached WhatsApp frames are treated as recoverable WhatsApp failures', () => {
+  const error = new Error("Attempted to use detached Frame 'FAD6A8E80ABEAF0C100475BFFDD7E5DC5'.");
+  assert.equal(isTransientWhatsAppError(error), true);
+  assert.match(friendlyWhatsAppError(error).message, /A API continua ativa/);
 });

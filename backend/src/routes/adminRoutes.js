@@ -112,8 +112,23 @@ async function sendShareLinkMessage({ whatsapp, phone, message }) {
     await whatsapp.sendText(phone, message);
     return { whatsappSent: true, whatsappStatus: 'sent' };
   } catch (error) {
-    return { whatsappSent: false, whatsappStatus: 'failed', whatsappError: error.message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.' };
+    return { whatsappSent: false, whatsappStatus: 'failed', whatsappError: whatsappSendErrorMessage(error) };
   }
+}
+
+function whatsappSendErrorMessage(error) {
+  const message = String(error?.message || '').trim();
+  const whatsappLostContext = [
+    'Attempted to use detached Frame',
+    'Execution context was destroyed',
+    'Protocol error',
+    'Target closed',
+    'Session closed',
+  ].some((needle) => message.includes(needle));
+  if (whatsappLostContext) {
+    return 'O WhatsApp Web perdeu a conexão controlada pelo SnapFlow enquanto a mensagem era enviada. O link foi criado; abra Vendas > WhatsApp de envio, confira se aparece QR Code ou status Pronto e tente enviar novamente.';
+  }
+  return message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.';
 }
 
 async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, galleryDescription, galleryName, phone, photoIds, repos, requestBody, retentionExpiresAt }) {

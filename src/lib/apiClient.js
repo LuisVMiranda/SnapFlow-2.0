@@ -56,6 +56,7 @@ function statusHint(status) {
   if (status === 409) return 'Atualize a tela: esta venda ou galeria pode já ter mudado de estado.';
   if (status === 413) return 'O envio ultrapassou o limite configurado para arquivos.';
   if (status === 429) return 'Aguarde alguns minutos antes de tentar novamente.';
+  if (status === 502 || status === 503) return 'O painel não conseguiu falar com a API. Confira se a janela APP FOTOGRAFIA - SERVIDOR continua aberta; se ela fechou, reinicie o backend e tente novamente.';
   if (status >= 500) return 'Verifique o terminal APP FOTOGRAFIA - SERVIDOR para detalhes e reinicie o backend se a falha persistir.';
   return '';
 }

@@ -788,6 +788,35 @@ test('admin share link creation keeps link when WhatsApp send fails', async () =
   assert.match(response.body.whatsappError, /WhatsApp offline/);
 });
 
+test('admin share link creation keeps link when WhatsApp Web loses its controlled frame', async () => {
+  const app = createTestApp({
+    whatsapp: {
+      sendText: async () => {
+        throw new Error("Attempted to use detached Frame 'abc'.");
+      },
+    },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: { countryCode: '54', localNumber: '91159099286' },
+      clientName: 'Cliente Argentina',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.token);
+  assert.equal(response.body.whatsappSent, false);
+  assert.equal(response.body.whatsappStatus, 'failed');
+  assert.match(response.body.whatsappError, /O WhatsApp Web perdeu a conexão controlada pelo SnapFlow/);
+});
+
 test('admin can inspect and request WhatsApp reconnect', async () => {
   let reconnects = 0;
   const app = createTestApp({

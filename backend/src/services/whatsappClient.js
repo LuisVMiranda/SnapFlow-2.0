@@ -4,17 +4,26 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { normalizeClientPhone, validateClientPhone } = require('./phone');
 
 const RETRY_DELAYS_MS = [5000, 10000, 30000, 60000];
+const transientWhatsAppNeedles = [
+  'Execution context was destroyed',
+  'Protocol error',
+  'Target closed',
+  'Session closed',
+  'Navigation failed',
+  'Cannot find context',
+  'Attempted to use detached Frame',
+  'detached Frame',
+  'Frame was detached',
+  'Navigating frame was detached',
+  'Target page, context or browser has been closed',
+];
+
+let processGuardInstalled = false;
+const processFailureHandlers = new Set();
 
 function isTransientWhatsAppError(error) {
   const message = String(error?.message || error || '');
-  return [
-    'Execution context was destroyed',
-    'Protocol error',
-    'Target closed',
-    'Session closed',
-    'Navigation failed',
-    'Cannot find context',
-  ].some((needle) => message.includes(needle));
+  return transientWhatsAppNeedles.some((needle) => message.includes(needle));
 }
 
 function isProfileLockedError(error) {
@@ -28,10 +37,44 @@ function friendlyWhatsAppError(error) {
       'O perfil local do WhatsApp ficou preso por um processo Chromium anterior. O SnapFlow vai trocar automaticamente para um novo perfil; se persistir, feche processos antigos de node/chrome ou reinicie o computador.'
     );
   }
+  if (String(error?.message || error || '').includes('detached Frame')) {
+    return new Error(
+      'WhatsApp Web saiu, recarregou ou perdeu a janela controlada pelo backend. A API continua ativa e o SnapFlow vai tentar reconectar; se aparecer QR Code em Vendas > WhatsApp de envio, escaneie novamente.'
+    );
+  }
   if (!isTransientWhatsAppError(error)) return error instanceof Error ? error : new Error(String(error || 'Falha no WhatsApp.'));
   return new Error(
     'WhatsApp Web recarregou ou perdeu o contexto controlado pelo backend. O SnapFlow vai tentar reconectar automaticamente; se persistir, use Reconectar WhatsApp no painel e escaneie o QR Code em Vendas.'
   );
+}
+
+function isWhatsAppRecoverableProcessError(error) {
+  const stack = String(error?.stack || '');
+  const stackLooksWhatsApp = stack.includes('whatsapp-web.js') || stack.includes('puppeteer-core');
+  return stackLooksWhatsApp && (isTransientWhatsAppError(error) || isProfileLockedError(error));
+}
+
+function installWhatsAppProcessGuard() {
+  if (processGuardInstalled) return;
+  processGuardInstalled = true;
+
+  const handleFailure = (error) => {
+    if (!isWhatsAppRecoverableProcessError(error)) throw error;
+    const friendlyError = friendlyWhatsAppError(error);
+    console.warn(`Falha recuperavel do WhatsApp interceptada: ${friendlyError.message}`);
+    for (const handler of processFailureHandlers) {
+      handler(friendlyError);
+    }
+  };
+
+  process.on('uncaughtException', handleFailure);
+  process.on('unhandledRejection', handleFailure);
+}
+
+function subscribeToWhatsAppProcessFailures(handler) {
+  installWhatsAppProcessGuard();
+  processFailureHandlers.add(handler);
+  return () => processFailureHandlers.delete(handler);
 }
 
 function validClientId(value) {
@@ -72,6 +115,12 @@ function createWhatsAppClient({
   let lastQrAt = null;
   let lastReadyAt = null;
   let latestQr = null;
+  const unsubscribeFromProcessFailures = subscribeToWhatsAppProcessFailures((error) => {
+    handleRecoverableFailure(error, {
+      consoleMessage: `WhatsApp perdeu o contexto interno e sera reconectado: ${error.message}`,
+      destroyBeforeRetry: true,
+    });
+  });
 
   function getStatus() {
     return {
@@ -125,6 +174,20 @@ function createWhatsAppClient({
     }
   }
 
+  function handleRecoverableFailure(error, { consoleMessage, destroyBeforeRetry = false, nextStatus = 'failed' } = {}) {
+    ready = false;
+    latestQr = null;
+    lastError = friendlyWhatsAppError(error);
+    status = nextStatus;
+    if (consoleMessage) console.warn(consoleMessage);
+    const reconnect = () => scheduleReconnect();
+    if (destroyBeforeRetry) {
+      destroyClient().finally(reconnect);
+      return;
+    }
+    reconnect();
+  }
+
   function makeClient() {
     const authOptions = activeClientId
       ? { dataPath: authDataPath, clientId: activeClientId }
@@ -163,12 +226,10 @@ function createWhatsAppClient({
       console.log('Bot WhatsApp pareado e pronto para a fila.');
     });
     instance.on('disconnected', (reason) => {
-      ready = false;
-      status = 'disconnected';
-      latestQr = null;
-      lastError = new Error(`WhatsApp desconectado: ${reason}`);
       console.warn('WhatsApp desconectado:', reason);
-      scheduleReconnect();
+      handleRecoverableFailure(new Error(`WhatsApp desconectado: ${reason || 'motivo nao informado'}`), {
+        nextStatus: reason === 'LOGOUT' ? 'logged_out' : 'disconnected',
+      });
     });
     instance.on('auth_failure', (message) => {
       ready = false;
@@ -274,10 +335,7 @@ function createWhatsAppClient({
       return await operation();
     } catch (error) {
       if (isTransientWhatsAppError(error)) {
-        ready = false;
-        lastError = friendlyWhatsAppError(error);
-        status = 'failed';
-        scheduleReconnect();
+        handleRecoverableFailure(error);
         throw lastError;
       }
       throw error;
@@ -314,10 +372,17 @@ function createWhatsAppClient({
     ready = false;
     status = 'closed';
     latestQr = null;
+    unsubscribeFromProcessFailures();
     await destroyClient();
   }
 
   return { getStatus, initialize, reconnect, resetAuth, sendText, sendPhotos, shutdown };
 }
 
-module.exports = { createWhatsAppClient, normalizeClientPhone, validateClientPhone };
+module.exports = {
+  createWhatsAppClient,
+  friendlyWhatsAppError,
+  isTransientWhatsAppError,
+  normalizeClientPhone,
+  validateClientPhone,
+};
