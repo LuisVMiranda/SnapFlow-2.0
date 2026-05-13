@@ -319,7 +319,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       });
 
       const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode: resolvedAccessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
-      const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.normalized, message: whatsappMessage });
+      const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.stored, message: whatsappMessage });
 
       res.json({
         token: share.token,

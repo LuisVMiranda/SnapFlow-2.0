@@ -30,6 +30,17 @@ function createDeliveryJobRepo({ query }) {
     await query("update delivery_jobs set status = 'sent', updated_at = now(), last_error = null where id = $1", [jobId]);
   }
 
+  async function cancelDeliveryJob(jobId, reason) {
+    await query(
+      `update delivery_jobs
+       set status = 'cancelled',
+           last_error = $2,
+           updated_at = now()
+       where id = $1`,
+      [jobId, String(reason || 'Entrega cancelada.')]
+    );
+  }
+
   async function failDeliveryJob(jobId, error) {
     await query(
       `update delivery_jobs
@@ -69,6 +80,7 @@ function createDeliveryJobRepo({ query }) {
   }
 
   return {
+    cancelDeliveryJob,
     claimDeliveryJob,
     completeDeliveryJob,
     enqueueDelivery,

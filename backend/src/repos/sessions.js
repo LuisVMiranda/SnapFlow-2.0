@@ -19,7 +19,11 @@ function createSessionRepo({ pool, query, withTransaction }) {
           status = excluded.status,
           payment_method = excluded.payment_method,
           payment_id = excluded.payment_id,
-          share_token = excluded.share_token
+          share_token = excluded.share_token,
+          delivery_status = excluded.delivery_status,
+          delivery_error = null,
+          delivered_at = case when excluded.delivery_status = 'sent' then sessions.delivered_at else null end,
+          delivery_updated_at = now()
          returning *`,
         [
           session.id,

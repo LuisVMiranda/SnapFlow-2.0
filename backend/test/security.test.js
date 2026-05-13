@@ -694,7 +694,7 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.equal(response.body.galleryDescription, 'Galeria liberada para escolha das famílias.');
   assert.equal(response.body.sales.soldPhotoCount, 0);
   assert.equal(sends.length, 1);
-  assert.equal(sends[0].phone, '5511999999999');
+  assert.equal(sends[0].phone, '+55 11999999999');
   assert.match(sends[0].message, /Ana Cliente/);
   assert.match(sends[0].message, /Código/);
 });
@@ -815,6 +815,29 @@ test('admin share link creation keeps link when WhatsApp Web loses its controlle
   assert.equal(response.body.whatsappSent, false);
   assert.equal(response.body.whatsappStatus, 'failed');
   assert.match(response.body.whatsappError, /O WhatsApp Web perdeu a conexão controlada pelo SnapFlow/);
+});
+
+test('admin share link creation sends WhatsApp with the editable international DDI preserved', async () => {
+  const sends = [];
+  const app = createTestApp({ whatsapp: { sendText: async (phone, message) => sends.push({ phone, message }) } });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: { countryCode: '54', localNumber: '91159099286' },
+      clientName: 'Cliente Argentina',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.whatsappSent, true);
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].phone, '+54 91159099286');
 });
 
 test('admin can inspect and request WhatsApp reconnect', async () => {

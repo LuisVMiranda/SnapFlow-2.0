@@ -14,6 +14,18 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
       job = await repos.claimDeliveryJob();
       if (!job) return;
       const session = await repos.getSession(job.session_id);
+      if (!session) {
+        throw new Error('Venda não encontrada para esta entrega. Atualize a aba Vendas antes de tentar reenviar.');
+      }
+      if (session.status !== 'approved') {
+        const reason = session.status === 'pending'
+          ? 'Entrega bloqueada: o pagamento em dinheiro/cartão ainda aguarda aprovação do administrador.'
+          : 'Entrega bloqueada: esta venda não está aprovada.';
+        if (typeof repos.cancelDeliveryJob === 'function') await repos.cancelDeliveryJob(job.id, reason);
+        else await repos.failDeliveryJob(job.id, reason);
+        await repos.updateDeliveryStatus(job.session_id, session.status === 'cancelled' ? 'cancelled' : 'idle', session.status === 'cancelled' ? reason : null);
+        return;
+      }
       const sessionPhotos = await repos.listPhotosForSession(job.session_id);
       if (!sessionPhotos.length) throw new Error('Nenhuma foto encontrada para esta venda. Verifique se a galeria ainda possui fotos antes de reenviar.');
       await repos.updateDeliveryStatus(job.session_id, 'sending');
