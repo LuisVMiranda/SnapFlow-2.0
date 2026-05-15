@@ -14,8 +14,6 @@ export function SummaryScreen({
   clientPhone,
   count,
   discountAmount = 0,
-  discountEligible = true,
-  discountThreshold = 0,
   discountValidation = { valid: true, message: '' },
   handleCreateShareSession,
   handleExtendShareSession,
@@ -76,7 +74,6 @@ export function SummaryScreen({
     if (
       shareToken
       || !manualDiscountEnabled
-      || !discountEligible
       || Number(discountAmount || 0) !== Number(subtotal || 0)
       || subtotal <= 0
     ) {
@@ -186,9 +183,7 @@ export function SummaryScreen({
               <small className={`summary-help ${discountValidation.valid ? 'success' : 'danger'}`}>
                 {!discountValidation.valid
                   ? discountValidation.message
-                  : !discountEligible
-                    ? `Este desconto so sera aplicado quando o pacote atingir ${discountThreshold} foto(s). Ate la, o total segue ${formatMoney(subtotal)}.`
-                    : `Subtotal atual: ${formatMoney(subtotal)}. Total final apos desconto: ${formatMoney(total)}.`}
+                  : `Subtotal atual: ${formatMoney(subtotal)}. Total final apos desconto: ${formatMoney(total)}.`}
               </small>
             </>
           ) : (

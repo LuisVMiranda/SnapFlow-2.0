@@ -46,24 +46,12 @@ function normalizeGalleryDescription(value) {
     .slice(0, 800);
 }
 
-async function resolveSaleAmounts(body = {}, packages) {
+async function resolveSaleAmounts(body = {}) {
   const subtotal = normalizeSubtotal(body.subtotal ?? body.total);
   const configuredDiscountAmount = normalizeDiscountAmount(body.discountAmount, subtotal);
-  if (!packages) {
-    return {
-      ...applyManualDiscount(subtotal, configuredDiscountAmount),
-      configuredDiscountAmount,
-    };
-  }
-  const packageOptions = await packages.getSettings();
-  const fallbackKey = Object.keys(packageOptions)[0];
-  const pricing = packageOptions[body.packageType] || packageOptions[fallbackKey];
-  const count = Math.max(0, Number(body.count) || 0);
-  const discountEligible = !pricing || count >= Number(pricing.threshold || 0);
   return {
-    ...applyManualDiscount(subtotal, discountEligible ? configuredDiscountAmount : 0),
+    ...applyManualDiscount(subtotal, configuredDiscountAmount),
     configuredDiscountAmount,
-    discountEligible,
   };
 }
 

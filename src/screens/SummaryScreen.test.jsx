@@ -106,24 +106,22 @@ describe('SummaryScreen', () => {
     expect(screen.getByText(/Ative apenas quando quiser reduzir manualmente/i)).toBeInTheDocument();
   });
 
-  it('explains that manual discount waits for the package minimum before applying', () => {
+  it('applies manual discount even before the package minimum', () => {
     render(
       <SummaryScreen
         {...buildProps({
-          discountAmount: 0,
-          discountEligible: false,
-          discountThreshold: 5,
+          discountAmount: 10,
           discountValidation: { valid: true, amount: 10, message: '' },
           manualDiscountDraft: '10',
           manualDiscountEnabled: true,
           subtotal: 30,
-          total: 30,
+          total: 20,
         })}
       />
     );
 
-    expect(screen.getByText(/Este desconto so sera aplicado quando o pacote atingir 5 foto\(s\)/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Desconto concedido pelo fotografo/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Subtotal atual: R\$\s*30,00\. Total final apos desconto: R\$\s*20,00\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Desconto concedido pelo fotografo/i)).toBeInTheDocument();
   });
 
   it('keeps gallery discount read-only for clients and shows the granted discount', () => {

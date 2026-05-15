@@ -720,7 +720,7 @@ test('admin share link creation stores manual discount metadata', async () => {
   assert.equal(response.status, 200);
   assert.equal(response.body.subtotal, 10);
   assert.equal(response.body.discountAmount, 3);
-  assert.equal(response.body.total, 10);
+  assert.equal(response.body.total, 7);
 });
 
 test('admin share link creation restores the existing gallery for the same photo set', async () => {
@@ -1482,7 +1482,7 @@ test('unlocked share sessions can create Pix without admin bearer token', async 
   assert.equal(stored.body.amount, 15);
 });
 
-test('unlocked share sessions ignore gallery discount below the package minimum', async () => {
+test('unlocked share sessions apply gallery discount below the package minimum', async () => {
   const app = createTestApp();
   await request(app)
     .patch('/api/admin/share-sessions/share_1')
@@ -1505,11 +1505,11 @@ test('unlocked share sessions ignore gallery discount below the package minimum'
 
   assert.equal(stored.status, 200);
   assert.equal(stored.body.subtotal, 15);
-  assert.equal(stored.body.discountAmount, 0);
-  assert.equal(stored.body.amount, 15);
+  assert.equal(stored.body.discountAmount, 5);
+  assert.equal(stored.body.amount, 10);
 });
 
-test('unlocked share sessions apply the gallery discount to Pix totals after the package minimum', async () => {
+test('unlocked share sessions apply the gallery discount to Pix totals', async () => {
   const initialPhotos = Array.from({ length: 5 }, (_, index) => ({
     id: `photo_${index + 1}`,
     shareToken: 'share_1',
@@ -1542,7 +1542,7 @@ test('unlocked share sessions apply the gallery discount to Pix totals after the
   assert.equal(stored.body.amount, 45);
 });
 
-test('unlocked share sessions apply the gallery discount to manual payment requests after the package minimum', async () => {
+test('unlocked share sessions apply the gallery discount to manual payment requests', async () => {
   const initialPhotos = Array.from({ length: 5 }, (_, index) => ({
     id: `photo_${index + 1}`,
     shareToken: 'share_1',

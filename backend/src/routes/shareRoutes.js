@@ -17,7 +17,6 @@ function calculateTotal(count, packageType, packageOptions) {
   return {
     unit,
     subtotal: count * unit,
-    discountEligible: count >= Number(pricing.threshold || 0),
     threshold: Number(pricing.threshold || 0),
   };
 }
@@ -55,8 +54,8 @@ async function resolveShareOrder({ packages, repos, req }) {
 
   const packageOptions = await packages.getSettings();
   const count = photoIds.length;
-  const { subtotal, discountEligible } = calculateTotal(count, share.packageType, packageOptions);
-  const totals = applyManualDiscount(subtotal, discountEligible ? share.discountAmount : 0);
+  const { subtotal } = calculateTotal(count, share.packageType, packageOptions);
+  const totals = applyManualDiscount(subtotal, share.discountAmount);
   return { count, photoIds, share, ...totals };
 }
 

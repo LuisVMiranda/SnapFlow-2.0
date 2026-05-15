@@ -35,8 +35,6 @@ export default function App() {
     dashData,
     deleteCredential,
     discountAmount,
-    discountEligible,
-    discountThreshold,
     discountValidation,
     fetchDashboard,
     handleCreateShareSession,
@@ -286,8 +284,6 @@ export default function App() {
         clientPhone={clientPhone}
         count={count}
         discountAmount={discountAmount}
-        discountEligible={discountEligible}
-        discountThreshold={discountThreshold}
         discountValidation={discountValidation}
         handleCreateShareSession={handleCreateShareSession}
         handleExtendShareSession={handleExtendShareSession}

@@ -3,7 +3,7 @@ import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonR
 import { applyManualDiscount, validateDiscountDraft } from '../lib/discounts';
 import { resolveInitialScreen } from '../lib/navigation';
 import { EMPTY_PHOTOS_PAGE, derivePhotoPageCounts, normalizePhotosPage } from '../lib/photoPages';
-import { DEFAULT_PRICING, calcTotal, firstPackageKey, pricingForType, reachesPackageThreshold } from '../lib/pricing';
+import { DEFAULT_PRICING, calcTotal, firstPackageKey, pricingForType } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
 import { NotificationCenterButton } from '../components/NotificationCenterButton';
 import { NoticeBanner } from '../components/NoticeBanner';
@@ -220,7 +220,6 @@ export function useSnapFlowController() {
   const activePackageType = pricingOptions[type] ? type : firstPackageKey(pricingOptions);
   const { unit, total: subtotal } = calcTotal(count, activePackageType, pricingOptions);
   const activePricing = pricingForType(activePackageType, pricingOptions);
-  const { eligible: discountEligible, threshold: discountThreshold } = reachesPackageThreshold(count, activePackageType, pricingOptions);
   const discountValidation = validateDiscountDraft({
     enabled: !shareToken && manualDiscountEnabled,
     subtotal,
@@ -229,10 +228,7 @@ export function useSnapFlowController() {
   const configuredDiscountAmount = shareToken
     ? Number(shareSessionInfo?.discountAmount || 0)
     : discountValidation.amount;
-  const { discountAmount, total } = applyManualDiscount(
-    subtotal,
-    discountEligible ? configuredDiscountAmount : 0
-  );
+  const { discountAmount, total } = applyManualDiscount(subtotal, configuredDiscountAmount);
   const remaining = Math.max(0, activePricing.threshold - count);
   const hasDiscount = count >= activePricing.threshold;
   const allPhotosSelected = photos.length > 0 && selected.length === photos.length;
@@ -587,8 +583,6 @@ export function useSnapFlowController() {
     dashData,
     deleteCredential,
     discountAmount,
-    discountEligible,
-    discountThreshold,
     discountValidation,
     fetchDashboard,
     handleCreateShareSession,
