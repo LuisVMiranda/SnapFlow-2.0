@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcTotal, normalizePricingOptions, PRICING } from './pricing';
+import { buildPackageNudge, calcTotal, normalizePricingOptions, PRICING } from './pricing';
 
 describe('pricing helpers', () => {
   it('uses unit price below the package threshold', () => {
@@ -16,5 +16,24 @@ describe('pricing helpers', () => {
     });
 
     expect(calcTotal(2, 'vip', pricing)).toEqual({ unit: 22, total: 44 });
+  });
+
+  it('builds an upsell nudge before the package threshold', () => {
+    const nudge = buildPackageNudge(4, 'eventos');
+
+    expect(nudge.active).toBe(false);
+    expect(nudge.missing).toBe(1);
+    expect(nudge.extraCostToThreshold).toBe(0);
+    expect(nudge.savings).toBe(25);
+    expect(nudge.message).toMatch(/Adicione 1 foto/);
+  });
+
+  it('builds an active package nudge after the threshold', () => {
+    const nudge = buildPackageNudge(6, 'eventos');
+
+    expect(nudge.active).toBe(true);
+    expect(nudge.missing).toBe(0);
+    expect(nudge.savings).toBe(30);
+    expect(nudge.message).toMatch(/Pacote ativado/);
   });
 });

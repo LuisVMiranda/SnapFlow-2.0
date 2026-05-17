@@ -95,4 +95,19 @@ describe('GalleryScreen paginated shared galleries', () => {
     expect(screen.queryByText(/Desconto concedido pelo fotógrafo/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Subtotal/i)).not.toBeInTheDocument();
   });
+
+  it('shows a subtle floating package nudge while selecting photos', () => {
+    render(
+      <GalleryScreen
+        {...baseProps}
+        photoPageCounts={{ loadedCount: 2, selectedCount: 1, selectedLoadedCount: 1, totalCount: 5 }}
+        photosPage={{ hasMore: false, nextCursor: null, totalCount: 5 }}
+        subtotal={10}
+        total={10}
+      />
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Faltam 2 fotos/);
+    expect(screen.getByRole('status')).toHaveTextContent(/para ativar R\$\s*8,00 por foto/);
+  });
 });

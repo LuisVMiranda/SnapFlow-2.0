@@ -330,7 +330,8 @@ export function useSnapFlowActions(config) {
       totalCount: Number(data.photoCount || sharedPhotos.length),
     }));
     setPhotoPageError('');
-    setSelected([]);
+    const loadedPhotoIds = new Set(sharedPhotos.map((photo) => photo.id));
+    setSelected(Array.isArray(data.cartPhotoIds) ? data.cartPhotoIds.filter((photoId) => loadedPhotoIds.has(photoId)) : []);
     setBrokenPhotoIds([]);
     setQrCodeBase64('');
     setSessionId('');

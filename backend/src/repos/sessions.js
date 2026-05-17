@@ -271,6 +271,25 @@ function createSessionRepo({ pool, query, withTransaction }) {
        order by created_at desc
        limit 8`
     );
+    const conversionFunnelResult = await query(
+      `select event_type,
+              count(*)::int as count,
+              coalesce(sum(photo_count), 0)::int as photo_count,
+              coalesce(sum(amount_cents), 0)::bigint as amount_cents
+       from conversion_events
+       where created_at >= current_date
+       group by event_type`
+    ).catch(() => ({ rows: [] }));
+    const conversionByType = new Map(conversionFunnelResult.rows.map((row) => [row.event_type, row]));
+    const funnelEvents = [
+      ['share_opened', 'Links abertos'],
+      ['share_unlocked', 'Galerias desbloqueadas'],
+      ['cart_saved', 'Selecoes salvas'],
+      ['pix_generated', 'Pix gerados'],
+      ['manual_payment_requested', 'Pagamentos manuais'],
+      ['payment_approved', 'Pagamentos aprovados'],
+      ['delivery_sent', 'Entregas concluidas'],
+    ];
     return {
       stats: {
         hoje: { valor: fromCents(s.hoje_valor), fotos: Number(s.hoje_fotos), sessoes: Number(s.hoje_sessoes) },
@@ -286,6 +305,16 @@ function createSessionRepo({ pool, query, withTransaction }) {
       },
       recent: recentResult.rows.map(rowToSession),
       shareRecent: shareResult.rows.map((row) => rowToShare(row, { includeAccessCode: true })),
+      conversionFunnel: funnelEvents.map(([type, label]) => {
+        const row = conversionByType.get(type) || {};
+        return {
+          type,
+          label,
+          count: Number(row.count || 0),
+          photoCount: Number(row.photo_count || 0),
+          amount: fromCents(row.amount_cents || 0),
+        };
+      }),
     };
   }
 

@@ -4,7 +4,7 @@ import { SessionOpsCard } from '../components/SessionOpsCard';
 import { validateOptionalEmail } from '../lib/email';
 import { formatMoney } from '../lib/formatters';
 import { buildStoredPhone, phoneDigits, splitStoredPhone, validateClientPhone } from '../lib/phone';
-import { DEFAULT_PRICING } from '../lib/pricing';
+import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
 
 export function SummaryScreen({
@@ -45,6 +45,7 @@ export function SummaryScreen({
   unit,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
+  const packageNudge = buildPackageNudge(count, type, pricingOptions);
   const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(clientPhone));
 
   const phoneValidation = validateClientPhone(phoneDraft);
@@ -120,6 +121,10 @@ export function SummaryScreen({
           <span>Pacote escolhido</span>
           <strong>{activePackage.label}</strong>
         </div>
+        <small className={`summary-help ${packageNudge.active ? 'success' : ''}`}>
+          {packageNudge.message}
+          {Number(packageNudge.savings || 0) > 0 ? ` Economia potencial: ${formatMoney(packageNudge.savings)}.` : ''}
+        </small>
         <div className="summary-row">
           <span>Fotos a enviar</span>
           <strong>{count} fotos originais</strong>

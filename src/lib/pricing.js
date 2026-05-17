@@ -92,3 +92,56 @@ export function reachesPackageThreshold(count, type, pricingOptions = DEFAULT_PR
     threshold: Number(pricing.threshold || 0),
   };
 }
+
+export function buildPackageNudge(count, type, pricingOptions = DEFAULT_PRICING) {
+  const pricing = pricingForType(type, pricingOptions);
+  const safeCount = Math.max(0, Number(count) || 0);
+  const threshold = Math.max(1, Number(pricing.threshold) || 1);
+  const unit = Number(pricing.unit) || 0;
+  const bulk = Number(pricing.bulk) || unit;
+  const missing = Math.max(0, threshold - safeCount);
+  const packageTotal = threshold * bulk;
+  const unitTotalAtThreshold = threshold * unit;
+  const savingsAtThreshold = Math.max(0, unitTotalAtThreshold - packageTotal);
+
+  if (safeCount <= 0) {
+    return {
+      active: false,
+      missing,
+      recommended: true,
+      title: 'Pacote recomendado',
+      message: `Escolha ${threshold} foto(s) para ativar ${formatPackagePrice(bulk)} por foto.`,
+      savings: savingsAtThreshold,
+    };
+  }
+
+  if (missing > 0) {
+    const currentTotal = safeCount * unit;
+    const extraCostToThreshold = Math.max(0, packageTotal - currentTotal);
+    return {
+      active: false,
+      missing,
+      recommended: true,
+      title: 'Melhor oportunidade',
+      message: `Adicione ${missing} foto(s) para pagar ${formatPackagePrice(bulk)} por foto no pacote.`,
+      extraCostToThreshold,
+      savings: savingsAtThreshold,
+    };
+  }
+
+  return {
+    active: true,
+    missing: 0,
+    recommended: true,
+    title: 'Melhor escolha ativa',
+    message: `Pacote ativado: ${formatPackagePrice(bulk)} por foto.`,
+    savings: Math.max(0, safeCount * unit - safeCount * bulk),
+  };
+}
+
+function formatPackagePrice(value) {
+  return `R$ ${Number(value || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

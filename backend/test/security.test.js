@@ -52,6 +52,7 @@ function createTestApp({
     share = { ...share, deletedAt: new Date().toISOString(), status: 'revoked' };
   }
   let recreatedShare = null;
+  let shareCartPhotoIds = [];
   const sessions = new Map();
   let photos = basePhotos;
   let whatsappTemplateSettings = {
@@ -113,6 +114,12 @@ function createTestApp({
       return options.includeSensitive ? target : { ...target, accessCodeHash: undefined };
     },
     markShareAccessGranted: async () => share,
+    getShareCart: async () => shareCartPhotoIds,
+    saveShareCart: async (token, photoIds = []) => {
+      if (token !== 'share_1') return [];
+      shareCartPhotoIds = [...new Set(photoIds.map(String).filter(Boolean))];
+      return shareCartPhotoIds;
+    },
     listPhotosForShare: async (token) => photos.filter((photo) => photo.shareToken === token && !photo.deletedAt),
     listPhotosForShareByIds: async (token, photoIds) => {
       const visible = photos.filter((photo) => photo.shareToken === token && !photo.deletedAt);
@@ -1392,6 +1399,42 @@ test('share unlock returns short-lived media urls after valid code', async () =>
   assert.ok(response.body.customerAccessToken);
   assert.match(response.body.photos[0].url, /access_token=/);
   assert.equal(response.body.photosPage.hasMore, false);
+});
+
+test('unlocked share sessions persist and restore the customer cart', async () => {
+  const app = createTestApp();
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const saved = await request(app)
+    .post('/api/share-session/share_1/cart')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ photoIds: ['photo_1'] });
+
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.cartPhotoIds, ['photo_1']);
+
+  const restored = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  assert.deepEqual(restored.body.cartPhotoIds, ['photo_1']);
+});
+
+test('unlocked share cart rejects photos outside the gallery', async () => {
+  const app = createTestApp();
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const response = await request(app)
+    .post('/api/share-session/share_1/cart')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ photoIds: ['photo_elsewhere'] });
+
+  assert.equal(response.status, 403);
+  assert.equal(response.body.code, 'photo_share_mismatch');
 });
 
 test('share unlock returns the first paginated photo batch', async () => {

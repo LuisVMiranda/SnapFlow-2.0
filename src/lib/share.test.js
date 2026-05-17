@@ -19,7 +19,10 @@ describe('share helpers', () => {
   });
 
   it('builds a WhatsApp message with link and unlock code', () => {
-    expect(buildShareWhatsAppMessage('https://snap.test/s/token', 'A1B2')).toContain('A1B2');
-    expect(buildShareWhatsAppMessage('https://snap.test/s/token', 'A1B2')).toContain('https://snap.test/s/token');
+    const message = buildShareWhatsAppMessage('https://snap.test/s/token', 'A1B2');
+
+    expect(message).toContain('A1B2');
+    expect(message).toContain('Acessar galeria privada: https://snap.test/s/token');
+    expect(message).toContain('galeria privada SnapFlow');
   });
 });

@@ -41,6 +41,15 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
       await whatsapp.sendPhotos(session.phone, sessionPhotos, media.storageRoot, message);
       await repos.completeDeliveryJob(job.id);
       await repos.updateDeliveryStatus(job.session_id, 'sent');
+      if (typeof repos.recordConversionEvent === 'function') {
+        await repos.recordConversionEvent({
+          type: 'delivery_sent',
+          shareToken: session.shareToken,
+          sessionId: session.id,
+          photoCount: sessionPhotos.length,
+          amount: session.amount,
+        }).catch((error) => console.warn(`Falha ao registrar conversao de entrega: ${error.message}`));
+      }
     } catch (error) {
       console.warn(`Falha na fila de entrega: ${error.message}`);
       if (job?.id) {

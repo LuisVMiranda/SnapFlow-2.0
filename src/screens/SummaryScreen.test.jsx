@@ -106,6 +106,20 @@ describe('SummaryScreen', () => {
     expect(screen.getByText(/Ative apenas quando quiser reduzir manualmente/i)).toBeInTheDocument();
   });
 
+  it('shows a package upsell before the package threshold', () => {
+    render(<SummaryScreen {...buildProps({ count: 4, subtotal: 60, total: 60 })} />);
+
+    expect(screen.getByText(/Adicione 1 foto\(s\) para pagar R\$\s*10,00 por foto no pacote/i)).toBeInTheDocument();
+    expect(screen.getByText(/Economia potencial: R\$\s*25,00/i)).toBeInTheDocument();
+  });
+
+  it('shows the active package as the best choice after the threshold', () => {
+    render(<SummaryScreen {...buildProps({ count: 5, subtotal: 50, total: 50, unit: 10 })} />);
+
+    expect(screen.getByText(/Pacote ativado: R\$\s*10,00 por foto/i)).toBeInTheDocument();
+    expect(screen.getByText(/Economia potencial: R\$\s*25,00/i)).toBeInTheDocument();
+  });
+
   it('applies manual discount even before the package minimum', () => {
     render(
       <SummaryScreen

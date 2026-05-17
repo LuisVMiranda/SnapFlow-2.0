@@ -4,7 +4,14 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const sharp = require('sharp');
-const { buildWatermarkSvg, createMediaService } = require('../src/services/mediaService');
+const {
+  ALLOWED_MIME_TYPES,
+  AUTO_ENHANCE_PRESETS,
+  adaptiveAutoEnhancePreset,
+  buildWatermarkSvg,
+  createMediaService,
+  mapWithConcurrency,
+} = require('../src/services/mediaService');
 
 test('media service processes small PNG uploads without watermark dimension failures', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-'));
@@ -86,4 +93,81 @@ test('media service asks for current watermark settings when generating previews
   ]);
 
   assert.equal(calls, 1);
+});
+
+test('media service can run lightweight auto enhance during upload', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-enhance-'));
+  const input = path.join(root, 'enhance.png');
+  await sharp({
+    create: {
+      width: 320,
+      height: 240,
+      channels: 3,
+      background: '#6f6f6f',
+    },
+  }).png().toFile(input);
+
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (message) => logs.push(String(message));
+  try {
+    const media = createMediaService({
+      storageRoot: root,
+      maxUploadMb: 25,
+      maxFilesPerUpload: 100,
+      publicBaseUrl: 'http://localhost:5174',
+      autoEnhanceEnabled: true,
+      autoEnhanceLevel: 'cinematic',
+    });
+
+    const [photo] = await media.processUploadedFiles([
+      { path: input, originalname: 'enhance.png', mimetype: 'image/png' },
+    ]);
+
+    assert.ok(logs.some((message) => message.includes('[AUTO_ENHANCE] Processing image enhance.png')));
+    await assert.doesNotReject(fs.access(path.join(root, photo.originalPath)));
+    await assert.doesNotReject(fs.access(path.join(root, photo.thumbPath)));
+    await assert.doesNotReject(fs.access(path.join(root, photo.previewPath)));
+  } finally {
+    console.log = originalLog;
+  }
+});
+
+test('adaptive auto enhance protects dark photos from heavy contrast', () => {
+  const darkPreset = adaptiveAutoEnhancePreset('balanced', {
+    channels: [{ mean: 55 }, { mean: 58 }, { mean: 52 }],
+  });
+  const regularPreset = adaptiveAutoEnhancePreset('balanced', {
+    channels: [{ mean: 130 }, { mean: 132 }, { mean: 128 }],
+  });
+
+  assert.equal(darkPreset.mode, 'low_light');
+  assert.ok(darkPreset.brightness > regularPreset.brightness);
+  assert.ok(darkPreset.intercept > 0);
+  assert.ok(darkPreset.contrast < regularPreset.contrast);
+});
+
+test('media service accepts modern phone image MIME types', () => {
+  assert.equal(ALLOWED_MIME_TYPES.has('image/heic'), true);
+  assert.equal(ALLOWED_MIME_TYPES.has('image/heif'), true);
+});
+
+test('upload processing concurrency keeps order while limiting parallel work', async () => {
+  let active = 0;
+  let maxActive = 0;
+  const result = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (item) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    active -= 1;
+    return item * 10;
+  });
+
+  assert.deepEqual(result, [10, 20, 30, 40, 50]);
+  assert.equal(maxActive, 2);
+});
+
+test('auto enhance presets keep balanced stronger than soft', () => {
+  assert.ok(AUTO_ENHANCE_PRESETS.balanced.brightness > AUTO_ENHANCE_PRESETS.soft.brightness);
+  assert.ok(AUTO_ENHANCE_PRESETS.cinematic.contrast > AUTO_ENHANCE_PRESETS.balanced.contrast);
 });

@@ -42,6 +42,23 @@ test('WhatsApp template settings merge saved bodies with safe defaults', () => {
   assert.equal(templates.deliveryThanks.body, 'Obrigado, {name}! Aqui estão suas fotos profissionais em qualidade máxima.');
 });
 
+test('default share link message uses a safer private gallery label', async () => {
+  const service = createWhatsAppTemplatesService({
+    repos: createMemoryRepos(),
+  });
+
+  const message = await service.renderShareLinkMessage({
+    accessCode: 'AB12',
+    expiresMinutes: 30,
+    link: 'https://snap.test/s/abc',
+    name: 'Ana',
+  });
+
+  assert.match(message, /galeria privada SnapFlow/);
+  assert.match(message, /Acessar galeria privada: https:\/\/snap\.test\/s\/abc/);
+  assert.doesNotMatch(message, /Link: https:\/\/snap\.test/);
+});
+
 test('WhatsApp template service saves and renders editable admin messages', async () => {
   const service = createWhatsAppTemplatesService({
     repos: createMemoryRepos(),

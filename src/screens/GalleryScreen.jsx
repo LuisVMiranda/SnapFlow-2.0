@@ -2,7 +2,7 @@ import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
 import { WatermarkOverlay } from '../components/WatermarkOverlay';
 import { formatMoney } from '../lib/formatters';
-import { DEFAULT_PRICING } from '../lib/pricing';
+import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
 
 export function GalleryScreen({
   activeStage,
@@ -36,6 +36,7 @@ export function GalleryScreen({
   watermarkSettings,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
+  const packageNudge = buildPackageNudge(count, type, pricingOptions);
   const hasMorePhotos = Boolean(shareToken && photosPage?.hasMore);
   const loadedCount = photoPageCounts?.loadedCount ?? photos.length;
   const totalPhotoCount = photoPageCounts?.totalCount ?? photos.length;
@@ -130,6 +131,13 @@ export function GalleryScreen({
         })}
       </main>
 
+      {count > 0 && !packageNudge.active ? (
+        <div className="floating-package-nudge" role="status" aria-live="polite">
+          <span>{packageNudge.missing === 1 ? 'Falta 1 foto' : `Faltam ${packageNudge.missing} fotos`}</span>
+          <strong>para ativar {formatMoney(activePackage.bulk)} por foto</strong>
+        </div>
+      ) : null}
+
       <div className="info-bottom-area" style={{ padding: '0 16px 100px 16px' }}>
         {shareToken ? (
           <div className="share-view-notice">
@@ -171,9 +179,9 @@ export function GalleryScreen({
 
         {count > 0 ? (
           <div className={`promo-banner ${hasDiscount ? 'active' : ''}`} style={{ borderRadius: '8px', marginBottom: '8px' }}>
-            {hasDiscount
-              ? `Desconto ativo: ${formatMoney(unit)} por foto`
-              : `Faltam ${remaining} foto(s) para o desconto`}
+            {packageNudge.active
+              ? `${packageNudge.title}: ${formatMoney(unit)} por foto`
+              : `${packageNudge.title}: faltam ${remaining} foto(s) para ativar ${formatMoney(activePackage.bulk)} por foto`}
           </div>
         ) : null}
 
@@ -181,6 +189,10 @@ export function GalleryScreen({
           <span>Pacote em uso:</span>
           <strong>{activePackage.label}</strong>
         </div>
+        <small className="summary-help" style={{ display: 'block', margin: '-8px 0 16px' }}>
+          {packageNudge.message}
+          {Number(packageNudge.savings || 0) > 0 ? ` Economia potencial: ${formatMoney(packageNudge.savings)}.` : ''}
+        </small>
 
         <SessionOpsCard
           title="Sessão atual"

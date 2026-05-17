@@ -6,7 +6,53 @@ const { randomToken } = require('../tokens');
 const { HttpError } = require('../errors');
 const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
 
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+const AUTO_ENHANCE_PRESETS = {
+  soft: {
+    brightness: 1.03,
+    saturation: 1.04,
+    contrast: 1.04,
+    intercept: -4,
+    sharpenSigma: 1.1,
+    jpegQuality: 92,
+  },
+  balanced: {
+    brightness: 1.06,
+    saturation: 1.08,
+    contrast: 1.08,
+    intercept: -6,
+    sharpenSigma: 1.15,
+    jpegQuality: 92,
+  },
+  cinematic: {
+    brightness: 1.07,
+    saturation: 1.1,
+    contrast: 1.12,
+    intercept: -8,
+    sharpenSigma: 1.2,
+    jpegQuality: 92,
+  },
+};
+
+const LOW_LIGHT_PRESET = {
+  brightness: 1.14,
+  saturation: 1.06,
+  contrast: 1.02,
+  intercept: 10,
+  sharpenSigma: 1.05,
+  jpegQuality: 92,
+  mode: 'low_light',
+};
+
+const DIM_LIGHT_PRESET = {
+  brightness: 1.1,
+  saturation: 1.07,
+  contrast: 1.04,
+  intercept: 6,
+  sharpenSigma: 1.08,
+  jpegQuality: 92,
+  mode: 'dim_light',
+};
 
 function safeRelativePath(value) {
   const normalized = String(value || '').replace(/\\/g, '/');
@@ -52,6 +98,72 @@ function buildWatermarkSvg(width = 960, height = 640, settings = DEFAULT_WATERMA
     `);
 }
 
+function autoEnhancePreset(level = 'balanced') {
+  return AUTO_ENHANCE_PRESETS[level] || AUTO_ENHANCE_PRESETS.balanced;
+}
+
+function luminanceFromStats(stats) {
+  const channels = stats?.channels || [];
+  if (channels.length < 3) return null;
+  const red = Number(channels[0]?.mean);
+  const green = Number(channels[1]?.mean);
+  const blue = Number(channels[2]?.mean);
+  if (![red, green, blue].every(Number.isFinite)) return null;
+  return (red * 0.2126) + (green * 0.7152) + (blue * 0.0722);
+}
+
+function adaptiveAutoEnhancePreset(level = 'balanced', stats = null) {
+  const base = autoEnhancePreset(level);
+  const luminance = luminanceFromStats(stats);
+  if (!Number.isFinite(luminance)) return { ...base, mode: level };
+
+  if (luminance < 82) {
+    return { ...LOW_LIGHT_PRESET, luminance };
+  }
+
+  if (luminance < 112) {
+    return { ...DIM_LIGHT_PRESET, luminance };
+  }
+
+  return { ...base, mode: level, luminance };
+}
+
+async function imageToneStats(filePath) {
+  return sharp(filePath, { sequentialRead: true })
+    .rotate()
+    .resize({ width: 96, height: 96, fit: 'inside', withoutEnlargement: true })
+    .removeAlpha()
+    .stats();
+}
+
+function applyAutoEnhance(image, levelOrPreset = 'balanced') {
+  const preset = typeof levelOrPreset === 'object' ? levelOrPreset : autoEnhancePreset(levelOrPreset);
+  return image
+    .modulate({
+      brightness: preset.brightness,
+      saturation: preset.saturation,
+    })
+    .linear(preset.contrast, preset.intercept)
+    .sharpen({
+      sigma: preset.sharpenSigma,
+    });
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = [];
+  const limit = Math.max(1, Math.min(Number(concurrency) || 1, items.length || 1));
+
+  for (let index = 0; index < items.length; index += limit) {
+    const chunk = items.slice(index, index + limit);
+    const settled = await Promise.allSettled(chunk.map((item, offset) => mapper(item, index + offset)));
+    const rejected = settled.find((result) => result.status === 'rejected');
+    if (rejected) throw rejected.reason;
+    results.push(...settled.map((result) => result.value));
+  }
+
+  return results;
+}
+
 function createMediaService(config, { watermarkSettings } = {}) {
   const dirs = {
     originals: path.join(config.storageRoot, 'originals'),
@@ -76,7 +188,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
 
   function validateUploadFile(file) {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      throw new HttpError(400, 'Tipo de arquivo não permitido. Envie fotos em JPG, PNG ou WebP.', 'invalid_file_type');
+      throw new HttpError(400, 'Tipo de arquivo não permitido. Envie fotos em JPG, PNG, WebP ou HEIC.', 'invalid_file_type');
     }
   }
 
@@ -94,57 +206,74 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return normalizeWatermarkSettings(await watermarkSettings.getSettings());
   }
 
+  async function processUploadedFile(file, retentionExpiresAt = null) {
+    validateUploadFile(file);
+    const id = `photo_${randomToken(12)}`;
+    const originalRel = `originals/${id}.jpg`;
+    const thumbRel = `thumbs/${id}.jpg`;
+    const previewRel = `previews/${id}.jpg`;
+    const originalAbs = absolutePath(originalRel);
+    const thumbAbs = absolutePath(thumbRel);
+    const previewAbs = absolutePath(previewRel);
+
+    try {
+      const enhanceLevel = config.autoEnhanceLevel || 'balanced';
+      const toneStats = config.autoEnhanceEnabled ? await imageToneStats(file.path) : null;
+      const enhancePreset = adaptiveAutoEnhancePreset(enhanceLevel, toneStats);
+      const rotated = sharp(file.path, { sequentialRead: true }).rotate();
+      const basePipeline = config.autoEnhanceEnabled ? applyAutoEnhance(rotated, enhancePreset) : rotated;
+      if (config.autoEnhanceEnabled) {
+        const luminance = Number.isFinite(enhancePreset.luminance) ? ` luminance=${Math.round(enhancePreset.luminance)}` : '';
+        console.log(`[AUTO_ENHANCE] Processing image ${file.originalname || id} with ${enhancePreset.mode || enhanceLevel} preset...${luminance}`);
+      }
+      const watermark = await currentWatermarkSettings();
+
+      await Promise.all([
+        basePipeline.clone()
+          .jpeg({ quality: config.autoEnhanceEnabled ? enhancePreset.jpegQuality : 94, mozjpeg: true })
+          .toFile(originalAbs),
+        basePipeline.clone()
+          .resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 78, mozjpeg: true })
+          .toFile(thumbAbs),
+        basePipeline.clone()
+          .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+          .toBuffer({ resolveWithObject: true })
+          .then((preview) => sharp(preview.data)
+            .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+            .jpeg({ quality: 72, mozjpeg: true })
+            .toFile(previewAbs)),
+      ]);
+
+      const stat = await fs.stat(originalAbs);
+      return {
+        id,
+        originalPath: originalRel,
+        thumbPath: thumbRel,
+        previewPath: previewRel,
+        mimeType: 'image/jpeg',
+        sizeBytes: stat.size,
+        checksum: await checksumFile(originalAbs),
+        retentionExpiresAt,
+      };
+    } catch (error) {
+      await Promise.all([originalAbs, thumbAbs, previewAbs].map((target) => fs.unlink(target).catch(() => {})));
+      throw new HttpError(
+        400,
+          `Não foi possível processar "${file.originalname}". Confirme que a foto é um JPG, PNG, WebP ou HEIC válido.`,
+        'image_processing_failed',
+        { fileName: file.originalname, reason: error.message }
+      );
+    } finally {
+      await fs.unlink(file.path).catch(() => {});
+    }
+  }
+
   async function processUploadedFiles(files, retentionExpiresAt = null) {
     await ensureStorage();
-    const processed = [];
-
-    for (const file of files) {
-      validateUploadFile(file);
-      const id = `photo_${randomToken(12)}`;
-      const originalRel = `originals/${id}.jpg`;
-      const thumbRel = `thumbs/${id}.jpg`;
-      const previewRel = `previews/${id}.jpg`;
-      const originalAbs = absolutePath(originalRel);
-      const thumbAbs = absolutePath(thumbRel);
-      const previewAbs = absolutePath(previewRel);
-
-      try {
-        await sharp(file.path).rotate().jpeg({ quality: 94 }).toFile(originalAbs);
-        await sharp(originalAbs).resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 78 }).toFile(thumbAbs);
-        const preview = await sharp(originalAbs)
-          .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
-          .toBuffer({ resolveWithObject: true });
-        const watermark = await currentWatermarkSettings();
-        await sharp(preview.data)
-          .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
-          .jpeg({ quality: 72 })
-          .toFile(previewAbs);
-
-        const stat = await fs.stat(originalAbs);
-        processed.push({
-          id,
-          originalPath: originalRel,
-          thumbPath: thumbRel,
-          previewPath: previewRel,
-          mimeType: 'image/jpeg',
-          sizeBytes: stat.size,
-          checksum: await checksumFile(originalAbs),
-          retentionExpiresAt,
-        });
-      } catch (error) {
-        await Promise.all([originalAbs, thumbAbs, previewAbs].map((target) => fs.unlink(target).catch(() => {})));
-        throw new HttpError(
-          400,
-          `Não foi possível processar "${file.originalname}". Confirme que a foto é um JPG, PNG ou WebP válido.`,
-          'image_processing_failed',
-          { fileName: file.originalname, reason: error.message }
-        );
-      } finally {
-        await fs.unlink(file.path).catch(() => {});
-      }
-    }
-
-    return processed;
+    const uploadFiles = files || [];
+    uploadFiles.forEach(validateUploadFile);
+    return mapWithConcurrency(uploadFiles, config.uploadProcessingConcurrency || 3, (file) => processUploadedFile(file, retentionExpiresAt));
   }
 
   async function sendFile(res, photo, variant) {
@@ -201,4 +330,14 @@ function createMediaService(config, { watermarkSettings } = {}) {
   };
 }
 
-module.exports = { createMediaService, ALLOWED_MIME_TYPES, buildWatermarkSvg, watermarkPositions };
+module.exports = {
+  createMediaService,
+  ALLOWED_MIME_TYPES,
+  AUTO_ENHANCE_PRESETS,
+  adaptiveAutoEnhancePreset,
+  applyAutoEnhance,
+  autoEnhancePreset,
+  buildWatermarkSvg,
+  mapWithConcurrency,
+  watermarkPositions,
+};

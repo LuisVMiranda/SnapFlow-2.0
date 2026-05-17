@@ -17,10 +17,10 @@ export function normalizeShareCode(value) {
 
 export function buildShareWhatsAppMessage(link, code) {
   return [
-    'Seu acesso SnapFlow foi liberado.',
-    `Link: ${link}`,
+    'Sua galeria privada SnapFlow foi liberada.',
+    `Acessar galeria privada: ${link}`,
     `Código: ${code}`,
     'Acesso temporário com expiração automática.',
-    'Acesse pelo navegador e selecione suas fotos.',
+    'Acesse pelo navegador para escolher suas fotos com seguranca.',
   ].join('\n');
 }

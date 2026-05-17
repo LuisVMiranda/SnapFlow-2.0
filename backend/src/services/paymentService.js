@@ -119,7 +119,18 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
 
     if (sessionId && payInfo.status === 'approved') {
       const session = await repos.approveSession(sessionId);
-      if (session) await deliveryQueue.enqueue(session.id);
+      if (session) {
+        if (typeof repos.recordConversionEvent === 'function') {
+          await repos.recordConversionEvent({
+            type: 'payment_approved',
+            shareToken: session.shareToken,
+            sessionId: session.id,
+            photoCount: session.photoCount,
+            amount: session.amount,
+          }).catch((error) => console.warn(`Falha ao registrar conversao de pagamento: ${error.message}`));
+        }
+        await deliveryQueue.enqueue(session.id);
+      }
       return session;
     }
     return null;

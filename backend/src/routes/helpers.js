@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const { HttpError } = require('../errors');
@@ -13,10 +13,10 @@ function toPhotoIds(value) {
 function buildShareLinkMessage(link, code, expiresMinutes) {
   return [
     'Olá! Seu link SnapFlow foi liberado.',
-    `Link: ${link}`,
+    `Acessar galeria privada: ${link}`,
     `Código: ${code}`,
     `Expira em até ${expiresMinutes} minuto(s).`,
-    'Abra pelo navegador e selecione suas fotos.',
+    'Acesse pelo navegador para escolher suas fotos com seguranca.',
   ].join('\n');
 }
 

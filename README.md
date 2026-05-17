@@ -1,12 +1,15 @@
 # SnapFlow 2.0
 
-SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso presencial em eventos, turismo, escolas, ações corporativas e atendimentos rápidos. Ele ajuda o fotógrafo a selecionar fotos, cobrar o cliente, liberar a compra e entregar os arquivos pelo WhatsApp com menos passos manuais.
+SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presenciais: painel de venda, cobrança, galeria, processamento e entrega de fotos para eventos, turismo, escolas, parques, ações corporativas e atendimentos de alta rotatividade. Ele ajuda o fotógrafo a selecionar fotos, encantar o cliente, cobrar, liberar a compra e entregar os arquivos pelo WhatsApp com menos passos manuais.
 
 ## Principais recursos
 
 - Upload de fotos pelo painel, com miniaturas, pré-visualizações e armazenamento privado.
+- Auto Enhance leve com Sharp após a rotação EXIF, ativável por ambiente, para deixar as fotos mais vivas sem aparência artificial.
 - Seleção de fotos por cliente, com contador, pacote ativo e cálculo automático de preço.
 - Pacotes e preços editáveis no painel administrativo.
+- Desconto manual aplicável em qualquer venda, mesmo fora do pacote de desconto.
+- Dica flutuante e sutil mostrando quando faltam poucas fotos para alcançar um pacote/desconto.
 - Campo de cliente editável para registrar quem vai acessar e pagar pelas fotos.
 - Pagamento por Pix via Mercado Pago, com QR Code e código Pix copia e cola.
 - Webhook do Mercado Pago para aprovar Pix quando o pagamento muda para aprovado.
@@ -17,12 +20,15 @@ SnapFlow é um painel de venda, cobrança, galeria e entrega de fotos para uso p
 - Botão para reenviar fotos quando uma entrega falha.
 - Pareamento do WhatsApp dentro do painel, com QR Code visível em Vendas/Galerias.
 - Galerias compartilhadas com link temporário, código de acesso e expiração.
+- Mensagem de compartilhamento do WhatsApp com texto de link mais confiável, usando rótulos como `Acessar galeria privada`.
+- Carrinho persistente no backend para galerias compartilhadas, restaurando seleções quando o cliente volta ao link.
 - Galerias grandes carregadas em lotes, evitando abrir centenas de fotos de uma vez.
 - Recriação/revalidação intencional de galeria sem duplicar links desnecessários.
 - Edição de galeria pelo admin: visualizar fotos, adicionar, remover, alterar telefone, cliente, código, pacote, total e tempo.
 - Revogar, estender, copiar e abrir links compartilhados.
 - Proteções no modo cliente para reduzir cópia indevida e acesso fora da galeria.
 - Dashboard de vendas com períodos diário, semanal, mensal e anual.
+- Funil de conversão diário no dashboard, registrando abertura de link, desbloqueio, carrinho salvo, Pix, pagamento manual, aprovação e entrega.
 - Botão para limpar estatísticas de vendas com confirmação dupla, sem apagar galerias.
 - Botão para cancelar liberação de pedidos manuais pendentes em testes ou desistências.
 - Configurações de retenção e limpeza de arquivos.
@@ -166,6 +172,9 @@ PUBLIC_BASE_URL=http://localhost:5173
 HOST=127.0.0.1
 PORT=3000
 STORAGE_ROOT=./storage
+AUTO_ENHANCE=true
+AUTO_ENHANCE_LEVEL=balanced
+UPLOAD_PROCESSING_CONCURRENCY=3
 ```
 
 5. Crie ou edite o arquivo `.env` na raiz para o Docker Compose. Use a mesma senha configurada em `DATABASE_URL`:
@@ -284,6 +293,33 @@ cmd /c npm.cmd run build
 - O volume Docker se chama `snapflow_postgres_data`.
 - Para detalhes de manutenção, veja `POSTGRESQL_MAINTENANCE.md`.
 
+## Auto Enhance
+
+O backend pode aplicar um tratamento leve e automático nas imagens durante o upload:
+
+```text
+Upload -> Rotate EXIF -> Auto Enhance -> Thumbnail -> Save
+```
+
+O objetivo é melhorar a foto de forma invisível, sem transformar o SnapFlow em editor manual. O pipeline usa Sharp com análise leve de luminosidade, ajustes suaves de brilho/saturação, contraste linear, sharpen leve e JPEG otimizado. Fotos escuras entram automaticamente em um preset `low_light`, que levanta sombras com mais cuidado e evita contraste negativo demais.
+
+Configuração em `backend\.env.local`:
+
+```env
+AUTO_ENHANCE=true
+AUTO_ENHANCE_LEVEL=balanced
+```
+
+Níveis disponíveis:
+
+- `soft`: ajuste mais discreto.
+- `balanced`: padrão recomendado para evento e venda rápida.
+- `cinematic`: um pouco mais presente, ainda sem HDR artificial.
+
+Para desligar o recurso, use `AUTO_ENHANCE=false` e reinicie o backend. Quando ativo, o backend registra logs como `[AUTO_ENHANCE] Processing image...`.
+
+O processamento de lotes usa paralelismo controlado por `UPLOAD_PROCESSING_CONCURRENCY`. O padrão recomendado é `3`. Em máquinas mais fortes, teste `4`; em notebooks fracos ou com pouca memória, use `2` ou `1`.
+
 ## Mercado Pago e Pix
 
 O SnapFlow cria pagamentos Pix usando a API do Mercado Pago. Para confirmação automática:
@@ -336,6 +372,7 @@ Depois de entrar, o administrador pode:
 
 - gerenciar galerias;
 - acompanhar vendas;
+- acompanhar o funil de conversão do dia;
 - editar configurações;
 - editar credenciais;
 - aprovar pagamentos manuais;
@@ -380,6 +417,12 @@ Variáveis disponíveis:
 Cada galeria tem token/link, código e identificador de metadados. Recriar ou revalidar uma galeria deve reaproveitar o registro correto, evitando acúmulo de galerias duplicadas.
 
 Galerias com muitas fotos são carregadas em páginas internas de até 40 imagens por vez. O cliente vê a primeira leva rapidamente e pode usar `Carregar mais fotos` conforme navega, sem forçar o navegador, o backend ou o link Tailscale/Funnel a transferirem a galeria inteira de uma só vez. O Tailscale/Funnel deve ser tratado como camada de acesso/rede, não como CDN; para centenas de fotos e vários clientes simultâneos, prefira uma VPS ou conexão estável.
+
+Quando o cliente desbloqueia a galeria, o carrinho pode ser salvo no backend. Assim, se ele fechar o navegador, trocar de aparelho ou voltar ao link depois, as fotos selecionadas podem ser restauradas com mais segurança do que depender apenas do LocalStorage.
+
+As mensagens de compartilhamento usam `{linkText}` para exibir um texto de link mais confiável no WhatsApp, por exemplo `Acessar galeria privada: https://...`. Isso reduz a sensação de link suspeito quando o cliente decide acessar a galeria mais tarde.
+
+O dashboard registra eventos de conversão dessas galerias em `conversion_events`, permitindo acompanhar onde a venda presencial perde velocidade: link aberto, galeria desbloqueada, carrinho salvo, Pix gerado, pagamento manual solicitado, pagamento aprovado e entrega enviada.
 
 No modo admin, `Ver/Editar` permite:
 

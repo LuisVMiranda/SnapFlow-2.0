@@ -1,15 +1,15 @@
-const { HttpError } = require('../errors');
+﻿const { HttpError } = require('../errors');
 
 const DEFAULT_WHATSAPP_TEMPLATES = {
   shareLink: {
     label: 'Link da galeria',
     description: 'Mensagem usada ao criar ou recriar um link de galeria.',
     body: [
-      'Olá {name}! Seu link SnapFlow foi liberado.',
-      '{linkLabel}: {link}',
+      'Ola {name}! Sua galeria privada SnapFlow foi liberada.',
+      '{linkText}',
       'Código: {code}',
       'Expira em até {expiresMinutes} minuto(s).',
-      'Abra pelo navegador e selecione suas fotos.',
+      'Acesse pelo navegador para escolher suas fotos com seguranca.',
     ].join('\n'),
   },
   paymentWaiting: {
@@ -32,11 +32,11 @@ const TEMPLATE_KEYS = Object.keys(DEFAULT_WHATSAPP_TEMPLATES);
 const MAX_TEMPLATE_LENGTH = 1200;
 const LEGACY_DEFAULT_TEMPLATE_BODIES = {
   shareLink: [
-    'Olá! Seu link SnapFlow foi liberado.',
+    'Ola! Sua galeria privada SnapFlow foi liberada.',
     '{linkLabel}: {link}',
     'Código: {code}',
     'Expira em até {expiresMinutes} minuto(s).',
-    'Abra pelo navegador e selecione suas fotos.',
+    'Acesse pelo navegador para escolher suas fotos com seguranca.',
   ].join('\n'),
   paymentWaiting: [
     'Recebemos sua seleção no SnapFlow.',
@@ -95,9 +95,9 @@ function renderTemplate(template, variables = {}) {
   });
 }
 
-function linkVariables({ link = '', linkLabel = 'Abrir galeria' } = {}) {
+function linkVariables({ link = '', linkLabel = 'Acessar galeria privada' } = {}) {
   const safeLink = String(link || '').trim();
-  const safeLinkLabel = safeLink ? String(linkLabel || 'Abrir galeria').trim() : '';
+  const safeLinkLabel = safeLink ? String(linkLabel || 'Acessar galeria privada').trim() : '';
   return {
     link: safeLink,
     linkLabel: safeLinkLabel,
@@ -141,7 +141,7 @@ function createWhatsAppTemplatesService({ repos }) {
       clientName: variables.clientName || variables.name || '',
     };
     return renderTemplate(template.body, {
-      linkLabel: 'Abrir galeria',
+      linkLabel: 'Acessar galeria privada',
       ...normalizedVariables,
     });
   }
@@ -150,7 +150,7 @@ function createWhatsAppTemplatesService({ repos }) {
     link,
     accessCode,
     expiresMinutes,
-    linkLabel = 'Abrir galeria',
+    linkLabel = 'Acessar galeria privada',
     ...variables
   }) {
     return render('shareLink', {

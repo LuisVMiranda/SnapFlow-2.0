@@ -288,6 +288,25 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     return rowToShare(result.rows[0]);
   }
 
+  async function getShareCart(token) {
+    const result = await query('select photo_ids from share_carts where share_token = $1', [token]);
+    const photoIds = result.rows[0]?.photo_ids;
+    return Array.isArray(photoIds) ? photoIds.map(String).filter(Boolean) : [];
+  }
+
+  async function saveShareCart(token, photoIds = []) {
+    const uniquePhotoIds = [...new Set((Array.isArray(photoIds) ? photoIds : []).map(String).filter(Boolean))];
+    const result = await query(
+      `insert into share_carts (share_token, photo_ids, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (share_token)
+       do update set photo_ids = excluded.photo_ids, updated_at = now()
+       returning photo_ids`,
+      [token, JSON.stringify(uniquePhotoIds)]
+    );
+    return Array.isArray(result.rows[0]?.photo_ids) ? result.rows[0].photo_ids.map(String).filter(Boolean) : [];
+  }
+
   async function extendShareSession(token, minutes) {
     const result = await query(
       `update share_sessions
@@ -322,12 +341,14 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     extendShareSession,
     findShareWithExactPhotos,
     findShareWithMatchingMetadata,
+    getShareCart,
     getShareSession,
     markShareAccessGranted,
     reactivateShareSession,
     refreshSharePhotoCount,
     restoreShareSession,
     revokeShareSession,
+    saveShareCart,
     updateShareSession,
   };
 }

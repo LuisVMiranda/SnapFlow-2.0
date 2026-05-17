@@ -17,6 +17,7 @@ const baseDashData = {
     anual: [],
   },
   recent: [],
+  conversionFunnel: [],
 };
 
 const baseProps = {
@@ -171,5 +172,24 @@ describe('SalesStatsPanel manual release cancellation', () => {
     expect(screen.getAllByText('11/05').length).toBeGreaterThan(0);
     expect(screen.getAllByText('R$ 30,00').length).toBeGreaterThan(0);
     expect(screen.getAllByText('R$ 50,00').length).toBeGreaterThan(0);
+  });
+
+  it('renders the conversion funnel when analytics are available', () => {
+    render(
+      <SalesStatsPanel
+        {...baseProps}
+        dashData={{
+          ...baseDashData,
+          conversionFunnel: [
+            { type: 'share_opened', label: 'Links abertos', count: 5 },
+            { type: 'pix_generated', label: 'Pix gerados', count: 2 },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Funil de conversão de hoje')).toBeInTheDocument();
+    expect(screen.getByText('Links abertos')).toBeInTheDocument();
+    expect(screen.getByText('Pix gerados')).toBeInTheDocument();
   });
 });

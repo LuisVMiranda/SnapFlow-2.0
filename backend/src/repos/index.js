@@ -1,5 +1,6 @@
 const { createPool, withTransaction } = require('../db');
 const { createCredentialRepo } = require('./credentials');
+const { createConversionEventRepo } = require('./conversionEvents');
 const { createDeliveryJobRepo } = require('./deliveryJobs');
 const { createPaymentEventRepo } = require('./paymentEvents');
 const { createPhotoRepo } = require('./photos');
@@ -33,6 +34,7 @@ function createRepos(config) {
     ...photos,
     ...sessions,
     ...shareSessions,
+    ...createConversionEventRepo({ query }),
     ...createCredentialRepo({ query }),
     ...createDeliveryJobRepo({ query }),
     ...createPaymentEventRepo({ query }),

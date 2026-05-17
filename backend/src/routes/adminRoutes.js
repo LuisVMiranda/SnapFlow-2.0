@@ -209,6 +209,14 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         packageType: req.body.packageType,
         photoIds,
       });
+      if (typeof repos.recordConversionEvent === 'function') {
+        await repos.recordConversionEvent({
+          type: 'pix_generated',
+          sessionId: req.body.sessionId,
+          photoCount: req.body.count,
+          amount: req.body.total,
+        }).catch((error) => console.warn(`Falha ao registrar conversao de Pix admin: ${error.message}`));
+      }
       res.json(pix);
     })
   );
@@ -238,6 +246,14 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         },
         photoIds
       );
+      if (typeof repos.recordConversionEvent === 'function') {
+        await repos.recordConversionEvent({
+          type: 'manual_payment_requested',
+          sessionId: session.id,
+          photoCount: session.photoCount,
+          amount: session.amount,
+        }).catch((error) => console.warn(`Falha ao registrar conversao manual admin: ${error.message}`));
+      }
       res.json({
         sessionId: session.id,
         status: session.status,
@@ -262,6 +278,15 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       }
       const session = await repos.approveSession(req.params.id);
       if (!session) throw new HttpError(409, 'Não foi possível liberar esta venda. Atualize o painel e confira o status atual.', 'session_not_approvable');
+      if (typeof repos.recordConversionEvent === 'function') {
+        await repos.recordConversionEvent({
+          type: 'payment_approved',
+          shareToken: session.shareToken,
+          sessionId: session.id,
+          photoCount: session.photoCount,
+          amount: session.amount,
+        }).catch((error) => console.warn(`Falha ao registrar conversao de pagamento manual: ${error.message}`));
+      }
       await deliveryQueue.enqueue(session.id);
       res.json({ success: true, session });
     })

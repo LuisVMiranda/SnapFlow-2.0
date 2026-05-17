@@ -35,6 +35,15 @@ function sharePhotoPayload(photo, customerAccessToken) {
   };
 }
 
+async function recordConversion(repos, event) {
+  if (typeof repos.recordConversionEvent !== 'function') return;
+  try {
+    await repos.recordConversionEvent(event);
+  } catch (error) {
+    console.warn(`Falha ao registrar evento de conversao: ${error.message}`);
+  }
+}
+
 async function resolveShareOrder({ packages, repos, req }) {
   const share = await repos.getShareSession(req.params.token);
   if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para conferir a galeria no painel e enviar um link atualizado.', 'share_not_found');
@@ -75,6 +84,7 @@ function createShareRouter({ packages, payment, repos, watermark }) {
     asyncHandler(async (req, res) => {
       const share = await repos.getShareSession(req.params.token);
       if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      await recordConversion(repos, { type: 'share_opened', shareToken: share.token, photoCount: share.photoCount });
       res.json(await publicPayload(share));
     })
   );
@@ -89,11 +99,14 @@ function createShareRouter({ packages, payment, repos, watermark }) {
         throw new HttpError(401, 'Código inválido. Digite os 4 caracteres enviados pelo fotógrafo e tente novamente.', 'invalid_share_code');
       }
       await repos.markShareAccessGranted(share.token);
+      await recordConversion(repos, { type: 'share_unlocked', shareToken: share.token, photoCount: share.photoCount });
       const { items, page } = await repos.listPhotosForSharePage(share.token, { limit: req.body?.limit });
       const customerAccessToken = issueCustomerAccessToken(share.token);
+      const cartPhotoIds = typeof repos.getShareCart === 'function' ? await repos.getShareCart(share.token) : [];
       res.json({
         ...(await publicPayload(share)),
         customerAccessToken,
+        cartPhotoIds,
         photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
         photosPage: page,
       });
@@ -120,6 +133,28 @@ function createShareRouter({ packages, payment, repos, watermark }) {
   );
 
   router.post(
+    '/share-session/:token/cart',
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token);
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
+      validateCustomerAccess(req, share.token);
+      const requestedPhotoIds = toPhotoIds(req.body.photoIds || req.body.photos);
+      if (requestedPhotoIds.length) {
+        const sharePhotos = await repos.listPhotosForShareByIds(share.token, requestedPhotoIds);
+        if (sharePhotos.length !== requestedPhotoIds.length) {
+          throw new HttpError(403, 'Uma ou mais fotos não pertencem a esta galeria. Atualize a página e selecione as fotos novamente.', 'photo_share_mismatch');
+        }
+      }
+      const cartPhotoIds = typeof repos.saveShareCart === 'function'
+        ? await repos.saveShareCart(share.token, requestedPhotoIds)
+        : requestedPhotoIds;
+      await recordConversion(repos, { type: 'cart_saved', shareToken: share.token, photoCount: cartPhotoIds.length });
+      res.json({ cartPhotoIds, updatedAt: new Date().toISOString() });
+    })
+  );
+
+  router.post(
     '/share-session/:token/pix',
     asyncHandler(async (req, res) => {
       const order = await resolveShareOrder({ packages, repos, req });
@@ -136,6 +171,13 @@ function createShareRouter({ packages, payment, repos, watermark }) {
         packageType: order.share.packageType,
         photoIds: order.photoIds,
         shareToken: order.share.token,
+      });
+      await recordConversion(repos, {
+        type: 'pix_generated',
+        shareToken: order.share.token,
+        sessionId,
+        photoCount: order.count,
+        amount: order.total,
       });
       res.json({ ...pix, sessionId });
     })
@@ -164,6 +206,13 @@ function createShareRouter({ packages, payment, repos, watermark }) {
         },
         order.photoIds
       );
+      await recordConversion(repos, {
+        type: 'manual_payment_requested',
+        shareToken: order.share.token,
+        sessionId,
+        photoCount: order.count,
+        amount: order.total,
+      });
       res.json({
         sessionId: session.id,
         status: session.status,

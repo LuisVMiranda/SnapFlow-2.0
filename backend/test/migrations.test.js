@@ -106,3 +106,20 @@ test('gallery metadata migration is defensive for partially migrated databases',
   assert.match(sql, /gallery_name text not null default ''/i);
   assert.match(sql, /gallery_description text not null default ''/i);
 });
+
+test('share cart migration persists customer selections by gallery', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '013_share_carts.sql'), 'utf8');
+
+  assert.match(sql, /create table if not exists share_carts/i);
+  assert.match(sql, /share_token text primary key references share_sessions\(token\) on delete cascade/i);
+  assert.match(sql, /photo_ids jsonb not null default '\[\]'::jsonb/i);
+});
+
+test('conversion events migration stores funnel analytics', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '014_conversion_events.sql'), 'utf8');
+
+  assert.match(sql, /create table if not exists conversion_events/i);
+  assert.match(sql, /event_type text not null/i);
+  assert.match(sql, /metadata jsonb not null default '\{\}'::jsonb/i);
+  assert.match(sql, /conversion_events_event_type_idx/i);
+});

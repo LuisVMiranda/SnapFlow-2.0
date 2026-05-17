@@ -197,6 +197,8 @@ export function SalesStatsPanel({
         <StatsBreakdownTable periodConfig={periodConfig} series={series} />
       </div>
 
+      <ConversionFunnelCard funnel={dashData.conversionFunnel || []} />
+
       {hasActiveSession ? (
         <SessionOpsCard
           title="Sessão atual"
@@ -224,6 +226,36 @@ export function SalesStatsPanel({
         setNotice={setNotice}
       />
     </section>
+  );
+}
+
+function ConversionFunnelCard({ funnel = [] }) {
+  if (!funnel.length) return null;
+  const max = Math.max(1, ...funnel.map((item) => Number(item.count) || 0));
+
+  return (
+    <div className="stats-breakdown-card">
+      <div>
+        <strong>Funil de conversão de hoje</strong>
+        <small>Eventos do link até a entrega, para enxergar onde a venda trava.</small>
+      </div>
+      <div className="conversion-funnel-list">
+        {funnel.map((item) => {
+          const width = Math.max(4, Math.round(((Number(item.count) || 0) / max) * 100));
+          return (
+            <div className="conversion-funnel-row" key={item.type}>
+              <div>
+                <span>{item.label}</span>
+                <strong>{item.count}</strong>
+              </div>
+              <div className="conversion-funnel-track">
+                <div className="conversion-funnel-fill" style={{ width: `${width}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

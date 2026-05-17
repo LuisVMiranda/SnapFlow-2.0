@@ -671,6 +671,46 @@
   font-weight: 700;
 }
 
+.conversion-funnel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.conversion-funnel-row {
+  display: grid;
+  gap: 6px;
+}
+
+.conversion-funnel-row > div:first-child {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.conversion-funnel-row span {
+  color: #f3f6ff;
+  font-size: 12px;
+}
+
+.conversion-funnel-row strong {
+  color: var(--green);
+  font-size: 13px;
+}
+
+.conversion-funnel-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.conversion-funnel-fill {
+  background: linear-gradient(90deg, var(--green), #7dd3fc);
+  border-radius: inherit;
+  height: 100%;
+}
+
 .recent-header {
   display: flex;
   justify-content: space-between;

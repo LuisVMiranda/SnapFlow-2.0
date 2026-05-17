@@ -418,6 +418,30 @@ export function useSnapFlowController() {
   }, []);
 
   useEffect(() => {
+    if (!shareToken || !shareAccess?.customerAccessToken || screen !== 'gallery') return undefined;
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/cart`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${shareAccess.customerAccessToken}`,
+          },
+          body: JSON.stringify({ photoIds: selected }),
+        });
+        if (!response.ok) {
+          const data = await readJsonResponse(response);
+          throw new Error(buildApiErrorMessage('Não foi possível salvar sua seleção.', response, data));
+        }
+      } catch (error) {
+        console.warn('Falha ao salvar carrinho compartilhado:', error);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [screen, selected, shareAccess?.customerAccessToken, shareToken]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     if (shareAccess) {
