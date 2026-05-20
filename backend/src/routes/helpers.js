@@ -6,7 +6,7 @@ const { HttpError } = require('../errors');
 function toPhotoIds(value) {
   if (!Array.isArray(value)) return [];
   return value
-    .map((item) => (typeof item === 'string' ? item : item?.id))
+    .map((item) => (typeof item === 'string' ? item : item.id))
     .filter(Boolean);
 }
 

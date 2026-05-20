@@ -13,6 +13,7 @@ export function GalleryControlPanel({
   hasActiveSession,
   isUploading,
   liveOps,
+  photoPresets,
   pricingOptions,
   setNotice,
   setType,
@@ -73,6 +74,7 @@ export function GalleryControlPanel({
         adminJsonHeaders={adminJsonHeaders}
         dashData={dashData}
         fetchDashboard={fetchDashboard}
+        photoPresets={photoPresets}
         pricingOptions={pricingOptions}
         setNotice={setNotice}
         withAdminMediaToken={withAdminMediaToken}

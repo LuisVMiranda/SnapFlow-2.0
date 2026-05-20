@@ -65,9 +65,9 @@ export function AdminApprovalScreen({
     }
   };
 
-  const alreadyApproved = session?.status === 'approved';
-  const isPending = session?.status === 'pending';
-  const isCancelled = session?.status === 'cancelled';
+  const alreadyApproved = session.status === 'approved';
+  const isPending = session.status === 'pending';
+  const isCancelled = session.status === 'cancelled';
 
   return (
     <div className="dashboard-screen screen approval-screen">

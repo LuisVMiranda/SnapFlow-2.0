@@ -52,7 +52,7 @@ export function WhatsAppStatusCard({ adminHeaders, setNotice }) {
   };
 
   const resetWhatsAppAuth = async () => {
-    if (!window.confirm('Parear novamente o WhatsApp inicia uma sessão local nova e exige escanear um novo QR Code no painel. Continuar?')) return;
+    if (!window.confirm('Parear novamente o WhatsApp inicia uma sessão local nova e exige escanear um novo QR Code no painel. Continuar')) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/whatsapp/reset-auth`, {
         method: 'POST',

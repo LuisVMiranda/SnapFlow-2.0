@@ -5,11 +5,11 @@ const DEFAULT_WHATSAPP_TEMPLATES = {
     label: 'Link da galeria',
     description: 'Mensagem usada ao criar ou recriar um link de galeria.',
     body: [
-      'Ola {name}! Sua galeria privada SnapFlow foi liberada.',
+      'Olá {name}! Sua galeria privada SnapFlow foi liberada.',
       '{linkText}',
       'Código: {code}',
       'Expira em até {expiresMinutes} minuto(s).',
-      'Acesse pelo navegador para escolher suas fotos com seguranca.',
+      'Acesse pelo navegador para escolher suas fotos com segurança.',
     ].join('\n'),
   },
   paymentWaiting: {
@@ -32,11 +32,11 @@ const TEMPLATE_KEYS = Object.keys(DEFAULT_WHATSAPP_TEMPLATES);
 const MAX_TEMPLATE_LENGTH = 1200;
 const LEGACY_DEFAULT_TEMPLATE_BODIES = {
   shareLink: [
-    'Ola! Sua galeria privada SnapFlow foi liberada.',
+    'Olá! Sua galeria privada SnapFlow foi liberada.',
     '{linkLabel}: {link}',
     'Código: {code}',
     'Expira em até {expiresMinutes} minuto(s).',
-    'Acesse pelo navegador para escolher suas fotos com seguranca.',
+    'Acesse pelo navegador para escolher suas fotos com segurança.',
   ].join('\n'),
   paymentWaiting: [
     'Recebemos sua seleção no SnapFlow.',
@@ -87,7 +87,7 @@ function normalizeTemplates(value) {
 }
 
 function renderTemplate(template, variables = {}) {
-  return String(template || '').replace(/\{\{?\s*([a-zA-Z0-9_]+)\s*\}?\}/g, (match, key) => {
+  return String(template || '').replace(/\{\s*([a-zA-Z0-9_]+)\s*\}/g, (match, key) => {
     if (Object.prototype.hasOwnProperty.call(variables, key)) {
       return String(variables[key] ?? '');
     }
@@ -109,6 +109,7 @@ function cleanLinklessPaymentMessage(message) {
   return String(message || '')
     .split('\n')
     .map((line) => line.replace(/[ \t]+$/g, ''))
+    .filter((line) => !/\{link(Text|Label)?\}|\{link\}/.test(line))
     .filter((line) => !/^[\s:.-]+$/.test(line))
     .join('\n')
     .trim();

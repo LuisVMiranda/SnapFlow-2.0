@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { applyManualDiscount, validateDiscountDraft } from '../lib/discounts';
-import { resolveInitialScreen } from '../lib/navigation';
 import { EMPTY_PHOTOS_PAGE, derivePhotoPageCounts, normalizePhotosPage } from '../lib/photoPages';
 import { DEFAULT_PRICING, calcTotal, firstPackageKey, pricingForType } from '../lib/pricing';
 import { detectShareToken } from '../lib/share';
+import { ADMIN_STAGE_LABELS, CLIENT_STAGE_LABELS } from '../lib/stageLabels';
 import { NotificationCenterButton } from '../components/NotificationCenterButton';
 import { NoticeBanner } from '../components/NoticeBanner';
 import { useAdminAccess } from './useAdminAccess';
@@ -12,6 +12,8 @@ import { useDashboardPolling } from './useDashboardPolling';
 import { useCredentialsSettings } from './useCredentialsSettings';
 import { useNoticeCenter } from './useNoticeCenter';
 import { usePackageSettings } from './usePackageSettings';
+import { usePersistSnapFlowState, getSavedSnapFlowState, resolveInitialSnapFlowScreen } from './useSnapFlowPersistence';
+import { useRetentionControls } from './useRetentionControls';
 import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
 import { useWhatsAppTemplates } from './useWhatsAppTemplates';
@@ -34,56 +36,31 @@ export function useSnapFlowController() {
   
   useShareProtections(shareToken, setNotice);
 
-  const getSavedState = (key, fallback) => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = window.localStorage.getItem('snapflow-' + key);
-        if (stored) {
-          try { 
-            const parsed = JSON.parse(stored); 
-            if (parsed !== null) return parsed;
-          } catch { /* ignore */ }
-        }
-      } catch { /* ignore */ }
-    }
-    return fallback;
-  };
-
-  const initialScreen = () => {
-    const token = detectShareToken();
-    const savedScreen = getSavedState('screen', 'dashboard');
-    if (token) {
-      const access = getSavedState('share-access', null);
-      return resolveInitialScreen({ shareToken: token, savedScreen, savedShareAccess: access });
-    }
-    return resolveInitialScreen({ savedScreen });
-  };
-
-  const [screen, setScreen] = useState(initialScreen);
-  const initialType = getSavedState('type', 'eventos');
+  const [screen, setScreen] = useState(resolveInitialSnapFlowScreen);
+  const initialType = getSavedSnapFlowState('type', 'eventos');
   const [type, setType] = useState(() => DEFAULT_PRICING[initialType] ? initialType : 'eventos');
   
-  const initialPhotos = shareToken ? [] : getSavedState('photos', []);
+  const initialPhotos = shareToken ? [] : getSavedSnapFlowState('photos', []);
   const [photos, setPhotos] = useState(() => Array.isArray(initialPhotos) ? initialPhotos : []);
   const [photosPage, setPhotosPage] = useState(() => normalizePhotosPage(EMPTY_PHOTOS_PAGE));
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [photoPageError, setPhotoPageError] = useState('');
   const [hasLoadedPhotosPage, setHasLoadedPhotosPage] = useState(false);
   
-  const initialSelected = getSavedState('selected', []);
+  const initialSelected = getSavedSnapFlowState('selected', []);
   const [selected, setSelected] = useState(() => Array.isArray(initialSelected) ? initialSelected : []);
   
-  const [clientPhone, setClientPhone] = useState(() => getSavedState('clientPhone', ''));
-  const [clientName, setClientName] = useState(() => getSavedState('clientName', ''));
-  const [clientEmail, setClientEmail] = useState(() => getSavedState('clientEmail', ''));
-  const [manualDiscountEnabled, setManualDiscountEnabled] = useState(() => getSavedState('manualDiscountEnabled', false));
-  const [manualDiscountDraft, setManualDiscountDraft] = useState(() => getSavedState('manualDiscountDraft', ''));
-  const [sessionId, setSessionId] = useState(() => getSavedState('sessionId', ''));
-  const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedState('qrCodeBase64', ''));
-  const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedState('pixCopyPaste', ''));
-  const [pixWhatsAppMessage, setPixWhatsAppMessage] = useState(() => getSavedState('pixWhatsAppMessage', ''));
+  const [clientPhone, setClientPhone] = useState(() => getSavedSnapFlowState('clientPhone', ''));
+  const [clientName, setClientName] = useState(() => getSavedSnapFlowState('clientName', ''));
+  const [clientEmail, setClientEmail] = useState(() => getSavedSnapFlowState('clientEmail', ''));
+  const [manualDiscountEnabled, setManualDiscountEnabled] = useState(() => getSavedSnapFlowState('manualDiscountEnabled', false));
+  const [manualDiscountDraft, setManualDiscountDraft] = useState(() => getSavedSnapFlowState('manualDiscountDraft', ''));
+  const [sessionId, setSessionId] = useState(() => getSavedSnapFlowState('sessionId', ''));
+  const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedSnapFlowState('qrCodeBase64', ''));
+  const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedSnapFlowState('pixCopyPaste', ''));
+  const [pixWhatsAppMessage, setPixWhatsAppMessage] = useState(() => getSavedSnapFlowState('pixWhatsAppMessage', ''));
   const [liveOps, setLiveOps] = useState(() => {
-    const saved = getSavedState('liveOps', null);
+    const saved = getSavedSnapFlowState('liveOps', null);
     return saved && typeof saved === 'object' ? saved : {
       paymentStatus: 'draft',
       deliveryStatus: 'idle',
@@ -98,7 +75,7 @@ export function useSnapFlowController() {
   const [brokenPhotoIds, setBrokenPhotoIds] = useState([]);
   const [shareSessionInfo, setShareSessionInfo] = useState(null);
   const [shareCodeInput, setShareCodeInput] = useState('');
-  const [shareAccess, setShareAccess] = useState(() => getSavedState('share-access', null));
+  const [shareAccess, setShareAccess] = useState(() => getSavedSnapFlowState('share-access', null));
   const [shareActionLoading, setShareActionLoading] = useState(false);
   const [shareDurationMinutes, setShareDurationMinutes] = useState(30);
   const {
@@ -116,14 +93,6 @@ export function useSnapFlowController() {
     logoutAdmin,
     withAdminMediaToken,
   } = useAdminAccess();
-  const [retentionSettings, setRetentionSettings] = useState({
-    defaultGalleryRetentionDays: 30,
-    deliveredPhotoRetentionDays: 30,
-    expiredShareRetentionDays: 7,
-    archiveBeforeDelete: false,
-    autoCleanupEnabled: false,
-  });
-  const [cleanupPreview, setCleanupPreview] = useState(null);
   const [dashData, setDashData] = useState({
     stats: {
       hoje: { valor: 0, fotos: 0, sessoes: 0 },
@@ -141,6 +110,20 @@ export function useSnapFlowController() {
     shareRecent: [],
   });
   const [, setPendingManualSessions] = useState([]);
+  const {
+    cleanupPreview,
+    fetchRetentionSettings,
+    previewCleanup,
+    retentionSettings,
+    runCleanup,
+    saveRetentionSettings,
+    setRetentionSettings,
+  } = useRetentionControls({
+    adminHeaders,
+    adminJsonHeaders,
+    isAdminUnlocked,
+    setNotice,
+  });
   const { packageSettingsStatus, pricingOptions, savePackageSettings } = usePackageSettings({
     adminJsonHeaders,
     currentType: type,
@@ -179,27 +162,21 @@ export function useSnapFlowController() {
     setNotice,
   });
   
-  // Persist important state
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const prefix = 'snapflow-';
-        window.localStorage.setItem(prefix + 'screen', JSON.stringify(screen));
-        window.localStorage.setItem(prefix + 'type', JSON.stringify(type));
-        window.localStorage.setItem(prefix + 'selected', JSON.stringify(selected));
-        window.localStorage.setItem(prefix + 'clientPhone', JSON.stringify(clientPhone));
-        window.localStorage.setItem(prefix + 'clientName', JSON.stringify(clientName));
-        window.localStorage.setItem(prefix + 'clientEmail', JSON.stringify(clientEmail));
-        window.localStorage.setItem(prefix + 'manualDiscountEnabled', JSON.stringify(manualDiscountEnabled));
-        window.localStorage.setItem(prefix + 'manualDiscountDraft', JSON.stringify(manualDiscountDraft));
-        window.localStorage.setItem(prefix + 'sessionId', JSON.stringify(sessionId));
-        window.localStorage.setItem(prefix + 'qrCodeBase64', JSON.stringify(qrCodeBase64));
-        window.localStorage.setItem(prefix + 'pixCopyPaste', JSON.stringify(pixCopyPaste));
-        window.localStorage.setItem(prefix + 'pixWhatsAppMessage', JSON.stringify(pixWhatsAppMessage));
-        window.localStorage.setItem(prefix + 'liveOps', JSON.stringify(liveOps));
-      } catch { /* ignore */ }
-    }
-  }, [screen, type, selected, clientPhone, clientName, clientEmail, manualDiscountEnabled, manualDiscountDraft, sessionId, qrCodeBase64, pixCopyPaste, pixWhatsAppMessage, liveOps]);
+  usePersistSnapFlowState({
+    clientEmail,
+    clientName,
+    clientPhone,
+    liveOps,
+    manualDiscountDraft,
+    manualDiscountEnabled,
+    pixCopyPaste,
+    pixWhatsAppMessage,
+    qrCodeBase64,
+    screen,
+    selected,
+    sessionId,
+    type,
+  });
   
   useEffect(() => {
     if (typeof window !== 'undefined' && shareToken) {
@@ -226,7 +203,7 @@ export function useSnapFlowController() {
     value: manualDiscountDraft,
   });
   const configuredDiscountAmount = shareToken
-    ? Number(shareSessionInfo?.discountAmount || 0)
+    ? Number(shareSessionInfo.discountAmount || 0)
     : discountValidation.amount;
   const { discountAmount, total } = applyManualDiscount(subtotal, configuredDiscountAmount);
   const remaining = Math.max(0, activePricing.threshold - count);
@@ -244,22 +221,7 @@ export function useSnapFlowController() {
     [photos, selected, photosPage]
   );
 
-  const adminStageLabels = {
-    dashboard: 'Pronto para iniciar uma nova venda',
-    gallery: 'Selecionando fotos para o cliente',
-    summary: 'Conferindo valor e WhatsApp',
-    pix: 'Aguardando confirmação do pagamento',
-    'manual-pending': 'Aguardando aprovação manual no painel',
-    confirmed: 'Acompanhando entrega final',
-  };
-  const clientStageLabels = {
-    gallery: 'Selecionando suas fotos',
-    summary: 'Conferindo pedido',
-    pix: 'Aguardando confirmação do pagamento',
-    'manual-pending': 'Aguardando aprovação do fotógrafo',
-    confirmed: 'Acompanhando entrega das fotos',
-  };
-  const activeStage = (shareToken ? clientStageLabels : adminStageLabels)[screen];
+  const activeStage = (shareToken ? CLIENT_STAGE_LABELS : ADMIN_STAGE_LABELS)[screen];
 
   const fetchDashboard = useCallback(async ({ silent = false } = {}) => {
     if (!isAdminUnlocked) return;
@@ -280,87 +242,6 @@ export function useSnapFlowController() {
       }
     }
   }, [isAdminUnlocked, adminHeaders, setNotice]);
-
-  const fetchRetentionSettings = useCallback(async () => {
-    if (!isAdminUnlocked) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
-        headers: adminHeaders(),
-      });
-      const data = await readJsonResponse(response);
-      if (response.ok) {
-        setRetentionSettings(data);
-      }
-    } catch (error) {
-      console.warn('Falha ao carregar retenção:', error);
-    }
-  }, [isAdminUnlocked, adminHeaders]);
-
-  const saveRetentionSettings = async () => {
-    if (!isAdminUnlocked) {
-      setNotice('Valide o token administrativo antes de salvar a retenção.');
-      return;
-    }
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/settings/retention`, {
-        method: 'PUT',
-        headers: adminJsonHeaders(),
-        body: JSON.stringify(retentionSettings),
-      });
-      const data = await readJsonResponse(response);
-      if (!response.ok) {
-        setNotice(buildApiErrorMessage('Não foi possível salvar a retenção.', response, data));
-        return;
-      }
-      setRetentionSettings(data);
-      setNotice('Política de retenção salva.');
-    } catch (error) {
-      setNotice(buildNetworkErrorMessage('Não foi possível salvar a retenção.', error));
-    }
-  };
-
-  const previewCleanup = async () => {
-    if (!isAdminUnlocked) {
-      setNotice('Valide o token administrativo antes de prever a limpeza.');
-      return;
-    }
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/preview`, {
-        method: 'POST',
-        headers: adminHeaders(),
-      });
-      const data = await readJsonResponse(response);
-      if (!response.ok) {
-        setNotice(buildApiErrorMessage('Não foi possível calcular a limpeza.', response, data));
-        return;
-      }
-      setCleanupPreview(data);
-    } catch (error) {
-      setNotice(buildNetworkErrorMessage('Não foi possível calcular a limpeza.', error));
-    }
-  };
-
-  const runCleanup = async () => {
-    if (!isAdminUnlocked) {
-      setNotice('Valide o token administrativo antes de executar a limpeza.');
-      return;
-    }
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/cleanup/run`, {
-        method: 'POST',
-        headers: adminHeaders(),
-      });
-      const data = await readJsonResponse(response);
-      if (!response.ok) {
-        setNotice(buildApiErrorMessage('Não foi possível executar a limpeza.', response, data));
-        return;
-      }
-      setCleanupPreview(data);
-      setNotice('Limpeza de retenção executada.');
-    } catch (error) {
-      setNotice(buildNetworkErrorMessage('Não foi possível executar a limpeza.', error));
-    }
-  };
 
   useDashboardPolling({
     adminHeaders,
@@ -418,7 +299,7 @@ export function useSnapFlowController() {
   }, []);
 
   useEffect(() => {
-    if (!shareToken || !shareAccess?.customerAccessToken || screen !== 'gallery') return undefined;
+    if (!shareToken || !shareAccess.customerAccessToken || screen !== 'gallery') return undefined;
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/cart`, {
@@ -439,7 +320,7 @@ export function useSnapFlowController() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [screen, selected, shareAccess?.customerAccessToken, shareToken]);
+  }, [screen, selected, shareAccess.customerAccessToken, shareToken]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -565,10 +446,10 @@ export function useSnapFlowController() {
   });
 
   useEffect(() => {
-    if (!shareToken || !shareAccess?.customerAccessToken || screen !== 'gallery') return;
+    if (!shareToken || !shareAccess.customerAccessToken || screen !== 'gallery') return;
     if (photos.length > 0 || hasLoadedPhotosPage || isLoadingPhotos || photoPageError) return;
     loadMorePhotos();
-  }, [hasLoadedPhotosPage, isLoadingPhotos, loadMorePhotos, photoPageError, photos.length, screen, shareAccess?.customerAccessToken, shareToken]);
+  }, [hasLoadedPhotosPage, isLoadingPhotos, loadMorePhotos, photoPageError, photos.length, screen, shareAccess.customerAccessToken, shareToken]);
 
   const currentPhoto = viewerIndex !== null ? photos[viewerIndex] : null;
   const hasActiveSession = photos.length > 0 || Boolean(sessionId);

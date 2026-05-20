@@ -12,7 +12,7 @@ describe('useNoticeCenter', () => {
       result.current.setNotice('Pix confirmado pelo Mercado Pago.');
     });
 
-    expect(result.current.activeNotice?.message).toBe('Pix confirmado pelo Mercado Pago.');
+    expect(result.current.activeNotice.message).toBe('Pix confirmado pelo Mercado Pago.');
 
     act(() => {
       vi.advanceTimersByTime(5000);

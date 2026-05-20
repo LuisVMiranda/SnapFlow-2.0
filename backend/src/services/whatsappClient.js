@@ -22,12 +22,12 @@ let processGuardInstalled = false;
 const processFailureHandlers = new Set();
 
 function isTransientWhatsAppError(error) {
-  const message = String(error?.message || error || '');
+  const message = String(error.message || error || '');
   return transientWhatsAppNeedles.some((needle) => message.includes(needle));
 }
 
 function isProfileLockedError(error) {
-  const message = String(error?.message || error || '');
+  const message = String(error.message || error || '');
   return message.includes('browser is already running') || message.includes('Use a different `userDataDir`');
 }
 
@@ -37,7 +37,7 @@ function friendlyWhatsAppError(error) {
       'O perfil local do WhatsApp ficou preso por um processo Chromium anterior. O SnapFlow vai trocar automaticamente para um novo perfil; se persistir, feche processos antigos de node/chrome ou reinicie o computador.'
     );
   }
-  if (String(error?.message || error || '').includes('detached Frame')) {
+  if (String(error.message || error || '').includes('detached Frame')) {
     return new Error(
       'WhatsApp Web saiu, recarregou ou perdeu a janela controlada pelo backend. A API continua ativa e o SnapFlow vai tentar reconectar; se aparecer QR Code em Vendas > WhatsApp de envio, escaneie novamente.'
     );
@@ -49,7 +49,7 @@ function friendlyWhatsAppError(error) {
 }
 
 function isWhatsAppRecoverableProcessError(error) {
-  const stack = String(error?.stack || '');
+  const stack = String(error.stack || '');
   const stackLooksWhatsApp = stack.includes('whatsapp-web.js') || stack.includes('puppeteer-core');
   return stackLooksWhatsApp && (isTransientWhatsAppError(error) || isProfileLockedError(error));
 }
@@ -127,7 +127,7 @@ function createWhatsAppClient({
       ready,
       status,
       retryAttempts,
-      lastError: lastError?.message || null,
+      lastError: lastError.message || null,
       lastQrAt,
       lastReadyAt,
       hasQr: Boolean(latestQr && !ready),
@@ -163,7 +163,7 @@ function createWhatsAppClient({
     const oldClient = client;
     client = null;
     try {
-      await oldClient.pupBrowser?.close();
+      await oldClient.pupBrowser.close();
     } catch {
       // Closing the underlying browser is best-effort; destroy below may still succeed.
     }
@@ -227,7 +227,7 @@ function createWhatsAppClient({
     });
     instance.on('disconnected', (reason) => {
       console.warn('WhatsApp desconectado:', reason);
-      handleRecoverableFailure(new Error(`WhatsApp desconectado: ${reason || 'motivo nao informado'}`), {
+      handleRecoverableFailure(new Error(`WhatsApp desconectado: ${reason || 'motivo não informado'}`), {
         nextStatus: reason === 'LOGOUT' ? 'logged_out' : 'disconnected',
       });
     });
@@ -324,7 +324,7 @@ function createWhatsAppClient({
 
   function assertReady() {
     if (!ready || !client) {
-      const detail = lastError?.message ? ` Último erro: ${lastError.message}` : '';
+      const detail = lastError.message ? ` Último erro: ${lastError.message}` : '';
       throw new Error(`WhatsApp ainda não está pronto para envio.${detail}`);
     }
   }
@@ -349,7 +349,7 @@ function createWhatsAppClient({
       const number = validation.normalized;
       const contactId = await client.getNumberId(number);
       if (!contactId) {
-        throw new Error(`Numero nao encontrado no WhatsApp: ${validation.formatted}. Confira o DDI, o numero local e se o cliente realmente usa WhatsApp neste contato.`);
+        throw new Error(`Número não encontrado no WhatsApp: ${validation.formatted}. Confira o DDI, o número local e se o cliente realmente usa WhatsApp neste contato.`);
       }
       await client.sendMessage(contactId._serialized, message);
       return number;

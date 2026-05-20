@@ -24,7 +24,7 @@ export function mergePhotoPages(existing = [], incoming = []) {
   const seen = new Set();
 
   for (const photo of [...existing, ...incoming]) {
-    if (!photo?.id || seen.has(photo.id)) continue;
+    if (!photo.id || seen.has(photo.id)) continue;
     seen.add(photo.id);
     merged.push(photo);
   }

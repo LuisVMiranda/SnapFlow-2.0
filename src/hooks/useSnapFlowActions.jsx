@@ -66,13 +66,13 @@ export function useSnapFlowActions(config) {
   const mapSharedPhotos = (data) =>
     Array.isArray(data.photos)
       ? data.photos.map((item, index) => {
-          const rawUrl = typeof item === 'string' ? item : item?.url;
+          const rawUrl = typeof item === 'string' ? item : item.url;
           const rawThumbUrl =
-            typeof item === 'string' ? data.thumbUrls?.[index] : item?.thumbUrl || data.thumbUrls?.[index];
+            typeof item === 'string' ? data.thumbUrls?.[index] : item.thumbUrl || data.thumbUrls?.[index];
           const normalizedUrl = normalizePhotoUrl(rawUrl);
           const normalizedThumbUrl = rawThumbUrl ? normalizePhotoUrl(rawThumbUrl) : '';
           return {
-            id: item?.id || photoIdFromUrl(rawUrl, index),
+            id: item.id || photoIdFromUrl(rawUrl, index),
             url: normalizedUrl,
             thumbUrl: normalizedThumbUrl || normalizedUrl,
           };
@@ -112,7 +112,7 @@ export function useSnapFlowActions(config) {
   };
 
   const startNewSession = () => {
-    document.getElementById('hidden-upload')?.click();
+    document.getElementById('hidden-upload').click();
   };
 
   const handleFileUpload = async (event) => {
@@ -214,7 +214,7 @@ export function useSnapFlowActions(config) {
       const headers = shareToken
         ? {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${shareAccess?.customerAccessToken || ''}`,
+            Authorization: `Bearer ${shareAccess.customerAccessToken || ''}`,
           }
         : adminJsonHeaders();
 
@@ -260,7 +260,7 @@ export function useSnapFlowActions(config) {
       const headers = shareToken
         ? {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${shareAccess?.customerAccessToken || ''}`,
+            Authorization: `Bearer ${shareAccess.customerAccessToken || ''}`,
           }
         : adminJsonHeaders();
 
@@ -281,7 +281,7 @@ export function useSnapFlowActions(config) {
           paymentMethod,
           isShareSession: Boolean(shareToken),
           shareToken,
-          accessCode: shareSessionInfo?.accessCode,
+          accessCode: shareSessionInfo.accessCode,
         }),
       });
 
@@ -388,8 +388,8 @@ export function useSnapFlowActions(config) {
   };
 
   const loadMorePhotos = async () => {
-    const shouldLoadFirstPage = photos.length === 0 && !photosPage?.nextCursor;
-    if (!shareToken || !shareAccess?.customerAccessToken || (!photosPage?.hasMore && !shouldLoadFirstPage) || isLoadingPhotos) return;
+    const shouldLoadFirstPage = photos.length === 0 && !photosPage.nextCursor;
+    if (!shareToken || !shareAccess.customerAccessToken || (!photosPage.hasMore && !shouldLoadFirstPage) || isLoadingPhotos) return;
 
     setIsLoadingPhotos(true);
     setPhotoPageError('');
@@ -399,7 +399,7 @@ export function useSnapFlowActions(config) {
       if (photosPage.nextCursor) params.set('cursor', photosPage.nextCursor);
       if (photosPage.limit) params.set('limit', String(photosPage.limit));
 
-      const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/photos?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/photos${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${shareAccess.customerAccessToken}`,
         },
@@ -424,7 +424,7 @@ export function useSnapFlowActions(config) {
     }
   };
 
-  const handleCreateShareSession = async () => {
+  const handleCreateShareSession = async (photoPresetIds = []) => {
     if (!selectedPhotoItems.length) {
       setNotice('Selecione ao menos uma foto para gerar o link.');
       return;
@@ -447,6 +447,7 @@ export function useSnapFlowActions(config) {
           discountAmount,
           total,
           expiresMinutes: shareDurationMinutes,
+          photoPresetIds,
         }),
       });
 
@@ -474,13 +475,13 @@ export function useSnapFlowActions(config) {
       setShareAccess(shareRecord);
       if (data.whatsappSent) {
         setNotice('Link criado e enviado no WhatsApp.');
-      } else if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareRecord.whatsappMessage);
         setNotice('Link criado, mas o WhatsApp não enviou. A mensagem foi copiada para envio manual.');
       } else {
         setNotice('Link criado, mas o WhatsApp não enviou. Use Copiar mensagem WhatsApp para enviar manualmente.');
       }
-      fetchDashboard?.({ silent: true });
+      fetchDashboard({ silent: true });
     } catch (error) {
       setNotice(buildNetworkErrorMessage('Não foi possível gerar o link compartilhado.', error));
     } finally {
@@ -489,7 +490,7 @@ export function useSnapFlowActions(config) {
   };
 
   const handleExtendShareSession = async () => {
-    if (!shareAccess?.token) return;
+    if (!shareAccess.token) return;
 
     setShareActionLoading(true);
 
@@ -518,7 +519,7 @@ export function useSnapFlowActions(config) {
   };
 
   const handleRevokeShareSession = async () => {
-    if (!shareAccess?.token) return;
+    if (!shareAccess.token) return;
 
     setShareActionLoading(true);
 

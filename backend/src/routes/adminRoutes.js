@@ -4,6 +4,7 @@ const { applyManualDiscount, normalizeDiscountAmount, normalizeSubtotal } = requ
 const { optionalEmail } = require('../services/email');
 const { validateClientPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
+const { adminPhotoPagePayload, adminPhotoPayload, adminShareDetails } = require('./adminSharePayloads');
 const { publicBaseUrlForRequest, toPhotoIds } = require('./helpers');
 
 function normalizeAccessCode(value) {
@@ -56,40 +57,10 @@ async function resolveSaleAmounts(body = {}) {
 }
 
 async function resolvePublicBaseUrl(req, config, credentials) {
-  const savedUrl = typeof credentials?.getSecretValue === 'function'
+  const savedUrl = typeof credentials.getSecretValue === 'function'
     ? await credentials.getSecretValue('publicBaseUrl')
     : '';
   return savedUrl || publicBaseUrlForRequest(req, config);
-}
-
-function adminPhotoPayload(photo) {
-  return {
-    id: photo.id,
-    url: `/api/media/${photo.id}/preview`,
-    thumbUrl: `/api/media/${photo.id}/thumb`,
-    createdAt: photo.createdAt,
-    sizeBytes: Number(photo.sizeBytes || 0),
-  };
-}
-
-function adminPhotoPagePayload(page) {
-  return {
-    ...page,
-    loadedCount: page?.loadedCount || 0,
-    totalCount: Number(page?.totalCount || 0),
-  };
-}
-
-async function adminShareDetails(repos, token, options = {}) {
-  const share = await repos.getShareSession(token, { includeAccessCode: true });
-  if (!share) return null;
-  const { items, page } = await repos.listPhotosForSharePage(share.token, options);
-  return {
-    ...share,
-    photoCount: page.totalCount,
-    photos: items.map(adminPhotoPayload),
-    photosPage: adminPhotoPagePayload(page),
-  };
 }
 
 async function sendShareLinkMessage({ whatsapp, phone, message }) {
@@ -105,7 +76,7 @@ async function sendShareLinkMessage({ whatsapp, phone, message }) {
 }
 
 function whatsappSendErrorMessage(error) {
-  const message = String(error?.message || '').trim();
+  const message = String(error.message || '').trim();
   const whatsappLostContext = [
     'Attempted to use detached Frame',
     'Execution context was destroyed',
@@ -157,7 +128,7 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
   return { accessCode: stableAccessCode, link, share };
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
+function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPresets, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -330,25 +301,32 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
         },
         retentionExpiresAt,
       });
+      const requestedPresetIds = Array.isArray(req.body.photoPresetIds) ? req.body.photoPresetIds : [];
+      const presetResult = requestedPresetIds.length && galleryPresets.applyGalleryPresets
+        ? await galleryPresets.applyGalleryPresets(share.token, requestedPresetIds, { confirmReplace: true })
+        : null;
+      const finalShare = presetResult?.share || share;
 
       const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode: resolvedAccessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
       const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.stored, message: whatsappMessage });
 
       res.json({
-        token: share.token,
-        galleryId: share.galleryId,
+        token: finalShare.token,
+        galleryId: finalShare.galleryId,
         accessCode: resolvedAccessCode,
         expiresAt,
         link,
         whatsappMessage,
         clientName,
         clientEmail,
-        galleryName: share.galleryName,
-        galleryDescription: share.galleryDescription,
-        subtotal: share.subtotal,
-        discountAmount: share.discountAmount,
-        total: share.total,
-        sales: share.sales,
+        galleryName: finalShare.galleryName,
+        galleryDescription: finalShare.galleryDescription,
+        photoPresetIds: finalShare.photoPresetIds || [],
+        photoPresetSnapshot: finalShare.photoPresetSnapshot || [],
+        subtotal: finalShare.subtotal,
+        discountAmount: finalShare.discountAmount,
+        total: finalShare.total,
+        sales: finalShare.sales,
         ...whatsappResult,
       });
     })
@@ -466,7 +444,9 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       const share = await repos.getShareSession(req.params.token, { includeAccessCode: true });
       if (!share) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       const retentionExpiresAt = share.retentionExpiresAt || addDays(new Date(), config.defaultGalleryRetentionDays);
-      const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt);
+      const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt, {
+        presetStack: share.photoPresetSnapshot || [],
+      });
       await repos.createPhotos(processed.map((photo) => ({ ...photo, shareToken: share.token })));
       await repos.refreshSharePhotoCount(share.token);
       res.json(await adminShareDetails(repos, share.token));
@@ -487,7 +467,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
       }
       const deleted = await repos.deletePhotoFromShare(req.params.token, req.params.photoId);
       await repos.refreshSharePhotoCount(req.params.token);
-      res.json({ success: true, photoId: deleted?.id || req.params.photoId });
+      res.json({ success: true, photoId: deleted.id || req.params.photoId });
     })
   );
 
@@ -587,77 +567,6 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, media, pa
 
   router.put('/settings/whatsapp-messages', auth.requireAdmin, asyncHandler(async (req, res) => {
     res.json(await whatsappTemplates.updateSettings(req.body || {}));
-  }));
-
-  router.get('/whatsapp/status', auth.requireAdmin, (req, res) => {
-    res.json(whatsapp?.getStatus ? whatsapp.getStatus() : { ready: false, status: 'unavailable', lastError: 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.' });
-  });
-
-  router.post('/whatsapp/reconnect', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp?.reconnect) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
-    whatsapp.reconnect().catch((error) => {
-      console.warn(`Reconexão manual do WhatsApp falhou: ${error.message}`);
-    });
-    res.status(202).json(whatsapp.getStatus());
-  }));
-
-  router.post('/whatsapp/reset-auth', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp?.resetAuth) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
-    res.status(202).json(await whatsapp.resetAuth());
-  }));
-
-  router.post('/cleanup/preview', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await retention.preview());
-  }));
-
-  router.post('/cleanup/run', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await retention.run());
-  }));
-
-  router.post('/delivery-jobs/:id/retry', auth.requireAdmin, asyncHandler(async (req, res) => {
-    const job = await repos.retryDeliveryJob(req.params.id);
-    if (!job) throw new HttpError(404, 'Entrega não encontrada. Atualize Vendas e confirme se esta venda ainda aparece no painel.', 'delivery_job_not_found');
-    res.json(job);
-  }));
-
-  router.post('/sessions/:sessionId/cancel-release', auth.requireAdmin, asyncHandler(async (req, res) => {
-    const session = await repos.getSession(req.params.sessionId);
-    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
-    if (session.status === 'approved') {
-      throw new HttpError(409, 'Esta venda já foi aprovada e não pode ter a liberação cancelada por aqui.', 'session_already_approved');
-    }
-    if (session.status === 'cancelled') {
-      res.json({ success: true, session });
-      return;
-    }
-    if (session.status !== 'pending' || session.paymentMethod !== 'Dinheiro/Cartão') {
-      throw new HttpError(409, 'Somente vendas pendentes em dinheiro/cartão podem ter a liberação cancelada.', 'session_cancel_not_allowed');
-    }
-    const cancelled = await repos.cancelManualSessionRelease(session.id);
-    if (!cancelled) throw new HttpError(409, 'Não foi possível cancelar esta liberação. Atualize o painel e confira o status atual.', 'session_cancel_failed');
-    res.json({ success: true, session: cancelled });
-  }));
-
-  router.post('/sessions/:sessionId/retry-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {
-    const session = await repos.getSession(req.params.sessionId);
-    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
-    if (session.status !== 'approved') {
-      throw new HttpError(409, 'A sessão ainda não foi aprovada para envio. Libere o pagamento no painel antes de reenviar as fotos.', 'session_not_approved');
-    }
-    const job = await repos.retryDeliveryForSession(session.id);
-    await repos.updateDeliveryStatus(session.id, 'queued', null);
-    if (typeof deliveryQueue.processOnce === 'function') await deliveryQueue.processOnce();
-    res.json({ success: true, job, session: await repos.getSession(session.id) });
-  }));
-
-  router.post('/stats/clear', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await repos.clearSalesStats());
-  }));
-
-  router.get('/session/:sessionId', auth.requireAdmin, asyncHandler(async (req, res) => {
-    const session = await repos.getSession(req.params.sessionId);
-    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
-    res.json(session);
   }));
 
   return router;

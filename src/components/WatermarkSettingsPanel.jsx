@@ -58,7 +58,7 @@ export function WatermarkSettingsPanel({
       <div className="watermark-settings-header">
         {!embedded ? (
           <div>
-            <div className="summary-label">Marca d&apos;água das prévias</div>
+            <div className="summary-label">Marca d'água das prévias</div>
             <small className="summary-help">
               Ajuste como o texto SnapFlow aparece nas imagens de prévia enviadas ao cliente.
             </small>

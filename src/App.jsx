@@ -9,7 +9,9 @@ import { ManualPaymentPendingScreen } from './screens/ManualPaymentPendingScreen
 import { PixScreen } from './screens/PixScreen';
 import { ShareLockScreen } from './screens/ShareLockScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
+import { usePhotoPresets } from './hooks/usePhotoPresets';
 import { useSnapFlowController } from './hooks/useSnapFlowController';
+import { useEffect, useState } from 'react';
 
 export default function App() {
   const {
@@ -118,6 +120,18 @@ export default function App() {
     watermarkSettingsStatus,
     withAdminMediaToken,
   } = useSnapFlowController();
+  const {
+    createPhotoPreset,
+    deletePhotoPreset,
+    photoPresets,
+    photoPresetStatus,
+    updatePhotoPreset,
+  } = usePhotoPresets({ adminJsonHeaders, isAdminUnlocked, setNotice });
+  const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
+
+  useEffect(() => {
+    if (screen === 'dashboard' || shareToken) setSelectedPhotoPresetIds([]);
+  }, [screen, shareToken]);
 
   const adminApprovalSessionId =
     typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('adminApproval');
@@ -176,7 +190,7 @@ export default function App() {
         setViewerIndex={setViewerIndex}
         markBrokenPhoto={markBrokenPhoto}
         toggle={toggle}
-        watermarkSettings={shareSessionInfo?.watermarkSettings || watermarkSettings}
+        watermarkSettings={shareSessionInfo.watermarkSettings || watermarkSettings}
       />
     );
   }
@@ -198,7 +212,9 @@ export default function App() {
         count={count}
         credentialsData={credentialsData}
         credentialsStatus={credentialsStatus}
+        createPhotoPreset={createPhotoPreset}
         dashData={dashData}
+        deletePhotoPreset={deletePhotoPreset}
         deleteCredential={deleteCredential}
         fetchDashboard={fetchDashboard}
         handleFileUpload={handleFileUpload}
@@ -211,6 +227,8 @@ export default function App() {
         noticeBanner={noticeBanner}
         notificationCenter={notificationCenter}
         packageSettingsStatus={packageSettingsStatus}
+        photoPresets={photoPresets}
+        photoPresetStatus={photoPresetStatus}
         period={period}
         pricingOptions={pricingOptions}
         previewCleanup={previewCleanup}
@@ -230,6 +248,7 @@ export default function App() {
         startNewSession={startNewSession}
         total={total}
         type={type}
+        updatePhotoPreset={updatePhotoPreset}
         withAdminMediaToken={withAdminMediaToken}
         whatsAppTemplateStatus={whatsAppTemplateStatus}
         whatsAppTemplates={whatsAppTemplates}
@@ -270,7 +289,7 @@ export default function App() {
         total={subtotal}
         type={type}
         unit={unit}
-        watermarkSettings={shareSessionInfo?.watermarkSettings || watermarkSettings}
+        watermarkSettings={shareSessionInfo.watermarkSettings || watermarkSettings}
       />
     );
   }
@@ -295,14 +314,18 @@ export default function App() {
         manualDiscountDraft={manualDiscountDraft}
         manualDiscountEnabled={manualDiscountEnabled}
         noticeBanner={noticeBanner}
+        photoPresets={photoPresets}
         pricingOptions={pricingOptions}
         resetSession={resetSession}
         selectedPhotoItems={selectedPhotoItems}
+        selectedPhotoPresetIds={selectedPhotoPresetIds}
         setClientEmail={setClientEmail}
         setClientName={setClientName}
         setClientPhone={setClientPhone}
         setManualDiscountDraft={setManualDiscountDraft}
         setManualDiscountEnabled={setManualDiscountEnabled}
+        setNotice={setNotice}
+        setSelectedPhotoPresetIds={setSelectedPhotoPresetIds}
         setScreen={setScreen}
         setShareDurationMinutes={setShareDurationMinutes}
         shareAccess={shareAccess}

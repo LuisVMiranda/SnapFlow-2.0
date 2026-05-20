@@ -10,7 +10,7 @@ describe('share helpers', () => {
     window.history.replaceState(null, '', '/s/abc123');
     expect(detectShareToken()).toBe('abc123');
 
-    window.history.replaceState(null, '', '/?share=xyz789');
+    window.history.replaceState(null, '', '/share=xyz789');
     expect(detectShareToken()).toBe('xyz789');
   });
 

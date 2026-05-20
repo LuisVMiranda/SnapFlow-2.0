@@ -123,3 +123,16 @@ test('conversion events migration stores funnel analytics', async () => {
   assert.match(sql, /metadata jsonb not null default '\{\}'::jsonb/i);
   assert.match(sql, /conversion_events_event_type_idx/i);
 });
+
+test('photo editing preset migration stores source, snapshots and undo metadata', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '015_photo_editing_presets.sql'), 'utf8');
+
+  assert.match(sql, /alter table photos/i);
+  assert.match(sql, /source_path text/i);
+  assert.match(sql, /applied_preset_ids text\[\] not null default '\{\}'/i);
+  assert.match(sql, /undo_original_path text/i);
+  assert.match(sql, /alter table share_sessions/i);
+  assert.match(sql, /photo_preset_ids text\[\] not null default '\{\}'/i);
+  assert.match(sql, /photo_preset_undo_snapshot jsonb/i);
+  assert.match(sql, /'photoEditingPresets'/i);
+});

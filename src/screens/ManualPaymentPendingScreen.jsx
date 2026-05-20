@@ -4,7 +4,7 @@ import { DEFAULT_PRICING } from '../lib/pricing';
 
 function approvalUrl(sessionId) {
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
-  return `${origin}/?adminApproval=${encodeURIComponent(sessionId || '')}`;
+  return `${origin}/adminApproval=${encodeURIComponent(sessionId || '')}`;
 }
 
 export function ManualPaymentPendingScreen({

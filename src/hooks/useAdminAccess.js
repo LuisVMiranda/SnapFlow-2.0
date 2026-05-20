@@ -85,7 +85,7 @@ export function useAdminAccess() {
     setAdminRemember(false);
     setAdminAccessStatus(isLocked ? 'locked' : 'denied');
     setAdminAccessError(buildApiErrorMessage(prefix, response, data));
-    setAdminAttemptsRemaining(data.details?.attemptsRemaining ?? 0);
+    setAdminAttemptsRemaining(data.details.attemptsRemaining ?? 0);
     setAdminLockedUntil(isLocked ? lockDetails.lockedUntil : '');
     setAdminRetryAfterSeconds(isLocked ? lockDetails.retryAfterSeconds : 0);
     persistAdminToken('', false);

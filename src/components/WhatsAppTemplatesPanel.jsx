@@ -151,7 +151,7 @@ export function WhatsAppTemplatesPanel({
   }, [templates]);
 
   const canSave = useMemo(
-    () => TEMPLATE_ITEMS.every((item) => String(draft[item.key]?.body || '').trim()),
+    () => TEMPLATE_ITEMS.every((item) => String(draft[item.key].body || '').trim()),
     [draft]
   );
 
@@ -226,10 +226,10 @@ export function WhatsAppTemplatesPanel({
                 id={textareaId}
                 aria-label={item.title}
                 className="phone-input whatsapp-template-textarea"
-                value={draft[item.key]?.body || ''}
+                value={draft[item.key].body || ''}
                 maxLength={1200}
                 onChange={(event) => updateBody(item.key, event.target.value)}
-                rows={textareaRows(draft[item.key]?.body)}
+                rows={textareaRows(draft[item.key].body)}
               />
             </label>
           );

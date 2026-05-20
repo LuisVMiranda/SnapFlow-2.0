@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { applyManualDiscount } from '../lib/discounts';
 import { formatMoney } from '../lib/formatters';
+import { resolvePresetStack } from '../lib/photoPresets';
 import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
+import { PhotoPresetPreview } from './PhotoPresetPreview';
 
 export function ShareGalleryEditor({
+  applyPhotoPresets = () => {},
   closeEditor,
   deletePhoto,
   detail,
@@ -11,15 +14,22 @@ export function ShareGalleryEditor({
   isLoading,
   isPhotoBusy,
   loadMorePhotos = () => {},
+  photoPresets = [],
   pricingOptions,
+  removePhotoPresets = () => {},
   saveShare,
   shareSession,
+  toggleDraftPreset = () => {},
+  undoPhotoPresetApplication = () => {},
   updateDraft,
   uploadPhotos,
 }) {
-  const photos = detail?.photos || [];
-  const photosPage = detail?.photosPage || {};
-  const sales = detail?.sales || shareSession.sales || {};
+  const galleryDetail = detail || {};
+  const photos = galleryDetail.photos || [];
+  const firstPreviewPhoto = photos.find((photo) => photo.url || photo.thumbUrl);
+  const presetPreviewUrl = firstPreviewPhoto ? firstPreviewPhoto.url || firstPreviewPhoto.thumbUrl : '';
+  const photosPage = galleryDetail.photosPage || {};
+  const sales = galleryDetail.sales || shareSession.sales || {};
   const soldPhotoCount = Number(sales.soldPhotoCount || 0);
   const soldOrderCount = Number(sales.soldOrderCount || 0);
   const soldAmount = Number(sales.soldAmount || 0);
@@ -29,6 +39,10 @@ export function ShareGalleryEditor({
   const subtotal = Number(draft.subtotal || 0);
   const discountAmount = Number(draft.discountAmount || 0);
   const totals = applyManualDiscount(subtotal, discountAmount);
+  const selectedPresetIds = draft.photoPresetIds || galleryDetail.photoPresetIds || shareSession.photoPresetIds || [];
+  const activePresetIds = galleryDetail.photoPresetIds || shareSession.photoPresetIds || [];
+  const selectedPresetStack = resolvePresetStack(photoPresets, selectedPresetIds);
+  const activePresetStack = galleryDetail.photoPresetSnapshot || shareSession.photoPresetSnapshot || [];
   const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(draft.phone));
   const updatePhoneValue = (nextParts) => {
     const nextDraft = { ...phoneDraft, ...nextParts };
@@ -56,7 +70,7 @@ export function ShareGalleryEditor({
         />
       </label>
       <label>
-        Descricao da galeria
+        Descrição da galeria
         <textarea
           className="phone-input"
           maxLength={800}
@@ -67,10 +81,10 @@ export function ShareGalleryEditor({
         />
       </label>
       <div className="share-sales-summary">
-        {soldPhotoCount} foto(s) vendidas ate agora em {soldOrderCount} pedido(s) - {formatMoney(soldAmount)}
+        {soldPhotoCount} foto(s) vendidas até agora em {soldOrderCount} pedido(s) - {formatMoney(soldAmount)}
       </div>
       <label>
-        Codigo de acesso
+        Código de acesso
         <input
           className="phone-input"
           maxLength={4}
@@ -96,7 +110,7 @@ export function ShareGalleryEditor({
           }}
           placeholder="Nome de quem acessa e paga"
         />
-        <small className="summary-help" id={clientHelpId}>Este nome alimenta o parametro {'{name}'} nos modelos de WhatsApp.</small>
+        <small className="summary-help" id={clientHelpId}>Este nome alimenta o parâmetro {'{name}'} nos modelos de WhatsApp.</small>
       </div>
       <label>
         E-mail do cliente
@@ -111,7 +125,7 @@ export function ShareGalleryEditor({
       </label>
       <label>
         WhatsApp
-        <div style={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '12px' }}>
+        <div className="phone-field-grid">
           <input
             className="phone-input"
             value={phoneDraft.countryCode}
@@ -122,10 +136,10 @@ export function ShareGalleryEditor({
             className="phone-input"
             value={phoneDraft.localNumber}
             onChange={(event) => updatePhoneValue({ localNumber: phoneDigits(event.target.value).slice(0, 14) })}
-            placeholder={phoneDraft.countryCode === '55' ? 'DDD + numero' : 'Numero sem o DDI'}
+            placeholder={phoneDraft.countryCode === '55' ? 'DDD + número' : 'Número sem o DDI'}
           />
         </div>
-        <small className="summary-help">DDI editavel. O padrao inicial continua Brasil (55).</small>
+        <small className="summary-help">DDI editável. O padrão inicial continua Brasil (55).</small>
       </label>
       <label>
         Pacote
@@ -165,6 +179,61 @@ export function ShareGalleryEditor({
       <div className="share-sales-summary">
         Total final para o cliente: {formatMoney(totals.total)}
       </div>
+      <section className="gallery-preset-tools" aria-label="Presets de edição da galeria">
+        <div>
+          <strong>Presets de edição</strong>
+          <small className="summary-help" style={{ display: 'block' }}>
+            Selecione até 3 presets, reaplique nas fotos da galeria e use desfazer se o resultado não ajudar.
+          </small>
+        </div>
+        {photoPresets.length ? (
+          <div className="gallery-preset-grid">
+            {photoPresets.map((preset) => {
+              const isSelected = selectedPresetIds.includes(preset.id);
+              return (
+                <label className={`gallery-preset-option ${isSelected ? 'selected' : ''}`} key={preset.id}>
+                  <input
+                    checked={isSelected}
+                    className="gallery-preset-checkbox"
+                    type="checkbox"
+                    onChange={() => toggleDraftPreset(shareSession.token, preset.id)}
+                  />
+                  <span className="gallery-preset-check" aria-hidden="true">{isSelected ? '✓' : ''}</span>
+                  <span className="gallery-preset-name">{preset.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="share-gallery-empty">Crie presets em Configurações antes de aplicar ajustes nesta galeria.</div>
+        )}
+        {activePresetIds.length ? (
+          <small className="summary-help success">
+            Ativo agora: {activePresetStack.map((preset) => preset.name || preset.id).join(' + ')}
+          </small>
+        ) : (
+          <small className="summary-help">Nenhum preset ativo nesta galeria.</small>
+        )}
+        {selectedPresetStack.length ? (
+          <PhotoPresetPreview
+            compact
+            imageAlt="Prévia da primeira foto da galeria"
+            imageUrl={presetPreviewUrl}
+            presetStack={selectedPresetStack}
+          />
+        ) : null}
+        <div className="gallery-preset-actions">
+          <button className="share-quick-btn approve-session-btn" disabled={isPhotoBusy || !selectedPresetIds.length} type="button" onClick={() => applyPhotoPresets(shareSession)}>
+            Reaplicar preset
+          </button>
+          <button className="share-quick-btn share-quick-btn-danger" disabled={isPhotoBusy || !activePresetIds.length} type="button" onClick={() => removePhotoPresets(shareSession)}>
+            Remover presets
+          </button>
+          <button className="share-quick-btn" disabled={isPhotoBusy} type="button" onClick={() => undoPhotoPresetApplication(shareSession)}>
+            Desfazer reaplicação
+          </button>
+        </div>
+      </section>
       <label>
         Reabrir por minutos
         <input

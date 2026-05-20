@@ -1,0 +1,339 @@
+.stats-card {
+  background: var(--surface);
+  padding: 24px;
+  border-radius: var(--radius);
+  text-align: center;
+  border: 1px solid #333;
+  margin-bottom: 32px;
+}
+
+.whatsapp-status-card {
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.whatsapp-status-copy {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.whatsapp-status-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.whatsapp-status-heading strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.whatsapp-status-card small {
+  color: var(--gray);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.whatsapp-status-actions {
+  align-content: flex-start;
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  max-width: 430px;
+}
+
+.whatsapp-status-actions .badge,
+.whatsapp-status-actions .share-quick-btn {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  margin: 0;
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.whatsapp-status-actions .badge {
+  border-radius: 999px;
+  padding: 7px 11px;
+}
+
+.whatsapp-status-actions .share-quick-btn {
+  padding: 8px 13px;
+}
+
+.whatsapp-qr-panel {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  max-width: 280px;
+  padding: 10px;
+}
+
+.whatsapp-qr-panel img {
+  background: #fff;
+  border-radius: 8px;
+  display: block;
+  height: min(220px, 58vw);
+  padding: 8px;
+  width: min(220px, 58vw);
+}
+
+.stats-card-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+.mini-chart {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(28px, 1fr);
+  height: 140px;
+  margin-top: 20px;
+  overflow-x: auto;
+  padding-top: 8px;
+}
+
+.mini-chart-item {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  min-width: 28px;
+}
+
+.mini-chart-bar {
+  align-self: end;
+  background: linear-gradient(180deg, rgba(0, 200, 81, 0.95), rgba(30, 144, 255, 0.72));
+  border-radius: 8px 8px 3px 3px;
+  border: 0;
+  cursor: default;
+  min-height: 8px;
+  width: 100%;
+}
+
+.mini-chart-item small {
+  color: var(--gray);
+  font-size: 10px;
+  line-height: 1.1;
+}
+
+.ops-card {
+  background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(20, 20, 20, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.ops-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.ops-header strong {
+  display: block;
+  font-size: 15px;
+}
+
+.ops-header small {
+  display: block;
+  color: var(--gray);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.ops-total {
+  color: var(--green);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ops-stat {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.ops-stat span {
+  display: block;
+  color: var(--gray);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.ops-stat strong {
+  display: block;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.ops-stat small {
+  color: var(--gray);
+  display: block;
+  font-size: 11px;
+  margin-top: 3px;
+  word-break: break-word;
+}
+
+.ops-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stats-title {
+  font-size: 14px;
+  color: var(--gray);
+  font-weight: 500;
+}
+
+.stats-value {
+  font-size: clamp(32px, 5vw, 42px);
+  color: var(--green);
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.stats-subtitle {
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.stats-footnote {
+  color: var(--gray);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 14px;
+  text-align: left;
+}
+
+.stats-breakdown-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.stats-breakdown-card strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.stats-breakdown-card small {
+  color: var(--gray);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.stats-breakdown-scroll {
+  overflow-x: auto;
+}
+
+.stats-breakdown-table {
+  border-collapse: collapse;
+  min-width: 100%;
+  width: 100%;
+}
+
+.stats-breakdown-table th,
+.stats-breakdown-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  padding: 10px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.stats-breakdown-table th {
+  color: var(--gray);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.stats-breakdown-table td {
+  color: #f3f6ff;
+}
+
+.stats-breakdown-table td.positive {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.conversion-funnel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.conversion-funnel-row {
+  display: grid;
+  gap: 6px;
+}
+
+.conversion-funnel-row > div:first-child {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.conversion-funnel-row span {
+  color: #f3f6ff;
+  font-size: 12px;
+}
+
+.conversion-funnel-row strong {
+  color: var(--green);
+  font-size: 13px;
+}
+
+.conversion-funnel-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.conversion-funnel-fill {
+  background: linear-gradient(90deg, var(--green), #7dd3fc);
+  border-radius: inherit;
+  height: 100%;
+}
+

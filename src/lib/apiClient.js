@@ -29,8 +29,8 @@ const CODE_HINTS = {
   photo_share_mismatch: 'Atualize a página e selecione as fotos novamente.',
   phone_invalid_country_code: 'Revise o DDI informado. Exemplo: 55 para Brasil ou 54 para Argentina.',
   phone_invalid_ddd: 'Confira o DDD brasileiro do cliente.',
-  phone_invalid_length: 'Revise o DDI e o numero local. O WhatsApp aceita ate 15 digitos somando ambos.',
-  phone_invalid_mobile: 'Para celular brasileiro com 11 digitos, o numero deve ter 9 depois do DDD.',
+  phone_invalid_length: 'Revise o DDI e o número local. O WhatsApp aceita até 15 dígitos somando ambos.',
+  phone_invalid_mobile: 'Para celular brasileiro com 11 dígitos, o número deve ter 9 depois do DDD.',
   phone_required: 'Informe o WhatsApp do cliente antes de continuar.',
   photos_required: 'Selecione ao menos uma foto antes de continuar.',
   session_not_approved: 'Libere o pagamento no painel antes de reenviar as fotos.',
@@ -88,7 +88,7 @@ export async function readJsonResponse(response) {
 
 export function buildApiErrorMessage(prefix, response, data = {}) {
   const parts = [prefix];
-  if (response?.status) parts.push(`HTTP ${response.status}`);
+  if (response.status) parts.push(`HTTP ${response.status}`);
   if (data.error) parts.push(data.error);
   if (data.code) parts.push(`Código: ${data.code}`);
 
@@ -101,17 +101,17 @@ export function buildApiErrorMessage(prefix, response, data = {}) {
   if (details.retryAfterSeconds) parts.push(`Tempo aproximado: ${Math.ceil(Number(details.retryAfterSeconds) / 60)} minuto(s)`);
   if (Array.isArray(details.allowedTypes)) parts.push(`Tipos permitidos: ${details.allowedTypes.join(', ')}`);
 
-  const hint = CODE_HINTS[data.code] || statusHint(response?.status);
+  const hint = CODE_HINTS[data.code] || statusHint(response.status);
   if (hint) parts.push(`Orientação: ${hint}`);
 
   return parts.filter(Boolean).join(' | ');
 }
 
 export function buildNetworkErrorMessage(prefix, error) {
-  const rawMessage = String(error?.message || '').trim();
+  const rawMessage = String(error.message || '').trim();
   const lowerMessage = rawMessage.toLowerCase();
   const networkFailure =
-    error?.name === 'TypeError' ||
+    error.name === 'TypeError' ||
     lowerMessage.includes('failed to fetch') ||
     lowerMessage.includes('networkerror') ||
     lowerMessage.includes('load failed');

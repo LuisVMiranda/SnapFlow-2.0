@@ -24,7 +24,16 @@ function createTestApp({
     soldAmount: 0,
     lastSoldAt: null,
   });
-  const basePhotos = initialPhotos || [{ id: 'photo_1', shareToken: 'share_1', sizeBytes: 100, createdAt: new Date(Date.now() - 1000).toISOString() }];
+  const basePhotos = initialPhotos || [{
+    id: 'photo_1',
+    shareToken: 'share_1',
+    sourcePath: 'sources/photo_1.jpg',
+    originalPath: 'originals/photo_1.jpg',
+    thumbPath: 'thumbs/photo_1.jpg',
+    previewPath: 'previews/photo_1.jpg',
+    sizeBytes: 100,
+    createdAt: new Date(Date.now() - 1000).toISOString(),
+  }];
   let share = {
     token: 'share_1',
     galleryId: 'gallery_1',
@@ -53,6 +62,7 @@ function createTestApp({
   }
   let recreatedShare = null;
   let shareCartPhotoIds = [];
+  let appSettings = { photoEditingPresets: [] };
   const sessions = new Map();
   let photos = basePhotos;
   let whatsappTemplateSettings = {
@@ -104,13 +114,20 @@ function createTestApp({
         subtotal: share.subtotal,
         discountAmount: share.discountAmount,
         total: share.total,
+        photoPresetIds: share.photoPresetIds || [],
+        photoPresetSnapshot: share.photoPresetSnapshot || [],
         sales: share.sales,
       }],
     }),
+    getSettings: async () => appSettings,
+    upsertSettings: async (settings) => {
+      appSettings = { ...appSettings, ...settings };
+      return appSettings;
+    },
     getShareSession: async (token, options = {}) => {
       const normalizedToken = String(token || '').toLowerCase();
-      const target = normalizedToken === 'share_1' ? share : recreatedShare?.token?.toLowerCase() === normalizedToken ? recreatedShare : null;
-      if (!target || deletedShareToken?.toLowerCase?.() === normalizedToken) return null;
+      const target = normalizedToken === 'share_1' ? share : recreatedShare.token.toLowerCase() === normalizedToken ? recreatedShare : null;
+      if (!target || deletedShareToken?.toLowerCase() === normalizedToken) return null;
       return options.includeSensitive ? target : { ...target, accessCodeHash: undefined };
     },
     markShareAccessGranted: async () => share,
@@ -184,7 +201,7 @@ function createTestApp({
       }) || null;
     },
     restoreShareSession: async (token, updates) => {
-      const target = token === share.token ? share : recreatedShare?.token === token ? recreatedShare : null;
+      const target = token === share.token ? share : recreatedShare.token === token ? recreatedShare : null;
       if (!target) return null;
       const restored = {
         ...target,
@@ -249,6 +266,12 @@ function createTestApp({
       photo.deletedAt = new Date().toISOString();
       return photo;
     },
+    updatePhotoPresetState: async (photoId, updates) => {
+      const photo = photos.find((item) => item.id === photoId && !item.deletedAt);
+      if (!photo) return null;
+      Object.assign(photo, updates);
+      return photo;
+    },
     refreshSharePhotoCount: async (token) => {
       if (token !== 'share_1') return null;
       share = {
@@ -277,6 +300,20 @@ function createTestApp({
         status: updates.expiresAt ? 'active' : share.status,
       };
       return share;
+    },
+    updateSharePresetState: async (token, updates) => {
+      const target = token === share.token ? share : recreatedShare?.token === token ? recreatedShare : null;
+      if (!target) return null;
+      const updated = {
+        ...target,
+        photoPresetIds: updates.photoPresetIds === undefined ? target.photoPresetIds || [] : updates.photoPresetIds,
+        photoPresetSnapshot: updates.photoPresetSnapshot === undefined ? target.photoPresetSnapshot || [] : updates.photoPresetSnapshot,
+        photoPresetAppliedAt: updates.photoPresetAppliedAt || null,
+        photoPresetUndoSnapshot: updates.photoPresetUndoSnapshot === undefined ? target.photoPresetUndoSnapshot || null : updates.photoPresetUndoSnapshot,
+      };
+      if (token === share.token) share = updated;
+      if (recreatedShare?.token === token) recreatedShare = updated;
+      return updated;
     },
     createSession: async (session, photoIds = []) => {
       const stored = {
@@ -315,9 +352,9 @@ function createTestApp({
         share = {
           ...share,
           sales: {
-            soldPhotoCount: (share.sales?.soldPhotoCount || 0) + Number(session.photoCount || 0),
-            soldOrderCount: (share.sales?.soldOrderCount || 0) + 1,
-            soldAmount: (share.sales?.soldAmount || 0) + Number(session.amount || 0),
+            soldPhotoCount: (share.sales.soldPhotoCount || 0) + Number(session.photoCount || 0),
+            soldOrderCount: (share.sales.soldOrderCount || 0) + 1,
+            soldAmount: (share.sales.soldAmount || 0) + Number(session.amount || 0),
             lastSoldAt: new Date().toISOString(),
           },
         };
@@ -460,6 +497,7 @@ function createTestApp({
         await Promise.all(files.map((file) => fs.unlink(file.path).catch(() => {})));
         return files.map((file, index) => ({
           id: `uploaded_${index + 1}`,
+          sourcePath: `sources/uploaded_${index + 1}.jpg`,
           originalPath: `originals/uploaded_${index + 1}.jpg`,
           thumbPath: `thumbs/uploaded_${index + 1}.jpg`,
           previewPath: `previews/uploaded_${index + 1}.jpg`,
@@ -468,6 +506,30 @@ function createTestApp({
           retentionExpiresAt,
         }));
       },
+      reprocessPhotoWithPresets: async (photo, presetStack = []) => ({
+        originalPath: photo.originalPath,
+        thumbPath: photo.thumbPath,
+        previewPath: photo.previewPath,
+        appliedPresetIds: presetStack.map((preset) => preset.id),
+        appliedPresetSnapshot: presetStack,
+        presetAppliedAt: new Date().toISOString(),
+        undoOriginalPath: `undo/${photo.id}-original.jpg`,
+        undoThumbPath: `undo/${photo.id}-thumb.jpg`,
+        undoPreviewPath: `undo/${photo.id}-preview.jpg`,
+        undoPresetSnapshot: photo.appliedPresetSnapshot || [],
+      }),
+      restorePhotoPresetUndo: async (photo) => ({
+        originalPath: photo.originalPath,
+        thumbPath: photo.thumbPath,
+        previewPath: photo.previewPath,
+        appliedPresetIds: (photo.undoPresetSnapshot || []).map((preset) => preset.id),
+        appliedPresetSnapshot: photo.undoPresetSnapshot || [],
+        presetAppliedAt: null,
+        undoOriginalPath: null,
+        undoThumbPath: null,
+        undoPreviewPath: null,
+        undoPresetSnapshot: null,
+      }),
       removeOrArchive: async () => ({ bytes: 300, errors: [] }),
     },
     payment,
@@ -1248,6 +1310,64 @@ test('admin package settings route saves with a valid token', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.body.eventos.label, 'Pacote editado');
+});
+
+test('admin photo preset settings can create, update and delete presets', async () => {
+  const app = createTestApp();
+  const created = await request(app)
+    .post('/api/admin/settings/photo-presets')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ name: 'Noite suave', settings: { brightness: 1.1, contrast: 1.2 } });
+
+  assert.equal(created.status, 201);
+  assert.equal(created.body[0].id, 'noite-suave');
+
+  const updated = await request(app)
+    .patch('/api/admin/settings/photo-presets/noite-suave')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ name: 'Noite suave editada', settings: { saturation: 1.3 } });
+
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body[0].name, 'Noite suave editada');
+  assert.equal(updated.body[0].settings.saturation, 1.3);
+
+  const deleted = await request(app)
+    .delete('/api/admin/settings/photo-presets/noite-suave')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(deleted.status, 200);
+  assert.equal(deleted.body.length, 0);
+});
+
+test('admin can apply and undo photo presets in a gallery', async () => {
+  const app = createTestApp();
+  await request(app)
+    .post('/api/admin/settings/photo-presets')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ name: 'Suave', settings: { brightness: 1.08 } });
+
+  const applied = await request(app)
+    .post('/api/admin/share-sessions/share_1/photo-presets')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ presetIds: ['suave'], confirmReplace: true });
+
+  assert.equal(applied.status, 200);
+  assert.equal(applied.body.changedPhotoCount, 1);
+  assert.deepEqual(applied.body.photoPresetIds, ['suave']);
+
+  const details = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(details.body.photoPresetIds[0], 'suave');
+  assert.equal(details.body.photos[0].appliedPresetIds[0], 'suave');
+
+  const undone = await request(app)
+    .post('/api/admin/share-sessions/share_1/photo-presets/undo')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(undone.status, 200);
+  assert.deepEqual(undone.body.photoPresetIds, []);
 });
 
 test('admin WhatsApp message settings are editable with a valid token', async () => {

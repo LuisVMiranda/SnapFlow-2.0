@@ -3,6 +3,7 @@ import { ShareCountdown } from './ShareCountdown';
 import { ShareGalleryEditor } from './ShareGalleryEditor';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { formatMoney } from '../lib/formatters';
+import { mergePresetIds } from '../lib/photoPresets';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 
@@ -28,12 +29,13 @@ function draftFromShare(shareSession) {
     galleryName: shareSession.galleryName || '',
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
+    photoPresetIds: shareSession.photoPresetIds || [],
     subtotal: String(shareSession.subtotal ?? shareSession.total ?? ''),
   };
 }
 
 function gallerySalesLabel(shareSession) {
-  const sales = shareSession?.sales || {};
+  const sales = shareSession.sales || {};
   const soldPhotoCount = Number(sales.soldPhotoCount || 0);
   const soldOrderCount = Number(sales.soldOrderCount || 0);
   const soldAmount = Number(sales.soldAmount || 0);
@@ -42,7 +44,7 @@ function gallerySalesLabel(shareSession) {
 
 function galleryRouteErrorMessage(prefix, response, data) {
   const message = buildApiErrorMessage(prefix, response, data);
-  return data?.code === 'api_route_not_found'
+  return data.code === 'api_route_not_found'
     ? `${message} Backend desatualizado. Reinicie o servidor para carregar as rotas de galeria.`
     : message;
 }
@@ -52,6 +54,7 @@ export function SharedLinksPanel({
   adminJsonHeaders,
   dashData,
   fetchDashboard,
+  photoPresets = [],
   pricingOptions,
   setNotice,
   withAdminMediaToken = (url) => url,
@@ -77,7 +80,7 @@ export function SharedLinksPanel({
   const mergeDetailPhotos = (currentPhotos = [], nextPhotos = []) => {
     const seen = new Set();
     return [...currentPhotos, ...nextPhotos].filter((photo) => {
-      if (!photo?.id || seen.has(photo.id)) return false;
+      if (!photo.id || seen.has(photo.id)) return false;
       seen.add(photo.id);
       return true;
     });
@@ -107,13 +110,13 @@ export function SharedLinksPanel({
 
   const loadMoreSharePhotos = async (shareSession) => {
     const current = details[shareSession.token];
-    if (!current?.photosPage?.hasMore || loadingDetailsToken === shareSession.token) return;
+    if (!current.photosPage.hasMore || loadingDetailsToken === shareSession.token) return;
     setLoadingDetailsToken(shareSession.token);
     try {
       const params = new URLSearchParams();
       if (current.photosPage.nextCursor) params.set('cursor', current.photosPage.nextCursor);
       if (current.photosPage.limit) params.set('limit', String(current.photosPage.limit));
-      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos?${params.toString()}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos${params.toString()}`, {
         headers: adminHeaders(),
       });
       const data = await readJsonResponse(response);
@@ -147,6 +150,19 @@ export function SharedLinksPanel({
     }));
   };
 
+  const toggleDraftPreset = (token, presetId) => {
+    setDrafts((previous) => {
+      const currentDraft = previous[token] || {};
+      return {
+        ...previous,
+        [token]: {
+          ...currentDraft,
+          photoPresetIds: mergePresetIds(currentDraft.photoPresetIds || [], presetId),
+        },
+      };
+    });
+  };
+
   const startEditing = async (shareSession) => {
     const isClosing = editingToken === shareSession.token;
     setEditingToken(isClosing ? '' : shareSession.token);
@@ -160,7 +176,7 @@ export function SharedLinksPanel({
   const copyShare = async (shareSession) => {
     const link = shareLink(shareSession);
     const text = shareSession.accessCode ? buildShareWhatsAppMessage(link, shareSession.accessCode) : link;
-    await navigator.clipboard?.writeText(text);
+    await navigator.clipboard.writeText(text);
     setNotice(shareSession.accessCode ? 'Mensagem da galeria copiada.' : 'Link copiado. Defina o código para copiar a mensagem completa.');
   };
 
@@ -181,7 +197,7 @@ export function SharedLinksPanel({
       }
 
       const message = data.whatsappMessage || buildShareWhatsAppMessage(data.link, data.accessCode);
-      await navigator.clipboard?.writeText(message);
+      await navigator.clipboard.writeText(message);
       setNotice('Galeria revalidada com o mesmo link e código. A mensagem foi copiada.');
       fetchDashboard({ silent: true });
     } catch (error) {
@@ -190,7 +206,7 @@ export function SharedLinksPanel({
   };
 
   const deleteShare = async (shareSession) => {
-    if (!window.confirm('Deseja deletar esta galeria da lista? Os arquivos continuarão sob a política de retenção.')) return;
+    if (!window.confirm('Deseja deletar esta galeria da lista Os arquivos continuarão sob a política de retenção.')) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
         method: 'DELETE',
@@ -274,7 +290,7 @@ export function SharedLinksPanel({
   };
 
   const deletePhoto = async (shareSession, photo) => {
-    if (!window.confirm('Remover esta foto da galeria? O arquivo será excluído do armazenamento local.')) return;
+    if (!window.confirm('Remover esta foto da galeria O arquivo será excluído do armazenamento local.')) return;
     setPhotoActionToken(shareSession.token);
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos/${photo.id}`, {
@@ -291,6 +307,84 @@ export function SharedLinksPanel({
       fetchDashboard({ silent: true });
     } catch (error) {
       setNotice(buildNetworkErrorMessage('Não foi possível remover a foto.', error));
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
+  const applyPhotoPresets = async (shareSession) => {
+    const draft = drafts[shareSession.token] || draftFromShare(shareSession);
+    const presetIds = draft.photoPresetIds || [];
+    if (!presetIds.length) {
+      setNotice('Selecione ao menos um preset para reaplicar nesta galeria.');
+      return;
+    }
+    const hasActivePreset = (details[shareSession.token].photoPresetIds || shareSession.photoPresetIds || []).length > 0;
+    if (hasActivePreset && !window.confirm('Esta galeria já possui preset ativo. Deseja substituir os ajustes atuais')) return;
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photo-presets`, {
+        method: 'POST',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({ presetIds, confirmReplace: true }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível reaplicar presets nesta galeria.', response, data));
+        return;
+      }
+      setNotice(`Presets aplicados em ${data.changedPhotoCount || 0} foto(s).`);
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível reaplicar presets nesta galeria.', error));
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
+  const removePhotoPresets = async (shareSession) => {
+    if (!window.confirm('Remover os presets desta galeria As fotos serão reprocessadas sem esses ajustes.')) return;
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photo-presets`, {
+        method: 'DELETE',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({ confirmRemove: true }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível remover presets desta galeria.', response, data));
+        return;
+      }
+      setNotice('Presets removidos da galeria. Use Desfazer se o resultado não ficou bom.');
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível remover presets desta galeria.', error));
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
+  const undoPhotoPresetApplication = async (shareSession) => {
+    if (!window.confirm('Desfazer a ultima reaplicação de preset desta galeria')) return;
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photo-presets/undo`, {
+        method: 'POST',
+        headers: adminJsonHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível desfazer a reaplicação de preset.', response, data));
+        return;
+      }
+      setNotice(`Reaplicação desfeita em ${data.changedPhotoCount || 0} foto(s).`);
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível desfazer a reaplicação de preset.', error));
     } finally {
       setPhotoActionToken('');
     }
@@ -315,7 +409,7 @@ export function SharedLinksPanel({
       setNotice('O desconto não pode ser maior que o subtotal configurado para esta galeria.');
       return;
     }
-    if (discountRaw !== '' && subtotal > 0 && discountAmount === subtotal && !window.confirm('Esse desconto deixa a galeria gratuita para o cliente. Deseja salvar mesmo assim?')) {
+    if (discountRaw !== '' && subtotal > 0 && discountAmount === subtotal && !window.confirm('Esse desconto deixa a galeria gratuita para o cliente. Deseja salvar mesmo assim')) {
       return;
     }
     const body = {
@@ -356,7 +450,7 @@ export function SharedLinksPanel({
         <h3>Links compartilhados</h3>
       </div>
 
-      {dashData.shareRecent?.map((shareSession) => {
+      {dashData.shareRecent.map((shareSession) => {
         const meta = statusMeta(shareSession.status);
         const inactive = shareSession.status === 'revoked' || shareSession.status === 'expired';
         const draft = drafts[shareSession.token] || draftFromShare(shareSession);
@@ -402,12 +496,17 @@ export function SharedLinksPanel({
                 deletePhoto={deletePhoto}
                 detail={details[shareSession.token]}
                 draft={draft}
+                applyPhotoPresets={applyPhotoPresets}
                 isLoading={loadingDetailsToken === shareSession.token}
                 isPhotoBusy={photoActionToken === shareSession.token}
                 loadMorePhotos={loadMoreSharePhotos}
+                photoPresets={photoPresets}
                 pricingOptions={pricingOptions}
+                removePhotoPresets={removePhotoPresets}
                 saveShare={saveShare}
                 shareSession={shareSession}
+                toggleDraftPreset={toggleDraftPreset}
+                undoPhotoPresetApplication={undoPhotoPresetApplication}
                 updateDraft={updateDraft}
                 uploadPhotos={uploadPhotos}
               />
@@ -416,7 +515,7 @@ export function SharedLinksPanel({
         );
       })}
 
-      {dashData.shareRecent?.length === 0 ? <div className="empty-state">Nenhum link compartilhado ainda</div> : null}
+      {dashData.shareRecent.length === 0 ? <div className="empty-state">Nenhum link compartilhado ainda</div> : null}
     </div>
   );
 }

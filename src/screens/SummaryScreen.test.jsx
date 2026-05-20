@@ -77,12 +77,12 @@ describe('SummaryScreen', () => {
     expect(screen.getByDisplayValue('55')).toBeInTheDocument();
     await userEvent.clear(screen.getByPlaceholderText('55'));
     await userEvent.type(screen.getByPlaceholderText('55'), '54');
-    await userEvent.clear(screen.getByPlaceholderText('Numero sem o DDI'));
-    await userEvent.type(screen.getByPlaceholderText('Numero sem o DDI'), '1122334455');
+    await userEvent.clear(screen.getByPlaceholderText('Número sem o DDI'));
+    await userEvent.type(screen.getByPlaceholderText('Número sem o DDI'), '1122334455');
 
     expect(screen.getByDisplayValue('54')).toBeInTheDocument();
     expect(screen.getByDisplayValue('1122334455')).toBeInTheDocument();
-    expect(screen.getByText(/Numero validado para envio: \+54 1122334455/i)).toBeInTheDocument();
+    expect(screen.getByText(/Número validado para envio: \+54 1122334455/i)).toBeInTheDocument();
   });
 
   it('accepts an optional client email for manual checkout actions', async () => {
@@ -134,8 +134,8 @@ describe('SummaryScreen', () => {
       />
     );
 
-    expect(screen.getByText(/Subtotal atual: R\$\s*30,00\. Total final apos desconto: R\$\s*20,00\./i)).toBeInTheDocument();
-    expect(screen.getByText(/Desconto concedido pelo fotografo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Subtotal atual: R\$\s*30,00\. Total final após desconto: R\$\s*20,00\./i)).toBeInTheDocument();
+    expect(screen.getByText(/Desconto concedido pelo fotógrafo/i)).toBeInTheDocument();
   });
 
   it('keeps gallery discount read-only for clients and shows the granted discount', () => {
@@ -151,15 +151,15 @@ describe('SummaryScreen', () => {
     );
 
     expect(screen.queryByText(/Aplicar desconto manual nesta venda/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Desconto concedido pelo fotografo/i)).toBeInTheDocument();
-    expect(screen.getByText(/Este desconto foi concedido pelo fotografo para esta galeria/i)).toBeInTheDocument();
+    expect(screen.getByText(/Desconto concedido pelo fotógrafo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Este desconto foi concedido pelo fotógrafo para esta galeria/i)).toBeInTheDocument();
   });
 
   it('shows client-facing delivery help in shared gallery checkout', () => {
     render(<SummaryScreen {...buildProps({ shareToken: 'share_123' })} />);
 
-    expect(screen.getByText(/suas fotos serao liberadas pelo fotografo/i)).toBeInTheDocument();
-    expect(screen.queryByText(/por voce no painel/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/suas fotos serão liberadas pelo fotógrafo/i)).toBeInTheDocument();
+    expect(screen.queryByText(/por você no painel/i)).not.toBeInTheDocument();
   });
 
   it('fires Pix and manual payment actions from the checkout buttons', async () => {
@@ -187,7 +187,7 @@ describe('SummaryScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: /Gerar QR Code/i }));
 
     expect(confirmSpy).toHaveBeenCalledWith(
-      'Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim?'
+      'Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim'
     );
     expect(props.handleGeneratePix).not.toHaveBeenCalled();
   });
@@ -208,9 +208,9 @@ describe('SummaryScreen', () => {
       />
     );
 
-    expect(screen.getByText(/Pedido enviado ao fotografo/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pedido enviado ao fotógrafo/i)).toBeInTheDocument();
     expect(screen.getByText('Aguardando aprovação')).toBeInTheDocument();
-    expect(screen.queryByText(/sua confirmacao no painel/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sua confirmação no painel/i)).not.toBeInTheDocument();
   });
 
   it('opens a manual WhatsApp link when backend sending needs fallback', async () => {
@@ -222,7 +222,7 @@ describe('SummaryScreen', () => {
             code: 'AB12',
             expiresAt: new Date(Date.now() + 60_000).toISOString(),
             link: 'https://snap.test/s/share_1',
-            whatsappMessage: 'Abra a galeria https://snap.test/s/share_1 com codigo AB12',
+            whatsappMessage: 'Abra a galeria https://snap.test/s/share_1 com código AB12',
           },
         })}
       />
@@ -235,5 +235,26 @@ describe('SummaryScreen', () => {
       '_blank',
       'noopener,noreferrer'
     );
+  });
+
+  it('confirms and sends selected photo presets when creating a gallery link', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const props = buildProps({
+      handleCreateShareSession: vi.fn(),
+      photoPresets: [
+        { id: 'soft', name: 'Suave', settings: {} },
+        { id: 'night', name: 'Noite', settings: {} },
+      ],
+      selectedPhotoPresetIds: ['soft'],
+    });
+
+    render(<SummaryScreen {...props} />);
+    await user.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link'
+    );
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith(['soft']);
   });
 });

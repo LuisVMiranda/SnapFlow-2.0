@@ -2,13 +2,18 @@ import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { PackageSettingsModal } from './PackageSettingsModal';
+import { PhotoPresetSettingsPanel } from './PhotoPresetSettingsPanel';
 import { RetentionPanel } from './RetentionPanel';
 import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
 import { WhatsAppTemplatesPanel } from './WhatsAppTemplatesPanel';
 
 export function SettingsPanel({
   cleanupPreview,
+  createPhotoPreset,
+  deletePhotoPreset,
   packageSettingsStatus,
+  photoPresets,
+  photoPresetStatus,
   previewCleanup,
   pricingOptions,
   runCleanup,
@@ -20,6 +25,7 @@ export function SettingsPanel({
   setType,
   retentionSettings,
   type,
+  updatePhotoPreset,
   whatsAppTemplateStatus,
   whatsAppTemplates,
   watermarkSettings,
@@ -95,6 +101,21 @@ export function SettingsPanel({
           onSave={saveWatermarkSettings}
           settings={watermarkSettings}
           status={watermarkSettingsStatus}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        emoji="🎚️"
+        help="Crie ajustes reutilizáveis para aplicar nas fotos originais e miniaturas das galerias."
+        title="Presets de edição das fotos"
+      >
+        <PhotoPresetSettingsPanel
+          createPhotoPreset={createPhotoPreset}
+          deletePhotoPreset={deletePhotoPreset}
+          embedded
+          photoPresets={photoPresets}
+          status={photoPresetStatus}
+          updatePhotoPreset={updatePhotoPreset}
         />
       </CollapsibleSection>
 

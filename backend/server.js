@@ -15,6 +15,8 @@ const { createPackageSettingsService } = require('./src/services/packageSettings
 const { createRetentionService } = require('./src/services/retentionService');
 const { createWhatsAppTemplatesService } = require('./src/services/whatsappTemplatesService');
 const { createWatermarkSettingsService } = require('./src/services/watermarkSettingsService');
+const { createPhotoEditingPresetService } = require('./src/services/photoEditingPresetService');
+const { createGalleryPresetService } = require('./src/services/galleryPresetService');
 
 async function main() {
   const config = createConfig();
@@ -24,12 +26,14 @@ async function main() {
   const media = createMediaService(config, { watermarkSettings: watermark });
   const credentials = createCredentialsService({ config, repos });
   const whatsappTemplates = createWhatsAppTemplatesService({ repos });
+  const photoPresets = createPhotoEditingPresetService({ repos });
+  const galleryPresets = createGalleryPresetService({ repos, media, photoPresets });
   const whatsapp = createWhatsAppClient();
   const deliveryQueue = createDeliveryQueue({ repos, media, whatsapp, whatsappTemplates });
   const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets });
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);

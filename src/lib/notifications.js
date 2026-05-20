@@ -39,7 +39,7 @@ export function markSeenNotification(entries = {}, key, now = Date.now()) {
 }
 
 export function isFreshApprovalNotification(session, now = Date.now()) {
-  const sourceDate = session?.approvedAt || session?.created_at;
+  const sourceDate = session.approvedAt || session.created_at;
   if (!sourceDate) return false;
   const timestamp = new Date(sourceDate).getTime();
   if (!Number.isFinite(timestamp)) return false;

@@ -46,14 +46,14 @@ function positiveNumber(value, fallback) {
 }
 
 function normalizePackage(key, value) {
-  const normalizedKey = slugify(key || value?.shortLabel || value?.label, 'pacote');
-  const label = String(value?.label || value?.shortLabel || normalizedKey).trim().slice(0, 80);
-  const shortLabel = String(value?.shortLabel || label).trim().slice(0, 40);
-  const threshold = Math.max(1, Math.round(positiveNumber(value?.threshold, 1)));
-  const unit = positiveNumber(value?.unit, 15);
-  const bulk = positiveNumber(value?.bulk, unit);
+  const normalizedKey = slugify(key || value.shortLabel || value.label, 'pacote');
+  const label = String(value.label || value.shortLabel || normalizedKey).trim().slice(0, 80);
+  const shortLabel = String(value.shortLabel || label).trim().slice(0, 40);
+  const threshold = Math.max(1, Math.round(positiveNumber(value.threshold, 1)));
+  const unit = positiveNumber(value.unit, 15);
+  const bulk = positiveNumber(value.bulk, unit);
   const description = String(
-    value?.description || `R$ ${unit} por foto, cai para R$ ${bulk} a partir de ${threshold} fotos.`
+    value.description || `R$ ${unit} por foto, cai para R$ ${bulk} a partir de ${threshold} fotos.`
   ).trim().slice(0, 180);
 
   return {

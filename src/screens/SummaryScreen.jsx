@@ -4,6 +4,7 @@ import { SessionOpsCard } from '../components/SessionOpsCard';
 import { validateOptionalEmail } from '../lib/email';
 import { formatMoney } from '../lib/formatters';
 import { buildStoredPhone, phoneDigits, splitStoredPhone, validateClientPhone } from '../lib/phone';
+import { mergePresetIds, resolvePresetStack } from '../lib/photoPresets';
 import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
 
@@ -25,14 +26,18 @@ export function SummaryScreen({
   manualDiscountDraft = '',
   manualDiscountEnabled = false,
   noticeBanner,
+  photoPresets = [],
   pricingOptions = DEFAULT_PRICING,
   resetSession,
   selectedPhotoItems,
+  selectedPhotoPresetIds = [],
   setClientName,
   setClientEmail,
   setClientPhone,
   setManualDiscountDraft = () => {},
   setManualDiscountEnabled = () => {},
+  setNotice = () => {},
+  setSelectedPhotoPresetIds = () => {},
   setScreen,
   setShareDurationMinutes,
   shareAccess,
@@ -60,9 +65,10 @@ export function SummaryScreen({
     ? `https://wa.me/${phoneValidation.normalized}?text=${encodeURIComponent(shareMessage)}`
     : '';
   const manualPaymentNotice = shareToken
-    ? 'Pedido enviado ao fotografo. Assim que o pagamento for aprovado, o envio das fotos sera liberado automaticamente.'
+    ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
     : undefined;
   const hasManualDiscount = Number(discountAmount || 0) > 0;
+  const selectedPresetStack = resolvePresetStack(photoPresets, selectedPhotoPresetIds);
 
   const updatePhoneValue = (nextParts) => {
     const nextDraft = { ...phoneDraft, ...nextParts };
@@ -80,12 +86,28 @@ export function SummaryScreen({
     ) {
       return true;
     }
-    return window.confirm('Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim?');
+    return window.confirm('Este desconto deixa o pedido gratuito para o cliente. Deseja continuar mesmo assim');
   };
 
   const runWithDiscountConfirmation = (action) => {
     if (!confirmFreeOrder()) return;
     action();
+  };
+
+  const createSharedLinkWithPresetConfirmation = () => {
+    if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
+      return;
+    }
+    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds));
+  };
+
+  const togglePreset = (presetId) => {
+    const nextIds = mergePresetIds(selectedPhotoPresetIds, presetId);
+    if (!selectedPhotoPresetIds.includes(presetId) && nextIds.length === selectedPhotoPresetIds.length) {
+      setNotice('Cada galeria pode acumular no máximo 3 presets. Remova um ajuste antes de adicionar outro.');
+      return;
+    }
+    setSelectedPhotoPresetIds(nextIds);
   };
 
   return (
@@ -94,12 +116,12 @@ export function SummaryScreen({
         <button className="back-btn" onClick={() => setScreen('gallery')}>
           Voltar
         </button>
-        <span className="topbar-title">Cobranca final</span>
+        <span className="topbar-title">Cobrança final</span>
         <span />
       </header>
 
       <SessionOpsCard
-        title="Sessao atual"
+        title="Sessão atual"
         stage={activeStage}
         count={count}
         total={total}
@@ -130,7 +152,7 @@ export function SummaryScreen({
           <strong>{count} fotos originais</strong>
         </div>
         <div className="summary-row">
-          <span>Preco unitario</span>
+          <span>Preço unitário</span>
           <strong>{formatMoney(unit)}</strong>
         </div>
         {hasManualDiscount ? (
@@ -140,7 +162,7 @@ export function SummaryScreen({
               <strong>{formatMoney(subtotal)}</strong>
             </div>
             <div className="summary-row">
-              <span>Desconto concedido pelo fotografo</span>
+              <span>Desconto concedido pelo fotógrafo</span>
               <strong style={{ color: '#86efac' }}>- {formatMoney(discountAmount)}</strong>
             </div>
           </>
@@ -152,7 +174,7 @@ export function SummaryScreen({
         </div>
         {shareToken && hasManualDiscount ? (
           <small className="summary-help success">
-            Este desconto foi concedido pelo fotografo para esta galeria.
+            Este desconto foi concedido pelo fotógrafo para esta galeria.
           </small>
         ) : null}
       </div>
@@ -188,7 +210,7 @@ export function SummaryScreen({
               <small className={`summary-help ${discountValidation.valid ? 'success' : 'danger'}`}>
                 {!discountValidation.valid
                   ? discountValidation.message
-                  : `Subtotal atual: ${formatMoney(subtotal)}. Total final apos desconto: ${formatMoney(total)}.`}
+                  : `Subtotal atual: ${formatMoney(subtotal)}. Total final após desconto: ${formatMoney(total)}.`}
               </small>
             </>
           ) : (
@@ -196,6 +218,32 @@ export function SummaryScreen({
               Ative apenas quando quiser reduzir manualmente o valor cobrado deste cliente.
             </small>
           )}
+        </div>
+      ) : null}
+
+      {!shareToken && photoPresets.length ? (
+        <div className="summary-card" style={{ marginTop: '16px' }}>
+          <div className="summary-label">Presets de edição da galeria</div>
+          <small className="summary-help">
+            Opcional. Selecione até 3 ajustes para aplicar nas fotos antes de enviar o link ao cliente.
+          </small>
+          <div className="gallery-preset-grid" style={{ marginTop: '12px' }}>
+            {photoPresets.map((preset) => (
+              <label className="gallery-preset-option" key={preset.id}>
+                <input
+                  checked={selectedPhotoPresetIds.includes(preset.id)}
+                  type="checkbox"
+                  onChange={() => togglePreset(preset.id)}
+                />
+                {preset.name}
+              </label>
+            ))}
+          </div>
+          {selectedPresetStack.length ? (
+            <small className="summary-help success" style={{ display: 'block', marginTop: '10px' }}>
+              Presets ativos nesta criação: {selectedPresetStack.map((preset) => preset.name).join(' + ')}
+            </small>
+          ) : null}
         </div>
       ) : null}
 
@@ -235,11 +283,11 @@ export function SummaryScreen({
             />
           </div>
           <div>
-              <small className="summary-help" style={{ display: 'block', marginBottom: '6px' }}>Numero local</small>
+              <small className="summary-help" style={{ display: 'block', marginBottom: '6px' }}>Número local</small>
             <input
               type="tel"
               inputMode="numeric"
-              placeholder={phoneDraft.countryCode === '55' ? 'DDD + numero' : 'Numero sem o DDI'}
+              placeholder={phoneDraft.countryCode === '55' ? 'DDD + número' : 'Número sem o DDI'}
               value={phoneDraft.localNumber}
               onChange={(event) => updatePhoneValue({ localNumber: phoneDigits(event.target.value).slice(0, 14) })}
               className="phone-input"
@@ -248,14 +296,14 @@ export function SummaryScreen({
         </div>
         <small className={`summary-help ${phoneValidation.valid ? 'success' : 'danger'}`}>
           {phoneValidation.valid
-            ? `Numero validado para envio: ${phoneValidation.formatted}`
+            ? `Número validado para envio: ${phoneValidation.formatted}`
             : phoneValidation.message}
         </small>
-        <small className="summary-help">DDI editavel. O padrao inicial continua Brasil (55).</small>
+        <small className="summary-help">DDI editável. O padrão inicial continua Brasil (55).</small>
         <small className="summary-help">
           {shareToken
-            ? 'Assim que o pagamento for confirmado, suas fotos serao liberadas pelo fotografo.'
-            : 'Assim que o pagamento for confirmado por voce no painel, as imagens serao disparadas para ele em formato de documento, sem compressao.'}
+            ? 'Assim que o pagamento for confirmado, suas fotos serão liberadas pelo fotógrafo.'
+            : 'Assim que o pagamento for confirmado por você no painel, as imagens serão disparadas para ele em formato de documento, sem compressão.'}
         </small>
       </div>
 
@@ -272,7 +320,7 @@ export function SummaryScreen({
           disabled={isGeneratingPix || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
           onClick={() => runWithDiscountConfirmation(() => handleManualPayment('manual'))}
         >
-          {shareToken ? 'Solicitar Pagto em Dinheiro/Cartao' : 'Pagamento Dinheiro/Cartao'}
+          {shareToken ? 'Solicitar pagto em dinheiro/cartão' : 'Pagamento dinheiro/cartão'}
         </button>
 
         {!shareToken ? (
@@ -285,7 +333,7 @@ export function SummaryScreen({
               color: '#ff9999',
             }}
             onClick={() => {
-              if (confirm('Deseja realmente cancelar esta venda? O cliente nao recebera as fotos.')) {
+              if (confirm('Deseja realmente cancelar esta venda O cliente não recebera as fotos.')) {
                 resetSession();
                 setScreen('dashboard');
               }
@@ -300,7 +348,7 @@ export function SummaryScreen({
         <div className="summary-card" style={{ marginTop: '16px' }}>
           <div className="summary-label">Teste de link compartilhado</div>
           <small className="summary-help">
-            Digite o WhatsApp do cliente, crie o link temporario e ele recebe automaticamente a mensagem com o codigo de 4 caracteres.
+            Digite o WhatsApp do cliente, crie o link temporário e ele recebe automaticamente a mensagem com o código de 4 caracteres.
           </small>
           <div style={{ marginTop: '12px' }}>
             <label className="share-duration-label" htmlFor="share-duration">
@@ -326,7 +374,7 @@ export function SummaryScreen({
             <button
               className="btn-manual btn-manual-cash"
               disabled={shareActionLoading || selectedPhotoItems.length === 0 || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
-              onClick={() => runWithDiscountConfirmation(handleCreateShareSession)}
+              onClick={createSharedLinkWithPresetConfirmation}
             >
               {shareActionLoading ? 'Gerando e enviando...' : 'Criar link e enviar WhatsApp'}
             </button>
@@ -339,7 +387,7 @@ export function SummaryScreen({
                 <strong className="share-link-text">{shareAccess.link}</strong>
               </div>
               <div className="summary-row">
-                <span>Codigo</span>
+                <span>Código</span>
                 <strong>{shareAccess.code}</strong>
               </div>
               <div className="summary-row">
@@ -351,7 +399,7 @@ export function SummaryScreen({
               <div className="share-actions">
                 <button
                   className="btn-manual btn-manual-card"
-                  onClick={() => navigator.clipboard?.writeText(shareMessage)}
+                  onClick={() => navigator.clipboard.writeText(shareMessage)}
                 >
                   Copiar mensagem WhatsApp
                 </button>

@@ -20,9 +20,11 @@ export function DashboardScreen({
   cleanupPreview,
   clientPhone,
   count,
+  createPhotoPreset,
   credentialsData,
   credentialsStatus,
   dashData,
+  deletePhotoPreset,
   deleteCredential,
   fetchDashboard,
   handleFileUpload,
@@ -35,6 +37,8 @@ export function DashboardScreen({
   noticeBanner,
   notificationCenter,
   packageSettingsStatus,
+  photoPresets,
+  photoPresetStatus,
   period,
   pricingOptions = DEFAULT_PRICING,
   previewCleanup,
@@ -54,6 +58,7 @@ export function DashboardScreen({
   startNewSession,
   total,
   type,
+  updatePhotoPreset,
   withAdminMediaToken,
   whatsAppTemplateStatus,
   whatsAppTemplates,
@@ -89,7 +94,11 @@ export function DashboardScreen({
       return (
         <SettingsPanel
           cleanupPreview={cleanupPreview}
+          createPhotoPreset={createPhotoPreset}
+          deletePhotoPreset={deletePhotoPreset}
           packageSettingsStatus={packageSettingsStatus}
+          photoPresets={photoPresets}
+          photoPresetStatus={photoPresetStatus}
           previewCleanup={previewCleanup}
           pricingOptions={pricingOptions}
           retentionSettings={retentionSettings}
@@ -101,6 +110,7 @@ export function DashboardScreen({
           setRetentionSettings={setRetentionSettings}
           setType={setType}
           type={type}
+          updatePhotoPreset={updatePhotoPreset}
           whatsAppTemplateStatus={whatsAppTemplateStatus}
           whatsAppTemplates={whatsAppTemplates}
           watermarkSettings={watermarkSettings}
@@ -134,6 +144,7 @@ export function DashboardScreen({
         isUploading={isUploading}
         liveOps={liveOps}
         pricingOptions={pricingOptions}
+        photoPresets={photoPresets}
         setNotice={setNotice}
         setType={setType}
         startNewSession={startNewSession}

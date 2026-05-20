@@ -47,16 +47,16 @@ export function normalizePricingOptions(value) {
   for (const [key, option] of entries) {
     const safeKey = String(key || '').trim();
     if (!safeKey) continue;
-    const unit = positiveNumber(option?.unit, 15);
-    const bulk = positiveNumber(option?.bulk, unit);
-    const threshold = Math.max(1, Math.round(positiveNumber(option?.threshold, 1)));
-    const label = String(option?.label || option?.shortLabel || safeKey).trim();
-    const shortLabel = String(option?.shortLabel || label).trim();
+    const unit = positiveNumber(option.unit, 15);
+    const bulk = positiveNumber(option.bulk, unit);
+    const threshold = Math.max(1, Math.round(positiveNumber(option.threshold, 1)));
+    const label = String(option.label || option.shortLabel || safeKey).trim();
+    const shortLabel = String(option.shortLabel || label).trim();
     normalized[safeKey] = {
       label,
       shortLabel,
       description: String(
-        option?.description || `R$ ${unit} por foto, cai para R$ ${bulk} a partir de ${threshold} fotos.`
+        option.description || `R$ ${unit} por foto, cai para R$ ${bulk} a partir de ${threshold} fotos.`
       ).trim(),
       unit,
       bulk,

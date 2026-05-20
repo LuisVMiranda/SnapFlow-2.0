@@ -7,7 +7,7 @@ function roundMoney(value) {
 function invalidSubtotalError() {
   return new HttpError(
     400,
-    'Subtotal invalido. Revise o valor calculado da venda e tente novamente.',
+    'Subtotal inválido. Revise o valor calculado da venda e tente novamente.',
     'invalid_subtotal_amount'
   );
 }
@@ -15,7 +15,7 @@ function invalidSubtotalError() {
 function invalidDiscountError() {
   return new HttpError(
     400,
-    'Desconto invalido. Informe um valor em dinheiro maior que zero.',
+    'Desconto inválido. Informe um valor em dinheiro maior que zero.',
     'invalid_discount_amount'
   );
 }
@@ -64,7 +64,7 @@ function normalizeDiscountAmount(value, subtotal) {
   if (normalizedDiscount > normalizedSubtotal) {
     throw new HttpError(
       400,
-      'O desconto nao pode ser maior que o subtotal desta venda. Revise a quantidade de fotos ou reduza o desconto.',
+      'O desconto não pode ser maior que o subtotal desta venda. Revise a quantidade de fotos ou reduza o desconto.',
       'discount_exceeds_total',
       { subtotal: normalizedSubtotal }
     );

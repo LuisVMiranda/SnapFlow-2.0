@@ -8,13 +8,14 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
       for (const photo of photos) {
         const result = await client.query(
           `insert into photos
-            (id, session_id, share_token, original_path, thumb_path, preview_path, mime_type, size_bytes, checksum, retention_expires_at)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            (id, session_id, share_token, source_path, original_path, thumb_path, preview_path, mime_type, size_bytes, checksum, retention_expires_at, applied_preset_ids, applied_preset_snapshot, preset_applied_at)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
            returning *`,
           [
             photo.id,
             photo.sessionId || null,
             photo.shareToken || null,
+            photo.sourcePath || photo.originalPath,
             photo.originalPath,
             photo.thumbPath,
             photo.previewPath,
@@ -22,6 +23,9 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
             photo.sizeBytes,
             photo.checksum,
             photo.retentionExpiresAt || null,
+            photo.appliedPresetIds || [],
+            JSON.stringify(photo.appliedPresetSnapshot || []),
+            photo.presetAppliedAt || null,
           ]
         );
         saved.push(rowToPhoto(result.rows[0], config));
@@ -75,7 +79,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
 
   async function countPhotosForShare(shareToken) {
     const result = await query('select count(*)::int as count from photos where share_token = $1 and deleted_at is null', [shareToken]);
-    return Number(result.rows[0]?.count || 0);
+    return Number(result.rows[0].count || 0);
   }
 
   async function listPhotosForSharePage(shareToken, options = {}) {
@@ -107,7 +111,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     ]);
 
     const photos = photosResult.rows.map((row) => rowToPhoto(row, config));
-    return buildPhotoPage(photos, limit, countResult.rows[0]?.count || 0);
+    return buildPhotoPage(photos, limit, countResult.rows[0].count || 0);
   }
 
   async function deletePhotoFromShare(shareToken, photoId) {
@@ -117,6 +121,40 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
        where share_token = $1 and id = $2 and deleted_at is null
        returning *`,
       [shareToken, photoId]
+    );
+    return rowToPhoto(result.rows[0], config);
+  }
+
+  async function updatePhotoPresetState(photoId, updates = {}) {
+    const result = await query(
+      `update photos
+       set original_path = coalesce($2, original_path),
+           thumb_path = coalesce($3, thumb_path),
+           preview_path = coalesce($4, preview_path),
+           applied_preset_ids = coalesce($5, applied_preset_ids),
+           applied_preset_snapshot = coalesce($6, applied_preset_snapshot),
+           preset_applied_at = $7,
+           undo_original_path = $8,
+           undo_thumb_path = $9,
+           undo_preview_path = $10,
+           undo_preset_snapshot = $11
+       where id = $1 and deleted_at is null
+       returning *`,
+      [
+        photoId,
+        updates.originalPath || null,
+        updates.thumbPath || null,
+        updates.previewPath || null,
+        updates.appliedPresetIds || null,
+        updates.appliedPresetSnapshot === undefined ? null : JSON.stringify(updates.appliedPresetSnapshot || []),
+        updates.presetAppliedAt || null,
+        updates.undoOriginalPath ?? null,
+        updates.undoThumbPath ?? null,
+        updates.undoPreviewPath ?? null,
+        updates.undoPresetSnapshot === undefined || updates.undoPresetSnapshot === null
+          ? null
+          : JSON.stringify(updates.undoPresetSnapshot),
+      ]
     );
     return rowToPhoto(result.rows[0], config);
   }
@@ -142,6 +180,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     listPhotosForSharePage,
     listPhotosForSession,
     listPhotosForShare,
+    updatePhotoPresetState,
   };
 }
 

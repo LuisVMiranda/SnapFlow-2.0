@@ -26,7 +26,7 @@ function splitStoredPhone(value, fallbackCountryCode = DEFAULT_COUNTRY_CODE) {
     };
   }
 
-  const explicitMatch = raw.match(/^\+?(\d{1,4})[\s/-]+(.+)$/);
+  const explicitMatch = raw.match(/^\+(\d{1,4})[\s/-]+(.+)$/);
   if (explicitMatch) {
     const countryCode = normalizeCountryCode(explicitMatch[1], fallbackCountryCode);
     const localNumber = digitsOnly(explicitMatch[2]).slice(0, 14);
@@ -37,7 +37,7 @@ function splitStoredPhone(value, fallbackCountryCode = DEFAULT_COUNTRY_CODE) {
     };
   }
 
-  const countryOnlyMatch = raw.match(/^\+?(\d{1,4})$/);
+  const countryOnlyMatch = raw.match(/^\+(\d{1,4})$/);
   if (countryOnlyMatch) {
     const countryCode = normalizeCountryCode(countryOnlyMatch[1], fallbackCountryCode);
     return {
@@ -93,7 +93,7 @@ function validateClientPhone(phone) {
     return {
       valid: false,
       code: 'phone_invalid_country_code',
-      message: 'Informe um DDI valido com ate 4 digitos. Exemplo: 55 para Brasil ou 54 para Argentina.',
+      message: 'Informe um DDI válido com até 4 dígitos. Exemplo: 55 para Brasil ou 54 para Argentina.',
     };
   }
 
@@ -102,7 +102,7 @@ function validateClientPhone(phone) {
       return {
         valid: false,
         code: 'phone_invalid_length',
-        message: 'Para o Brasil, informe DDD + numero com 10 ou 11 digitos. Exemplo: 21975191926.',
+        message: 'Para o Brasil, informe DDD + número com 10 ou 11 dígitos. Exemplo: 21975191926.',
       };
     }
     const ddd = Number(localNumber.slice(0, 2));
@@ -110,21 +110,21 @@ function validateClientPhone(phone) {
       return {
         valid: false,
         code: 'phone_invalid_ddd',
-        message: 'Informe um DDD brasileiro valido. Exemplo: 21 97519-1926.',
+        message: 'Informe um DDD brasileiro válido. Exemplo: 21 97519-1926.',
       };
     }
     if (localNumber.length === 11 && localNumber[2] !== '9') {
       return {
         valid: false,
         code: 'phone_invalid_mobile',
-        message: 'Celulares brasileiros com 11 digitos devem ter 9 logo apos o DDD. Confira o numero antes de enviar pelo WhatsApp.',
+        message: 'Celulares brasileiros com 11 dígitos devem ter 9 logo após o DDD. Confira o número antes de enviar pelo WhatsApp.',
       };
     }
   } else if (localNumber.length < 6 || localNumber.length > 14) {
     return {
       valid: false,
       code: 'phone_invalid_length',
-      message: 'Para numeros internacionais, informe entre 6 e 14 digitos no numero local alem do DDI.',
+      message: 'Para números internacionais, informe entre 6 e 14 dígitos no número local além do DDI.',
     };
   }
 
@@ -133,7 +133,7 @@ function validateClientPhone(phone) {
     return {
       valid: false,
       code: 'phone_invalid_length',
-      message: 'O WhatsApp aceita ate 15 digitos somando DDI e numero. Revise os campos e tente novamente.',
+      message: 'O WhatsApp aceita até 15 dígitos somando DDI e número. Revise os campos e tente novamente.',
     };
   }
 

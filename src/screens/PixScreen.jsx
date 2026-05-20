@@ -127,7 +127,7 @@ export function PixScreen({
               margin: 0,
             }}
             onClick={() => {
-              if (confirm('Deseja realmente cancelar este pagamento? O cliente terá que gerar um novo QR Code.')) {
+              if (confirm('Deseja realmente cancelar este pagamento O cliente terá que gerar um novo QR Code.')) {
                 setQrCodeBase64('');
                 setPixCopyPaste('');
                 setScreen('summary');

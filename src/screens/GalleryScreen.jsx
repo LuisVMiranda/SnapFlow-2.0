@@ -37,10 +37,10 @@ export function GalleryScreen({
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
   const packageNudge = buildPackageNudge(count, type, pricingOptions);
-  const hasMorePhotos = Boolean(shareToken && photosPage?.hasMore);
-  const loadedCount = photoPageCounts?.loadedCount ?? photos.length;
-  const totalPhotoCount = photoPageCounts?.totalCount ?? photos.length;
-  const selectedLoadedCount = photoPageCounts?.selectedLoadedCount ?? selected.length;
+  const hasMorePhotos = Boolean(shareToken && photosPage.hasMore);
+  const loadedCount = photoPageCounts.loadedCount ?? photos.length;
+  const totalPhotoCount = photoPageCounts.totalCount ?? photos.length;
+  const selectedLoadedCount = photoPageCounts.selectedLoadedCount ?? selected.length;
   const manualPaymentNotice = shareToken
     ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
     : undefined;
@@ -52,7 +52,7 @@ export function GalleryScreen({
           <button
             className="back-btn"
             onClick={() => {
-              if (confirm('Deseja realmente cancelar esta sessão? Todas as fotos selecionadas serão perdidas.')) {
+              if (confirm('Deseja realmente cancelar esta sessão Todas as fotos selecionadas serão perdidas.')) {
                 resetSession();
                 setScreen('dashboard');
               }
@@ -62,7 +62,7 @@ export function GalleryScreen({
             Cancelar
           </button>
         ) : null}
-        {shareToken && shareSessionInfo?.expiresAt ? (
+        {shareToken && shareSessionInfo.expiresAt ? (
           <div style={{ marginLeft: 'auto' }}>
             <ShareCountdown isoDate={shareSessionInfo.expiresAt} />
           </div>

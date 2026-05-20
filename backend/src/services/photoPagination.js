@@ -11,8 +11,8 @@ function normalizePhotoPageLimit(input) {
 }
 
 function normalizeCursorPayload(payload) {
-  const createdAt = payload?.createdAt || payload?.[0];
-  const id = payload?.id || payload?.[1];
+  const createdAt = payload.createdAt || payload?.[0];
+  const id = payload.id || payload?.[1];
   const date = new Date(createdAt);
   if (!createdAt || Number.isNaN(date.getTime()) || !String(id || '').trim()) {
     throw new Error('invalid cursor payload');

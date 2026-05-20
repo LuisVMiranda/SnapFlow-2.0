@@ -31,7 +31,7 @@ describe('changedCredentialDrafts properties', () => {
           const drafts = Object.fromEntries(
             credentials.map((credential) => [
               credential.key,
-              randomDrafts[credential.key] ?? (credential.sensitive ? '' : credential.maskedValue),
+              randomDrafts[credential.key] ? (credential.sensitive ? '' : credential.maskedValue) : '',
             ])
           );
 

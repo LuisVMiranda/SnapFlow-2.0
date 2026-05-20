@@ -4,6 +4,9 @@ export function detectShareToken() {
   const pathnameMatch = window.location.pathname.match(/^\/s\/([^/]+)/);
   if (pathnameMatch?.[1]) return pathnameMatch[1];
 
+  const legacyPathMatch = window.location.pathname.match(/^\/share=([^/]+)/);
+  if (legacyPathMatch?.[1]) return legacyPathMatch[1];
+
   const params = new URLSearchParams(window.location.search);
   return params.get('share') || '';
 }
@@ -21,6 +24,6 @@ export function buildShareWhatsAppMessage(link, code) {
     `Acessar galeria privada: ${link}`,
     `Código: ${code}`,
     'Acesso temporário com expiração automática.',
-    'Acesse pelo navegador para escolher suas fotos com seguranca.',
+    'Acesse pelo navegador para escolher suas fotos com segurança.',
   ].join('\n');
 }

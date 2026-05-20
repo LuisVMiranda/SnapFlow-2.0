@@ -37,7 +37,9 @@ test('media service processes small PNG uploads without watermark dimension fail
   ]);
 
   assert.equal(photo.mimeType, 'image/jpeg');
+  assert.ok(photo.sourcePath.startsWith('sources/'));
   assert.ok(photo.originalPath.startsWith('originals/'));
+  await assert.doesNotReject(fs.access(path.join(root, photo.sourcePath)));
   await assert.doesNotReject(fs.access(path.join(root, photo.previewPath)));
 });
 
@@ -131,6 +133,49 @@ test('media service can run lightweight auto enhance during upload', async () =>
   } finally {
     console.log = originalLog;
   }
+});
+
+test('media service stores applied photo preset metadata during upload', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-preset-'));
+  const input = path.join(root, 'preset.png');
+  await sharp({
+    create: {
+      width: 320,
+      height: 240,
+      channels: 3,
+      background: '#777777',
+    },
+  }).png().toFile(input);
+
+  const media = createMediaService({
+    storageRoot: root,
+    maxUploadMb: 25,
+    maxFilesPerUpload: 100,
+    publicBaseUrl: 'http://localhost:5174',
+    autoEnhanceEnabled: false,
+  });
+
+  const presetStack = [{
+    id: 'evento-interno',
+    name: 'Evento interno',
+    settings: {
+      brightness: 1.08,
+      contrast: 1.12,
+      saturation: 1.05,
+      sharpen: 1,
+      jpegQuality: 90,
+    },
+  }];
+
+  const [photo] = await media.processUploadedFiles([
+    { path: input, originalname: 'preset.png', mimetype: 'image/png' },
+  ], null, { presetStack });
+
+  assert.deepEqual(photo.appliedPresetIds, ['evento-interno']);
+  assert.deepEqual(photo.appliedPresetSnapshot, presetStack);
+  assert.ok(photo.presetAppliedAt);
+  await assert.doesNotReject(fs.access(path.join(root, photo.sourcePath)));
+  await assert.doesNotReject(fs.access(path.join(root, photo.originalPath)));
 });
 
 test('adaptive auto enhance protects dark photos from heavy contrast', () => {

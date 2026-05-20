@@ -4,6 +4,7 @@ const path = require('path');
 const sharp = require('sharp');
 const { randomToken } = require('../tokens');
 const { HttpError } = require('../errors');
+const { applyPhotoEditingStack, jpegQualityForPresetStack } = require('./photoEditingPresetService');
 const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
@@ -105,9 +106,9 @@ function autoEnhancePreset(level = 'balanced') {
 function luminanceFromStats(stats) {
   const channels = stats?.channels || [];
   if (channels.length < 3) return null;
-  const red = Number(channels[0]?.mean);
-  const green = Number(channels[1]?.mean);
-  const blue = Number(channels[2]?.mean);
+  const red = Number(channels[0].mean);
+  const green = Number(channels[1].mean);
+  const blue = Number(channels[2].mean);
   if (![red, green, blue].every(Number.isFinite)) return null;
   return (red * 0.2126) + (green * 0.7152) + (blue * 0.0722);
 }
@@ -167,9 +168,11 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 function createMediaService(config, { watermarkSettings } = {}) {
   const dirs = {
     originals: path.join(config.storageRoot, 'originals'),
+    sources: path.join(config.storageRoot, 'sources'),
     thumbs: path.join(config.storageRoot, 'thumbs'),
     previews: path.join(config.storageRoot, 'previews'),
     temp: path.join(config.storageRoot, 'tmp'),
+    undo: path.join(config.storageRoot, 'undo'),
     archive: path.join(config.storageRoot, 'archive'),
   };
 
@@ -206,31 +209,107 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return normalizeWatermarkSettings(await watermarkSettings.getSettings());
   }
 
-  async function processUploadedFile(file, retentionExpiresAt = null) {
+  function presetUndoRel(kind, photoId) {
+    return `undo/${kind}/${photoId}-${randomToken(8)}.jpg`;
+  }
+
+  async function copyRelativeFile(fromRel, toRel) {
+    const fromAbs = absolutePath(fromRel);
+    const toAbs = absolutePath(toRel);
+    await fs.mkdir(path.dirname(toAbs), { recursive: true });
+    await fs.copyFile(fromAbs, toAbs);
+    return toRel;
+  }
+
+  async function replaceRelativeFile(fromRel, toRel) {
+    await copyRelativeFile(fromRel, toRel);
+    await fs.unlink(absolutePath(fromRel)).catch(() => {});
+  }
+
+  async function unlinkRelativeFile(relativePath) {
+    if (!relativePath) return;
+    await fs.unlink(absolutePath(relativePath)).catch(() => {});
+  }
+
+  function appliedPresetIds(presetStack = []) {
+    return presetStack.map((preset) => preset.id).filter(Boolean);
+  }
+
+  async function buildProcessedVariantsFromSource(photo, presetStack = []) {
+    const sourceRel = photo.sourcePath || photo.originalPath;
+    if (!sourceRel) {
+      throw new HttpError(400, 'Esta foto não possui arquivo de origem para reprocessamento. Reenvie a imagem na galeria e tente novamente.', 'photo_source_missing');
+    }
+
+    const sourceIsPristine = Boolean(photo.sourcePath && photo.sourcePath !== photo.originalPath);
+    const enhanceLevel = config.autoEnhanceLevel || 'balanced';
+    const toneStats = config.autoEnhanceEnabled && sourceIsPristine ? await imageToneStats(absolutePath(sourceRel)) : null;
+    const enhancePreset = adaptiveAutoEnhancePreset(enhanceLevel, toneStats);
+    const rotated = sharp(absolutePath(sourceRel), { sequentialRead: true }).rotate();
+    let basePipeline = config.autoEnhanceEnabled && sourceIsPristine ? applyAutoEnhance(rotated.clone(), enhancePreset) : rotated.clone();
+    if (presetStack.length) basePipeline = applyPhotoEditingStack(basePipeline, presetStack);
+
+    const watermark = await currentWatermarkSettings();
+    const qualityFallback = config.autoEnhanceEnabled && sourceIsPristine ? enhancePreset.jpegQuality : 94;
+    const originalQuality = jpegQualityForPresetStack(presetStack, qualityFallback);
+    const tempSuffix = `${photo.id}-${randomToken(8)}`;
+    const nextOriginalRel = `tmp/${tempSuffix}-original.jpg`;
+    const nextThumbRel = `tmp/${tempSuffix}-thumb.jpg`;
+    const nextPreviewRel = `tmp/${tempSuffix}-preview.jpg`;
+
+    await Promise.all([
+      basePipeline.clone()
+        .jpeg({ quality: originalQuality, mozjpeg: true })
+        .toFile(absolutePath(nextOriginalRel)),
+      basePipeline.clone()
+        .resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 78, mozjpeg: true })
+        .toFile(absolutePath(nextThumbRel)),
+      basePipeline.clone()
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .toBuffer({ resolveWithObject: true })
+        .then((preview) => sharp(preview.data)
+          .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+          .jpeg({ quality: 72, mozjpeg: true })
+          .toFile(absolutePath(nextPreviewRel))),
+    ]);
+
+    return { nextOriginalRel, nextThumbRel, nextPreviewRel };
+  }
+
+  async function processUploadedFile(file, retentionExpiresAt = null, options = {}) {
     validateUploadFile(file);
     const id = `photo_${randomToken(12)}`;
+    const sourceRel = `sources/${id}.jpg`;
     const originalRel = `originals/${id}.jpg`;
     const thumbRel = `thumbs/${id}.jpg`;
     const previewRel = `previews/${id}.jpg`;
+    const sourceAbs = absolutePath(sourceRel);
     const originalAbs = absolutePath(originalRel);
     const thumbAbs = absolutePath(thumbRel);
     const previewAbs = absolutePath(previewRel);
 
     try {
+      const presetStack = Array.isArray(options.presetStack) ? options.presetStack : [];
       const enhanceLevel = config.autoEnhanceLevel || 'balanced';
       const toneStats = config.autoEnhanceEnabled ? await imageToneStats(file.path) : null;
       const enhancePreset = adaptiveAutoEnhancePreset(enhanceLevel, toneStats);
       const rotated = sharp(file.path, { sequentialRead: true }).rotate();
-      const basePipeline = config.autoEnhanceEnabled ? applyAutoEnhance(rotated, enhancePreset) : rotated;
+      let basePipeline = config.autoEnhanceEnabled ? applyAutoEnhance(rotated.clone(), enhancePreset) : rotated.clone();
+      if (presetStack.length) basePipeline = applyPhotoEditingStack(basePipeline, presetStack);
       if (config.autoEnhanceEnabled) {
         const luminance = Number.isFinite(enhancePreset.luminance) ? ` luminance=${Math.round(enhancePreset.luminance)}` : '';
         console.log(`[AUTO_ENHANCE] Processing image ${file.originalname || id} with ${enhancePreset.mode || enhanceLevel} preset...${luminance}`);
       }
       const watermark = await currentWatermarkSettings();
+      const originalQuality = jpegQualityForPresetStack(presetStack, config.autoEnhanceEnabled ? enhancePreset.jpegQuality : 94);
 
       await Promise.all([
+        rotated.clone()
+          .jpeg({ quality: 96, mozjpeg: true })
+          .toFile(sourceAbs),
         basePipeline.clone()
-          .jpeg({ quality: config.autoEnhanceEnabled ? enhancePreset.jpegQuality : 94, mozjpeg: true })
+          .jpeg({ quality: originalQuality, mozjpeg: true })
           .toFile(originalAbs),
         basePipeline.clone()
           .resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true })
@@ -248,6 +327,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
       const stat = await fs.stat(originalAbs);
       return {
         id,
+        sourcePath: sourceRel,
         originalPath: originalRel,
         thumbPath: thumbRel,
         previewPath: previewRel,
@@ -255,9 +335,12 @@ function createMediaService(config, { watermarkSettings } = {}) {
         sizeBytes: stat.size,
         checksum: await checksumFile(originalAbs),
         retentionExpiresAt,
+        appliedPresetIds: presetStack.map((preset) => preset.id).filter(Boolean),
+        appliedPresetSnapshot: presetStack,
+        presetAppliedAt: presetStack.length ? new Date().toISOString() : null,
       };
     } catch (error) {
-      await Promise.all([originalAbs, thumbAbs, previewAbs].map((target) => fs.unlink(target).catch(() => {})));
+      await Promise.all([sourceAbs, originalAbs, thumbAbs, previewAbs].map((target) => fs.unlink(target).catch(() => {})));
       throw new HttpError(
         400,
           `Não foi possível processar "${file.originalname}". Confirme que a foto é um JPG, PNG, WebP ou HEIC válido.`,
@@ -269,11 +352,90 @@ function createMediaService(config, { watermarkSettings } = {}) {
     }
   }
 
-  async function processUploadedFiles(files, retentionExpiresAt = null) {
+  async function processUploadedFiles(files, retentionExpiresAt = null, options = {}) {
     await ensureStorage();
     const uploadFiles = files || [];
     uploadFiles.forEach(validateUploadFile);
-    return mapWithConcurrency(uploadFiles, config.uploadProcessingConcurrency || 3, (file) => processUploadedFile(file, retentionExpiresAt));
+    return mapWithConcurrency(uploadFiles, config.uploadProcessingConcurrency || 3, (file) => processUploadedFile(file, retentionExpiresAt, options));
+  }
+
+  async function reprocessPhotoWithPresets(photo, presetStack = []) {
+    await ensureStorage();
+    const undoOriginalPath = presetUndoRel('originals', photo.id);
+    const undoThumbPath = presetUndoRel('thumbs', photo.id);
+    const undoPreviewPath = presetUndoRel('previews', photo.id);
+    const tempPaths = [];
+    try {
+      await Promise.all([
+        copyRelativeFile(photo.originalPath, undoOriginalPath),
+        copyRelativeFile(photo.thumbPath, undoThumbPath),
+        copyRelativeFile(photo.previewPath, undoPreviewPath),
+      ]);
+
+      const variants = await buildProcessedVariantsFromSource(photo, presetStack);
+      tempPaths.push(variants.nextOriginalRel, variants.nextThumbRel, variants.nextPreviewRel);
+      await Promise.all([
+        replaceRelativeFile(variants.nextOriginalRel, photo.originalPath),
+        replaceRelativeFile(variants.nextThumbRel, photo.thumbPath),
+        replaceRelativeFile(variants.nextPreviewRel, photo.previewPath),
+      ]);
+
+      await Promise.all([
+        unlinkRelativeFile(photo.undoOriginalPath),
+        unlinkRelativeFile(photo.undoThumbPath),
+        unlinkRelativeFile(photo.undoPreviewPath),
+      ]);
+
+      return {
+        originalPath: photo.originalPath,
+        thumbPath: photo.thumbPath,
+        previewPath: photo.previewPath,
+        appliedPresetIds: appliedPresetIds(presetStack),
+        appliedPresetSnapshot: presetStack,
+        presetAppliedAt: new Date().toISOString(),
+        undoOriginalPath,
+        undoThumbPath,
+        undoPreviewPath,
+        undoPresetSnapshot: photo.appliedPresetSnapshot || [],
+      };
+    } catch (error) {
+      await Promise.all([
+        ...tempPaths.map((relativePath) => unlinkRelativeFile(relativePath)),
+        unlinkRelativeFile(undoOriginalPath),
+        unlinkRelativeFile(undoThumbPath),
+        unlinkRelativeFile(undoPreviewPath),
+      ]);
+      throw new HttpError(400, `Não foi possível reaplicar presets na foto "${photo.id}". Confirme que os arquivos locais da galeria ainda existem e tente novamente.`, 'photo_preset_apply_failed', { photoId: photo.id, reason: error.message });
+    }
+  }
+
+  async function restorePhotoPresetUndo(photo) {
+    await ensureStorage();
+    if (!photo.undoOriginalPath || !photo.undoThumbPath || !photo.undoPreviewPath) {
+      throw new HttpError(409, 'Esta foto não possui uma versao anterior para desfazer. Reaplique o preset desejado na galeria.', 'photo_preset_undo_missing');
+    }
+    try {
+      await Promise.all([
+        replaceRelativeFile(photo.undoOriginalPath, photo.originalPath),
+        replaceRelativeFile(photo.undoThumbPath, photo.thumbPath),
+        replaceRelativeFile(photo.undoPreviewPath, photo.previewPath),
+      ]);
+      const previousStack = Array.isArray(photo.undoPresetSnapshot) ? photo.undoPresetSnapshot : [];
+      return {
+        originalPath: photo.originalPath,
+        thumbPath: photo.thumbPath,
+        previewPath: photo.previewPath,
+        appliedPresetIds: appliedPresetIds(previousStack),
+        appliedPresetSnapshot: previousStack,
+        presetAppliedAt: previousStack.length ? new Date().toISOString() : null,
+        undoOriginalPath: null,
+        undoThumbPath: null,
+        undoPreviewPath: null,
+        undoPresetSnapshot: null,
+      };
+    } catch (error) {
+      throw new HttpError(400, `Não foi possível desfazer o preset da foto "${photo.id}". Confirme que os arquivos de desfazer ainda existem no armazenamento local.`, 'photo_preset_undo_failed', { photoId: photo.id, reason: error.message });
+    }
   }
 
   async function sendFile(res, photo, variant) {
@@ -292,7 +454,15 @@ function createMediaService(config, { watermarkSettings } = {}) {
   }
 
   async function removeOrArchive(photo, archive = false) {
-    const paths = [photo.originalPath, photo.thumbPath, photo.previewPath].filter(Boolean);
+    const paths = [...new Set([
+      photo.sourcePath,
+      photo.originalPath,
+      photo.thumbPath,
+      photo.previewPath,
+      photo.undoOriginalPath,
+      photo.undoThumbPath,
+      photo.undoPreviewPath,
+    ].filter(Boolean))];
     let bytes = 0;
     const errors = [];
     for (const relPath of paths) {
@@ -325,6 +495,8 @@ function createMediaService(config, { watermarkSettings } = {}) {
     allowedMimeTypes: ALLOWED_MIME_TYPES,
     absolutePath,
     processUploadedFiles,
+    reprocessPhotoWithPresets,
+    restorePhotoPresetUndo,
     sendFile,
     removeOrArchive,
   };

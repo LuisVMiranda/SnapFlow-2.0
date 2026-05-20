@@ -23,8 +23,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, photo_preset_ids, photo_preset_snapshot, photo_preset_applied_at)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        returning *`,
       [
         share.token,
@@ -44,6 +44,9 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         share.expiresAt,
         share.retentionExpiresAt,
         share.link,
+        share.photoPresetIds || [],
+        JSON.stringify(share.photoPresetSnapshot || []),
+        share.photoPresetAppliedAt || null,
       ]
     );
     await attachPhotosToSession(share.photoIds, {
@@ -131,6 +134,28 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.galleryName ?? null,
         updates.galleryDescription ?? null,
         hasExpiresAt,
+      ]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true });
+  }
+
+  async function updateSharePresetState(token, updates = {}) {
+    const result = await query(
+      `update share_sessions
+       set photo_preset_ids = coalesce($2, photo_preset_ids),
+           photo_preset_snapshot = coalesce($3, photo_preset_snapshot),
+           photo_preset_applied_at = $4,
+           photo_preset_undo_snapshot = $5
+       where token = $1 and deleted_at is null
+       returning *`,
+      [
+        token,
+        updates.photoPresetIds || null,
+        updates.photoPresetSnapshot === undefined ? null : JSON.stringify(updates.photoPresetSnapshot || []),
+        updates.photoPresetAppliedAt || null,
+        updates.photoPresetUndoSnapshot === undefined || updates.photoPresetUndoSnapshot === null
+          ? null
+          : JSON.stringify(updates.photoPresetUndoSnapshot),
       ]
     );
     return rowToShare(result.rows[0], { includeAccessCode: true });
@@ -229,7 +254,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   }
 
   async function findShareWithMatchingMetadata(share) {
-    if (!share?.accessCode) return null;
+    if (!share.accessCode) return null;
     const result = await query(
       `select ss.*
        from share_sessions ss
@@ -250,7 +275,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   }
 
   async function deleteDetachedShareDuplicates(share) {
-    if (!share?.accessCode) return [];
+    if (!share.accessCode) return [];
     const result = await query(
       `update share_sessions ss
        set deleted_at = coalesce(deleted_at, now())
@@ -290,7 +315,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
 
   async function getShareCart(token) {
     const result = await query('select photo_ids from share_carts where share_token = $1', [token]);
-    const photoIds = result.rows[0]?.photo_ids;
+    const photoIds = result.rows[0].photo_ids;
     return Array.isArray(photoIds) ? photoIds.map(String).filter(Boolean) : [];
   }
 
@@ -304,7 +329,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
        returning photo_ids`,
       [token, JSON.stringify(uniquePhotoIds)]
     );
-    return Array.isArray(result.rows[0]?.photo_ids) ? result.rows[0].photo_ids.map(String).filter(Boolean) : [];
+    return Array.isArray(result.rows[0].photo_ids) ? result.rows[0].photo_ids.map(String).filter(Boolean) : [];
   }
 
   async function extendShareSession(token, minutes) {
@@ -350,6 +375,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     revokeShareSession,
     saveShareCart,
     updateShareSession,
+    updateSharePresetState,
   };
 }
 

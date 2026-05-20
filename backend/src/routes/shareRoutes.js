@@ -100,7 +100,7 @@ function createShareRouter({ packages, payment, repos, watermark }) {
       }
       await repos.markShareAccessGranted(share.token);
       await recordConversion(repos, { type: 'share_unlocked', shareToken: share.token, photoCount: share.photoCount });
-      const { items, page } = await repos.listPhotosForSharePage(share.token, { limit: req.body?.limit });
+      const { items, page } = await repos.listPhotosForSharePage(share.token, { limit: req.body.limit });
       const customerAccessToken = issueCustomerAccessToken(share.token);
       const cartPhotoIds = typeof repos.getShareCart === 'function' ? await repos.getShareCart(share.token) : [];
       res.json({
@@ -146,8 +146,8 @@ function createShareRouter({ packages, payment, repos, watermark }) {
           throw new HttpError(403, 'Uma ou mais fotos não pertencem a esta galeria. Atualize a página e selecione as fotos novamente.', 'photo_share_mismatch');
         }
       }
-      const cartPhotoIds = typeof repos.saveShareCart === 'function'
-        ? await repos.saveShareCart(share.token, requestedPhotoIds)
+  const cartPhotoIds = typeof repos.saveShareCart === 'function'
+    ? await repos.saveShareCart(share.token, requestedPhotoIds)
         : requestedPhotoIds;
       await recordConversion(repos, { type: 'cart_saved', shareToken: share.token, photoCount: cartPhotoIds.length });
       res.json({ cartPhotoIds, updatedAt: new Date().toISOString() });

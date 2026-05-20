@@ -116,9 +116,9 @@ export function SalesStatsPanel({
         setNotice(buildApiErrorMessage('Não foi possível reenfileirar o envio.', response, data));
         return;
       }
-      if (data.session?.deliveryStatus === 'failed') {
+      if (data.session.deliveryStatus === 'failed') {
         setNotice(`Envio falhou novamente: ${deliveryFailureHint(data.session.deliveryError)}`);
-      } else if (data.session?.deliveryStatus === 'sent') {
+      } else if (data.session.deliveryStatus === 'sent') {
         setNotice('Fotos reenviadas com sucesso.');
       } else {
         setNotice('Entrega reenfileirada. Deixe o WhatsApp pareado e aberto para concluir o envio.');
@@ -130,7 +130,7 @@ export function SalesStatsPanel({
   };
 
   const clearStats = async () => {
-    if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas? As galerias compartilhadas continuarão na aba Galerias.')) return;
+    if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas As galerias compartilhadas continuarão na aba Galerias.')) return;
     if (!window.confirm('Confirme novamente: esta ação apaga as sessões de venda do painel.')) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/stats/clear`, {
@@ -151,7 +151,7 @@ export function SalesStatsPanel({
 
   const cancelRelease = async (targetSessionId) => {
     if (!targetSessionId) return;
-    if (!window.confirm('Cancelar a liberação desta venda? O cliente não receberá as fotos por esta solicitação.')) return;
+    if (!window.confirm('Cancelar a liberação desta venda O cliente não receberá as fotos por esta solicitação.')) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/cancel-release`, {
         method: 'POST',

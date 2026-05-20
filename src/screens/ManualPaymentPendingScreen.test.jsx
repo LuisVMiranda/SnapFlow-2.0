@@ -23,7 +23,7 @@ describe('ManualPaymentPendingScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Abrir aprovação no painel' }));
 
-    expect(open).toHaveBeenCalledWith('http://localhost:3000/?adminApproval=session_123', '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith('http://localhost:3000/adminApproval=session_123', '_blank', 'noopener,noreferrer');
     open.mockRestore();
   });
 

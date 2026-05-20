@@ -78,14 +78,14 @@ describe('SharedLinksPanel', () => {
 
     render(<SharedLinksPanel {...baseProps} />);
     await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
-    expect(screen.getAllByText(/0 foto\(s\) vendidas at./i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Este nome alimenta o par.metro \{name\}/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/0 foto\(s\) vendidas até agora/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('Este nome alimenta o parâmetro {name} nos modelos de WhatsApp.')).toBeInTheDocument();
     await user.clear(screen.getByLabelText('Nome da galeria'));
     await user.type(screen.getByLabelText('Nome da galeria'), 'Casamento Centro');
-    await user.clear(screen.getByLabelText(/Descri..o da galeria/i));
-    await user.type(screen.getByLabelText(/Descri..o da galeria/i), 'Entrega revisada');
-    await user.clear(screen.getByLabelText(/C.digo de acesso/i));
-    await user.type(screen.getByLabelText(/C.digo de acesso/i), 'ab12');
+    await user.clear(screen.getByLabelText('Descrição da galeria'));
+    await user.type(screen.getByLabelText('Descrição da galeria'), 'Entrega revisada');
+    await user.clear(screen.getByLabelText('Código de acesso'));
+    await user.type(screen.getByLabelText('Código de acesso'), 'ab12');
     await user.clear(screen.getByLabelText('Cliente'));
     await user.type(screen.getByLabelText('Cliente'), 'Bruna Compradora');
     await user.clear(screen.getByLabelText('Subtotal base'));
@@ -181,13 +181,13 @@ describe('SharedLinksPanel', () => {
     render(
       <SharedLinksPanel
         {...baseProps}
-        withAdminMediaToken={(url) => `${url}?admin_token=admin123`}
+        withAdminMediaToken={(url) => `${url}admin_token=admin123`}
       />
     );
     await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
 
     const preview = await screen.findByAltText('Foto 1');
-    expect(preview).toHaveAttribute('src', '/api/media/photo_1/thumb?admin_token=admin123');
+    expect(preview).toHaveAttribute('src', '/api/media/photo_1/thumbadmin_token=admin123');
     expect(globalThis.fetch).toHaveBeenCalledWith(
       '/api/admin/share-sessions/old-token',
       expect.objectContaining({ headers: baseProps.adminHeaders() })
@@ -197,7 +197,7 @@ describe('SharedLinksPanel', () => {
   it('loads additional admin gallery photos without replacing existing previews', async () => {
     const user = userEvent.setup();
     globalThis.fetch = vi.fn(async (url) => {
-      if (String(url).includes('/photos?')) {
+      if (String(url).includes('/photos')) {
         return new Response(JSON.stringify({
           photos: [{ id: 'photo_2', url: '/api/media/photo_2/preview', thumbUrl: '/api/media/photo_2/thumb' }],
           photosPage: { hasMore: false, nextCursor: null, totalCount: 2 },
@@ -285,7 +285,7 @@ describe('SharedLinksPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Deletar' }));
 
     expect(window.confirm).toHaveBeenCalledWith(
-      'Deseja deletar esta galeria da lista? Os arquivos continuarão sob a política de retenção.'
+      'Deseja deletar esta galeria da lista Os arquivos continuarão sob a política de retenção.'
     );
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/share-sessions/old-token', expect.objectContaining({ method: 'DELETE' }));
     await waitFor(() => expect(baseProps.fetchDashboard).toHaveBeenCalled());
@@ -310,5 +310,63 @@ describe('SharedLinksPanel', () => {
     );
 
     expect(screen.getByText(/3 foto\(s\) vendidas até agora em 2 pedido\(s\) - R\$\s*45,00/i)).toBeInTheDocument();
+  });
+
+  it('reapplies and can undo gallery photo presets from the editor', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    globalThis.fetch = vi.fn(async (url, options = {}) => {
+      if (String(url).endsWith('/photo-presets') && options.method === 'POST') {
+        return new Response(JSON.stringify({ changedPhotoCount: 2 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (String(url).endsWith('/photo-presets/undo')) {
+        return new Response(JSON.stringify({ changedPhotoCount: 2 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({
+        token: 'old-token',
+        photoPresetIds: [],
+        photoPresetSnapshot: [],
+        photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    render(
+      <SharedLinksPanel
+        {...baseProps}
+        photoPresets={[{ id: 'soft', name: 'Suave', settings: { brightness: 1.1 } }]}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    await user.click(await screen.findByLabelText('Suave'));
+
+    expect(await screen.findByAltText('Prévia da primeira foto da galeria')).toHaveAttribute(
+      'src',
+      '/api/media/photo_1/preview'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Reaplicar preset' }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/photo-presets',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"presetIds":["soft"]'),
+      })
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Desfazer reaplicação' }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/photo-presets/undo',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });

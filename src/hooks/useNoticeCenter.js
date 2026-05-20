@@ -80,7 +80,7 @@ export function useNoticeCenter() {
 
   useEffect(() => {
     if (!activeNotice) return undefined;
-    const timer = setTimeout(() => setActiveNotice((current) => (current?.id === activeNotice.id ? null : current)), 5000);
+    const timer = setTimeout(() => setActiveNotice((current) => (current.id === activeNotice.id ? null : current)), 5000);
     return () => clearTimeout(timer);
   }, [activeNotice]);
 

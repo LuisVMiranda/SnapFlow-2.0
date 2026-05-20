@@ -26,7 +26,7 @@ function createAuth(config) {
 
   function attemptKey(req) {
     const forwarded = req.get('x-forwarded-for') || '';
-    return forwarded.split(',')[0].trim() || req.ip || req.socket?.remoteAddress || 'unknown';
+    return forwarded.split(',')[0].trim() || req.ip || req.socket.remoteAddress || 'unknown';
   }
 
   function currentAttemptState(key, now) {
@@ -102,7 +102,7 @@ function createAuth(config) {
       attempts.delete(key);
       next();
     } catch (error) {
-      if (error?.code === 'admin_locked' && error.details?.retryAfterSeconds) {
+      if (error.code === 'admin_locked' && error.details.retryAfterSeconds) {
         res.set('Retry-After', String(error.details.retryAfterSeconds));
       }
       next(error);

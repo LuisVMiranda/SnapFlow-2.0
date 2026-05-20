@@ -107,7 +107,7 @@ export function PackageSettingsModal({
                 <input value={option.shortLabel} onChange={(event) => updatePackage(key, 'shortLabel', event.target.value)} />
               </label>
               <label>
-                Descricao
+                Descrição
                 <textarea value={option.description} onChange={(event) => updatePackage(key, 'description', event.target.value)} />
               </label>
               <div className="package-number-grid">

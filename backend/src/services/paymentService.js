@@ -35,15 +35,15 @@ function webhookSignatureTemplate(req, ts) {
 
 function createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates }) {
   async function mercadoPagoAccessToken() {
-    return (typeof credentials?.getSecretValue === 'function' ? await credentials.getSecretValue('mpAccessToken') : '') || config.mercadoPagoAccessToken;
+    return (typeof credentials.getSecretValue === 'function' ? await credentials.getSecretValue('mpAccessToken') : '') || config.mercadoPagoAccessToken;
   }
 
   async function mercadoPagoWebhookSecret() {
-    return (typeof credentials?.getSecretValue === 'function' ? await credentials.getSecretValue('mpWebhookSecret') : '') || config.mercadoPagoWebhookSecret;
+    return (typeof credentials.getSecretValue === 'function' ? await credentials.getSecretValue('mpWebhookSecret') : '') || config.mercadoPagoWebhookSecret;
   }
 
   async function publicBaseUrl() {
-    return (typeof credentials?.getSecretValue === 'function' ? await credentials.getSecretValue('publicBaseUrl') : '') || config.publicBaseUrl;
+    return (typeof credentials.getSecretValue === 'function' ? await credentials.getSecretValue('publicBaseUrl') : '') || config.publicBaseUrl;
   }
 
   async function createPixPayment(payload) {
@@ -82,7 +82,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
       payload.photoIds
     );
 
-    const pixData = response.point_of_interaction?.transaction_data || {};
+    const pixData = response.point_of_interaction.transaction_data || {};
     const baseUrl = await publicBaseUrl();
     const link = payload.shareToken ? new URL(`/s/${payload.shareToken}`, baseUrl).toString() : '';
     const whatsappMessage = whatsappTemplates
@@ -108,7 +108,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
 
   async function approvePayment(paymentId) {
     const payInfo = await createPaymentClient(await mercadoPagoAccessToken()).get({ id: paymentId });
-    const sessionId = payInfo.metadata?.session_id;
+    const sessionId = payInfo.metadata.session_id;
     await repos.recordPaymentEvent({
       providerEventId: `payment:${paymentId}:${payInfo.status}`,
       paymentId,
@@ -167,7 +167,7 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
 
   async function handleWebhook(req) {
     await verifyWebhook(req);
-    const dataId = req.query['data.id'] || req.body.data?.id || req.body.id;
+    const dataId = req.query['data.id'] || req.body.data.id || req.body.id;
     const topic = req.query.topic || req.query.type || req.body.type;
     const action = req.body.action || req.query.action;
     if ((topic === 'payment' || topic === 'payment.updated' || String(action || '').startsWith('payment.')) && dataId) {
