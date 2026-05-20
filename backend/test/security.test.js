@@ -937,6 +937,28 @@ test('admin can inspect and request WhatsApp reconnect', async () => {
   assert.equal(reconnects, 1);
 });
 
+test('admin WhatsApp status returns controlled JSON when adapter fails', async () => {
+  const app = createTestApp({
+    whatsapp: {
+      getStatus: () => {
+        throw new Error('status adapter failed');
+      },
+      reconnect: async () => {},
+      resetAuth: async () => ({ ready: false, status: 'initializing', lastError: null }),
+      sendText: async () => {},
+    },
+  });
+
+  const response = await request(app)
+    .get('/api/admin/whatsapp/status')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.ready, false);
+  assert.equal(response.body.status, 'status_failed');
+  assert.match(response.body.lastError, /status adapter failed/);
+});
+
 test('admin can reset WhatsApp local auth for re-pairing', async () => {
   let resets = 0;
   const app = createTestApp({

@@ -1,23 +1,52 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../errors');
 
+function readableError(error, fallback) {
+  if (!error) return fallback;
+  if (typeof error.message === 'string' && error.message.trim()) return error.message;
+  const text = String(error || '').trim();
+  return text || fallback;
+}
+
+function safeWhatsAppStatus(whatsapp) {
+  const unavailable = {
+    ready: false,
+    status: 'unavailable',
+    lastError: 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.',
+  };
+  if (!whatsapp || typeof whatsapp.getStatus !== 'function') return unavailable;
+  try {
+    return whatsapp.getStatus();
+  } catch (error) {
+    const message = readableError(
+      error,
+      'Não foi possível consultar o status do WhatsApp. Use Reconectar WhatsApp ou reinicie o backend se persistir.'
+    );
+    return {
+      ready: false,
+      status: 'status_failed',
+      lastError: message,
+    };
+  }
+}
+
 function createAdminOpsRouter({ auth, deliveryQueue, repos, retention, whatsapp }) {
   const router = express.Router();
 
   router.get('/whatsapp/status', auth.requireAdmin, (req, res) => {
-    res.json(whatsapp.getStatus ? whatsapp.getStatus() : { ready: false, status: 'unavailable', lastError: 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.' });
+    res.json(safeWhatsAppStatus(whatsapp));
   });
 
   router.post('/whatsapp/reconnect', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp.reconnect) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
+    if (!whatsapp || typeof whatsapp.reconnect !== 'function') throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
     whatsapp.reconnect().catch((error) => {
-      console.warn(`Reconexão manual do WhatsApp falhou: ${error.message}`);
+      console.warn(`Reconexão manual do WhatsApp falhou: ${readableError(error, 'falha desconhecida')}`);
     });
-    res.status(202).json(whatsapp.getStatus());
+    res.status(202).json(safeWhatsAppStatus(whatsapp));
   }));
 
   router.post('/whatsapp/reset-auth', auth.requireAdmin, asyncHandler(async (req, res) => {
-    if (!whatsapp.resetAuth) throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
+    if (!whatsapp || typeof whatsapp.resetAuth !== 'function') throw new HttpError(503, 'Cliente WhatsApp indisponível. Reinicie o backend e abra Vendas para parear novamente.', 'whatsapp_unavailable');
     res.status(202).json(await whatsapp.resetAuth());
   }));
 

@@ -22,12 +22,19 @@ let processGuardInstalled = false;
 const processFailureHandlers = new Set();
 
 function isTransientWhatsAppError(error) {
-  const message = String(error.message || error || '');
+  const message = errorMessage(error) || '';
   return transientWhatsAppNeedles.some((needle) => message.includes(needle));
 }
 
+function errorMessage(error) {
+  if (!error) return null;
+  if (typeof error.message === 'string' && error.message.trim()) return error.message;
+  const fallback = String(error || '').trim();
+  return fallback || null;
+}
+
 function isProfileLockedError(error) {
-  const message = String(error.message || error || '');
+  const message = errorMessage(error) || '';
   return message.includes('browser is already running') || message.includes('Use a different `userDataDir`');
 }
 
@@ -37,19 +44,20 @@ function friendlyWhatsAppError(error) {
       'O perfil local do WhatsApp ficou preso por um processo Chromium anterior. O SnapFlow vai trocar automaticamente para um novo perfil; se persistir, feche processos antigos de node/chrome ou reinicie o computador.'
     );
   }
-  if (String(error.message || error || '').includes('detached Frame')) {
+  const message = errorMessage(error) || '';
+  if (message.includes('detached Frame')) {
     return new Error(
       'WhatsApp Web saiu, recarregou ou perdeu a janela controlada pelo backend. A API continua ativa e o SnapFlow vai tentar reconectar; se aparecer QR Code em Vendas > WhatsApp de envio, escaneie novamente.'
     );
   }
-  if (!isTransientWhatsAppError(error)) return error instanceof Error ? error : new Error(String(error || 'Falha no WhatsApp.'));
+  if (!isTransientWhatsAppError(error)) return error instanceof Error ? error : new Error(message || 'Falha no WhatsApp.');
   return new Error(
     'WhatsApp Web recarregou ou perdeu o contexto controlado pelo backend. O SnapFlow vai tentar reconectar automaticamente; se persistir, use Reconectar WhatsApp no painel e escaneie o QR Code em Vendas.'
   );
 }
 
 function isWhatsAppRecoverableProcessError(error) {
-  const stack = String(error.stack || '');
+  const stack = error && error.stack ? String(error.stack) : '';
   const stackLooksWhatsApp = stack.includes('whatsapp-web.js') || stack.includes('puppeteer-core');
   return stackLooksWhatsApp && (isTransientWhatsAppError(error) || isProfileLockedError(error));
 }
@@ -127,7 +135,7 @@ function createWhatsAppClient({
       ready,
       status,
       retryAttempts,
-      lastError: lastError.message || null,
+      lastError: errorMessage(lastError),
       lastQrAt,
       lastReadyAt,
       hasQr: Boolean(latestQr && !ready),
@@ -324,7 +332,10 @@ function createWhatsAppClient({
 
   function assertReady() {
     if (!ready || !client) {
-      const detail = lastError.message ? ` Último erro: ${lastError.message}` : '';
+      const lastErrorMessage = errorMessage(lastError);
+      const detail = lastErrorMessage
+        ? ` Último erro: ${lastErrorMessage}`
+        : ' Abra Vendas > WhatsApp de envio para parear ou reconectar o WhatsApp.';
       throw new Error(`WhatsApp ainda não está pronto para envio.${detail}`);
     }
   }
