@@ -128,6 +128,8 @@ export default function App() {
     updatePhotoPreset,
   } = usePhotoPresets({ adminJsonHeaders, isAdminUnlocked, setNotice });
   const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
+  const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
+  const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
 
   useEffect(() => {
     if (screen === 'dashboard' || shareToken) setSelectedPhotoPresetIds([]);
@@ -190,7 +192,7 @@ export default function App() {
         setViewerIndex={setViewerIndex}
         markBrokenPhoto={markBrokenPhoto}
         toggle={toggle}
-        watermarkSettings={shareSessionInfo.watermarkSettings || watermarkSettings}
+        watermarkSettings={effectiveWatermarkSettings}
       />
     );
   }
@@ -281,7 +283,7 @@ export default function App() {
         selected={selected}
         setScreen={setScreen}
         setViewerIndex={setViewerIndex}
-        shareSessionInfo={shareSessionInfo}
+        shareSessionInfo={safeShareSessionInfo}
         shareToken={shareToken}
         subtotal={subtotal}
         toggle={toggle}
@@ -289,7 +291,7 @@ export default function App() {
         total={subtotal}
         type={type}
         unit={unit}
-        watermarkSettings={shareSessionInfo.watermarkSettings || watermarkSettings}
+        watermarkSettings={effectiveWatermarkSettings}
       />
     );
   }

@@ -45,6 +45,20 @@ const baseProps = {
 };
 
 describe('GalleryScreen paginated shared galleries', () => {
+  it('renders shared gallery while metadata is still loading', () => {
+    render(
+      <GalleryScreen
+        {...baseProps}
+        shareSessionInfo={null}
+        photoPageCounts={{ loadedCount: 2, selectedCount: 1, selectedLoadedCount: 1, totalCount: 5 }}
+        photosPage={{ hasMore: false, nextCursor: null, totalCount: 5 }}
+      />
+    );
+
+    expect(screen.getByText('Modo de Visualização')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finalizar pedido' })).toBeEnabled();
+  });
+
   it('shows loaded counters and loads more shared photos', async () => {
     const user = userEvent.setup();
     const loadMorePhotos = vi.fn();

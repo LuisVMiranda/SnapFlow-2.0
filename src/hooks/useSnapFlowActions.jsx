@@ -62,6 +62,8 @@ export function useSnapFlowActions(config) {
     type,
     withAdminMediaToken,
   } = config;
+  const safeShareAccess = shareAccess && typeof shareAccess === 'object' ? shareAccess : {};
+  const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
 
   const mapSharedPhotos = (data) =>
     Array.isArray(data.photos)
@@ -214,7 +216,7 @@ export function useSnapFlowActions(config) {
       const headers = shareToken
         ? {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${shareAccess.customerAccessToken || ''}`,
+            Authorization: `Bearer ${safeShareAccess.customerAccessToken || ''}`,
           }
         : adminJsonHeaders();
 
@@ -260,7 +262,7 @@ export function useSnapFlowActions(config) {
       const headers = shareToken
         ? {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${shareAccess.customerAccessToken || ''}`,
+            Authorization: `Bearer ${safeShareAccess.customerAccessToken || ''}`,
           }
         : adminJsonHeaders();
 
@@ -281,7 +283,7 @@ export function useSnapFlowActions(config) {
           paymentMethod,
           isShareSession: Boolean(shareToken),
           shareToken,
-          accessCode: shareSessionInfo.accessCode,
+          accessCode: safeShareSessionInfo.accessCode || '',
         }),
       });
 
@@ -389,7 +391,7 @@ export function useSnapFlowActions(config) {
 
   const loadMorePhotos = async () => {
     const shouldLoadFirstPage = photos.length === 0 && !photosPage.nextCursor;
-    if (!shareToken || !shareAccess.customerAccessToken || (!photosPage.hasMore && !shouldLoadFirstPage) || isLoadingPhotos) return;
+    if (!shareToken || !safeShareAccess.customerAccessToken || (!photosPage.hasMore && !shouldLoadFirstPage) || isLoadingPhotos) return;
 
     setIsLoadingPhotos(true);
     setPhotoPageError('');
@@ -401,7 +403,7 @@ export function useSnapFlowActions(config) {
 
       const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/photos${params.toString()}`, {
         headers: {
-          Authorization: `Bearer ${shareAccess.customerAccessToken}`,
+          Authorization: `Bearer ${safeShareAccess.customerAccessToken}`,
         },
       });
       const data = await readJsonResponse(response);
@@ -490,12 +492,12 @@ export function useSnapFlowActions(config) {
   };
 
   const handleExtendShareSession = async () => {
-    if (!shareAccess.token) return;
+    if (!safeShareAccess.token) return;
 
     setShareActionLoading(true);
 
     try {
-      const response = await fetch(API_BASE_URL + '/api/admin/share-sessions/' + shareAccess.token + '/extend', {
+      const response = await fetch(API_BASE_URL + '/api/admin/share-sessions/' + safeShareAccess.token + '/extend', {
         method: 'POST',
         headers: adminJsonHeaders(),
         body: JSON.stringify({ minutes: 15 }),
@@ -519,12 +521,12 @@ export function useSnapFlowActions(config) {
   };
 
   const handleRevokeShareSession = async () => {
-    if (!shareAccess.token) return;
+    if (!safeShareAccess.token) return;
 
     setShareActionLoading(true);
 
     try {
-      const response = await fetch(API_BASE_URL + '/api/admin/share-sessions/' + shareAccess.token + '/revoke', {
+      const response = await fetch(API_BASE_URL + '/api/admin/share-sessions/' + safeShareAccess.token + '/revoke', {
         method: 'POST',
         headers: adminJsonHeaders(),
       });

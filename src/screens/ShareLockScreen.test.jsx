@@ -4,6 +4,23 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShareLockScreen } from './ShareLockScreen';
 
 describe('ShareLockScreen', () => {
+  it('renders a loading-safe shell before shared metadata arrives', () => {
+    render(
+      <ShareLockScreen
+        shareSessionInfo={null}
+        shareCodeInput=""
+        setShareCodeInput={vi.fn()}
+        handleUnlockSharedSession={vi.fn()}
+        shareActionLoading={false}
+        noticeBanner={null}
+      />
+    );
+
+    expect(screen.getByText('SnapFlow compartilhado')).toBeInTheDocument();
+    expect(screen.getByText('---')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir galeria' })).toBeEnabled();
+  });
+
   it('normalizes access codes before updating state and calls unlock', async () => {
     const handleUnlockSharedSession = vi.fn();
     const setShareCodeInput = vi.fn();

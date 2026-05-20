@@ -9,9 +9,10 @@ export function ShareLockScreen({
   shareActionLoading,
   noticeBanner,
 }) {
-  const shareExpired = shareSessionInfo.expired || shareSessionInfo.status === 'revoked';
-  const galleryName = shareSessionInfo.galleryName.trim();
-  const galleryDescription = shareSessionInfo.galleryDescription.trim();
+  const info = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
+  const shareExpired = info.expired || info.status === 'revoked';
+  const galleryName = String(info.galleryName || '').trim();
+  const galleryDescription = String(info.galleryDescription || '').trim();
 
   return (
     <div className="screen center-screen share-screen">
@@ -27,12 +28,12 @@ export function ShareLockScreen({
         {galleryDescription ? <p className="share-lock-description">{galleryDescription}</p> : null}
         <div className="summary-row">
           <span>Fotos disponíveis</span>
-          <strong>{shareSessionInfo.photoCount || '---'}</strong>
+          <strong>{info.photoCount || '---'}</strong>
         </div>
         <div className="summary-row">
           <span>Expiração</span>
           <strong>
-            <ShareCountdown isoDate={shareSessionInfo.expiresAt} />
+            <ShareCountdown isoDate={info.expiresAt} />
           </strong>
         </div>
         <div className="summary-row">
@@ -40,7 +41,7 @@ export function ShareLockScreen({
           <strong>{shareExpired ? 'Bloqueado' : 'Ativo'}</strong>
         </div>
 
-        {shareSessionInfo.error ? <div className="ops-error">{shareSessionInfo.error}</div> : null}
+        {info.error ? <div className="ops-error">{info.error}</div> : null}
 
         <input
           type="text"

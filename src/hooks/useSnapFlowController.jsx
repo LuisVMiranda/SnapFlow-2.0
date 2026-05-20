@@ -78,6 +78,8 @@ export function useSnapFlowController() {
   const [shareAccess, setShareAccess] = useState(() => getSavedSnapFlowState('share-access', null));
   const [shareActionLoading, setShareActionLoading] = useState(false);
   const [shareDurationMinutes, setShareDurationMinutes] = useState(30);
+  const safeShareAccess = shareAccess && typeof shareAccess === 'object' ? shareAccess : {};
+  const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const {
     adminAccessError,
     adminAccessStatus,
@@ -203,7 +205,7 @@ export function useSnapFlowController() {
     value: manualDiscountDraft,
   });
   const configuredDiscountAmount = shareToken
-    ? Number(shareSessionInfo.discountAmount || 0)
+    ? Number(safeShareSessionInfo.discountAmount || 0)
     : discountValidation.amount;
   const { discountAmount, total } = applyManualDiscount(subtotal, configuredDiscountAmount);
   const remaining = Math.max(0, activePricing.threshold - count);
@@ -299,14 +301,14 @@ export function useSnapFlowController() {
   }, []);
 
   useEffect(() => {
-    if (!shareToken || !shareAccess.customerAccessToken || screen !== 'gallery') return undefined;
+    if (!shareToken || !safeShareAccess.customerAccessToken || screen !== 'gallery') return undefined;
     const timer = setTimeout(async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/cart`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${shareAccess.customerAccessToken}`,
+            Authorization: `Bearer ${safeShareAccess.customerAccessToken}`,
           },
           body: JSON.stringify({ photoIds: selected }),
         });
@@ -320,7 +322,7 @@ export function useSnapFlowController() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [screen, selected, shareAccess.customerAccessToken, shareToken]);
+  }, [screen, selected, safeShareAccess.customerAccessToken, shareToken]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -431,10 +433,10 @@ export function useSnapFlowController() {
     setIsLoadingPhotos,
     setType,
     setViewerIndex,
-    shareAccess,
+    shareAccess: safeShareAccess,
     shareCodeInput,
     shareDurationMinutes,
-    shareSessionInfo,
+    shareSessionInfo: safeShareSessionInfo,
     shareToken,
     photosPage,
     isLoadingPhotos,
@@ -446,10 +448,10 @@ export function useSnapFlowController() {
   });
 
   useEffect(() => {
-    if (!shareToken || !shareAccess.customerAccessToken || screen !== 'gallery') return;
+    if (!shareToken || !safeShareAccess.customerAccessToken || screen !== 'gallery') return;
     if (photos.length > 0 || hasLoadedPhotosPage || isLoadingPhotos || photoPageError) return;
     loadMorePhotos();
-  }, [hasLoadedPhotosPage, isLoadingPhotos, loadMorePhotos, photoPageError, photos.length, screen, shareAccess.customerAccessToken, shareToken]);
+  }, [hasLoadedPhotosPage, isLoadingPhotos, loadMorePhotos, photoPageError, photos.length, screen, safeShareAccess.customerAccessToken, shareToken]);
 
   const currentPhoto = viewerIndex !== null ? photos[viewerIndex] : null;
   const hasActiveSession = photos.length > 0 || Boolean(sessionId);

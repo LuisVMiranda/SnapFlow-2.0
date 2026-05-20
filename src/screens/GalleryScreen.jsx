@@ -35,6 +35,7 @@ export function GalleryScreen({
   unit,
   watermarkSettings,
 }) {
+  const info = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
   const packageNudge = buildPackageNudge(count, type, pricingOptions);
   const hasMorePhotos = Boolean(shareToken && photosPage.hasMore);
@@ -62,9 +63,9 @@ export function GalleryScreen({
             Cancelar
           </button>
         ) : null}
-        {shareToken && shareSessionInfo.expiresAt ? (
+        {shareToken && info.expiresAt ? (
           <div style={{ marginLeft: 'auto' }}>
-            <ShareCountdown isoDate={shareSessionInfo.expiresAt} />
+            <ShareCountdown isoDate={info.expiresAt} />
           </div>
         ) : null}
       </header>
