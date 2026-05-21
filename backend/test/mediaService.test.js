@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
@@ -12,6 +13,19 @@ const {
   createMediaService,
   mapWithConcurrency,
 } = require('../src/services/mediaService');
+
+async function fileSha256(filePath) {
+  return crypto
+    .createHash('sha256')
+    .update(await fs.readFile(filePath))
+    .digest('hex');
+}
+
+async function imageMean(filePath) {
+  const stats = await sharp(filePath, { sequentialRead: true }).removeAlpha().stats();
+  const channels = stats.channels.slice(0, 3);
+  return channels.reduce((sum, channel) => sum + Number(channel.mean || 0), 0) / channels.length;
+}
 
 test('media service processes small PNG uploads without watermark dimension failures', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-'));
@@ -176,6 +190,56 @@ test('media service stores applied photo preset metadata during upload', async (
   assert.ok(photo.presetAppliedAt);
   await assert.doesNotReject(fs.access(path.join(root, photo.sourcePath)));
   await assert.doesNotReject(fs.access(path.join(root, photo.originalPath)));
+});
+
+test('media service reprocesses preset variants from the preserved source file', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-reprocess-preset-'));
+  const input = path.join(root, 'dark.png');
+  await sharp({
+    create: {
+      width: 160,
+      height: 120,
+      channels: 3,
+      background: '#404040',
+    },
+  }).png().toFile(input);
+
+  const media = createMediaService({
+    storageRoot: root,
+    maxUploadMb: 25,
+    maxFilesPerUpload: 100,
+    publicBaseUrl: 'http://localhost:5174',
+    autoEnhanceEnabled: false,
+  });
+
+  const [photo] = await media.processUploadedFiles([
+    { path: input, originalname: 'dark.png', mimetype: 'image/png' },
+  ]);
+  const sourceAbs = path.join(root, photo.sourcePath);
+  const originalAbs = path.join(root, photo.originalPath);
+  const sourceHashBefore = await fileSha256(sourceAbs);
+  const sourceMean = await imageMean(sourceAbs);
+  const originalChecksumBefore = photo.checksum;
+
+  const processed = await media.reprocessPhotoWithPresets(photo, [{
+    id: 'exposicao-alta',
+    name: 'Exposição alta',
+    settings: {
+      exposure: 1,
+      brightness: 1,
+      contrast: 1,
+      saturation: 1,
+      gamma: 1,
+      jpegQuality: 92,
+    },
+  }]);
+
+  assert.equal(await fileSha256(sourceAbs), sourceHashBefore);
+  assert.equal(processed.originalPath, photo.originalPath);
+  assert.deepEqual(processed.appliedPresetIds, ['exposicao-alta']);
+  assert.notEqual(processed.checksum, originalChecksumBefore);
+  assert.ok(processed.sizeBytes > 0);
+  assert.ok(await imageMean(originalAbs) > sourceMean + 20);
 });
 
 test('adaptive auto enhance protects dark photos from heavy contrast', () => {

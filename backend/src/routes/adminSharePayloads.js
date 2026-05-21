@@ -1,12 +1,14 @@
 function adminPhotoPayload(photo) {
+  const versionQuery = photo.mediaVersion ? `?v=${encodeURIComponent(photo.mediaVersion)}` : '';
   return {
     id: photo.id,
-    url: `/api/media/${photo.id}/preview`,
-    thumbUrl: `/api/media/${photo.id}/thumb`,
+    url: `/api/media/${photo.id}/preview${versionQuery}`,
+    thumbUrl: `/api/media/${photo.id}/thumb${versionQuery}`,
     createdAt: photo.createdAt,
     sizeBytes: Number(photo.sizeBytes || 0),
     appliedPresetIds: photo.appliedPresetIds || [],
     presetAppliedAt: photo.presetAppliedAt || null,
+    mediaVersion: photo.mediaVersion || '',
   };
 }
 

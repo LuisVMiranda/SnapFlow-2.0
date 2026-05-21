@@ -510,9 +510,12 @@ function createTestApp({
         originalPath: photo.originalPath,
         thumbPath: photo.thumbPath,
         previewPath: photo.previewPath,
+        sizeBytes: photo.sizeBytes || 100,
+        checksum: `processed-${presetStack.map((preset) => preset.id).join('-') || 'sem-preset'}`,
         appliedPresetIds: presetStack.map((preset) => preset.id),
         appliedPresetSnapshot: presetStack,
         presetAppliedAt: new Date().toISOString(),
+        mediaVersion: new Date().toISOString(),
         undoOriginalPath: `undo/${photo.id}-original.jpg`,
         undoThumbPath: `undo/${photo.id}-thumb.jpg`,
         undoPreviewPath: `undo/${photo.id}-preview.jpg`,
@@ -766,6 +769,40 @@ test('admin share link creation sends WhatsApp and returns send metadata', async
   assert.equal(sends[0].phone, '+55 11999999999');
   assert.match(sends[0].message, /Ana Cliente/);
   assert.match(sends[0].message, /Código/);
+});
+
+test('admin share link creation applies selected presets to gallery photos', async () => {
+  const app = createTestApp();
+  const presetResponse = await request(app)
+    .post('/api/admin/settings/photo-presets')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ name: 'Exposição alta', settings: { exposure: 1 } });
+  const presetId = presetResponse.body[0].id;
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      total: 10,
+      expiresMinutes: 30,
+      photoPresetIds: [presetId],
+    });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.photoPresetIds, [presetId]);
+
+  const details = await request(app)
+    .get('/api/admin/share-sessions/share_1')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.deepEqual(details.body.photoPresetIds, [presetId]);
+  assert.deepEqual(details.body.photos[0].appliedPresetIds, [presetId]);
+  assert.match(details.body.photos[0].url, /\?v=/);
 });
 
 test('admin share link creation stores manual discount metadata', async () => {
@@ -1383,6 +1420,9 @@ test('admin can apply and undo photo presets in a gallery', async () => {
 
   assert.equal(details.body.photoPresetIds[0], 'suave');
   assert.equal(details.body.photos[0].appliedPresetIds[0], 'suave');
+  assert.match(details.body.photos[0].url, /\?v=/);
+  assert.match(details.body.photos[0].thumbUrl, /\?v=/);
+  assert.ok(details.body.photos[0].mediaVersion);
 
   const undone = await request(app)
     .post('/api/admin/share-sessions/share_1/photo-presets/undo')
@@ -1541,6 +1581,30 @@ test('share unlock returns short-lived media urls after valid code', async () =>
   assert.ok(response.body.customerAccessToken);
   assert.match(response.body.photos[0].url, /access_token=/);
   assert.equal(response.body.photosPage.hasMore, false);
+});
+
+test('share unlock media urls include preset media version cache busters', async () => {
+  const response = await request(createTestApp({
+    initialPhotos: [{
+      id: 'photo_1',
+      shareToken: 'share_1',
+      sourcePath: 'sources/photo_1.jpg',
+      originalPath: 'originals/photo_1.jpg',
+      thumbPath: 'thumbs/photo_1.jpg',
+      previewPath: 'previews/photo_1.jpg',
+      sizeBytes: 100,
+      createdAt: new Date().toISOString(),
+      mediaVersion: 'preset-v1',
+    }],
+  }))
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  assert.equal(response.status, 200);
+  assert.match(response.body.photos[0].url, /access_token=/);
+  assert.match(response.body.photos[0].url, /v=preset-v1/);
+  assert.match(response.body.photos[0].thumbUrl, /v=preset-v1/);
+  assert.equal(response.body.photos[0].mediaVersion, 'preset-v1');
 });
 
 test('unlocked share sessions persist and restore the customer cart', async () => {

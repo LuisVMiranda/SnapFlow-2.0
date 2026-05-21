@@ -28,10 +28,13 @@ function accessTokenFromRequest(req) {
 }
 
 function sharePhotoPayload(photo, customerAccessToken) {
+  const params = new URLSearchParams({ access_token: customerAccessToken });
+  if (photo.mediaVersion) params.set('v', photo.mediaVersion);
   return {
     id: photo.id,
-    url: `/api/media/${photo.id}/preview?access_token=${customerAccessToken}`,
-    thumbUrl: `/api/media/${photo.id}/thumb?access_token=${customerAccessToken}`,
+    url: `/api/media/${photo.id}/preview?${params.toString()}`,
+    thumbUrl: `/api/media/${photo.id}/thumb?${params.toString()}`,
+    mediaVersion: photo.mediaVersion || '',
   };
 }
 

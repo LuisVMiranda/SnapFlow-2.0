@@ -33,6 +33,8 @@ function rowToSession(row) {
 
 function rowToPhoto(row, config) {
   if (!row) return null;
+  const mediaVersion = String(row.preset_applied_at || row.checksum || row.created_at || '').replace(/\s+/g, '');
+  const versionQuery = mediaVersion ? `?v=${encodeURIComponent(mediaVersion)}` : '';
   return {
     id: row.id,
     sessionId: row.session_id,
@@ -50,12 +52,13 @@ function rowToPhoto(row, config) {
     appliedPresetIds: row.applied_preset_ids || [],
     appliedPresetSnapshot: row.applied_preset_snapshot || [],
     presetAppliedAt: row.preset_applied_at || null,
+    mediaVersion,
     undoOriginalPath: row.undo_original_path || null,
     undoThumbPath: row.undo_thumb_path || null,
     undoPreviewPath: row.undo_preview_path || null,
     undoPresetSnapshot: row.undo_preset_snapshot || null,
-    url: `${config.publicBaseUrl}/api/media/${row.id}/preview`,
-    thumbUrl: `${config.publicBaseUrl}/api/media/${row.id}/thumb`,
+    url: `${config.publicBaseUrl}/api/media/${row.id}/preview${versionQuery}`,
+    thumbUrl: `${config.publicBaseUrl}/api/media/${row.id}/thumb${versionQuery}`,
   };
 }
 

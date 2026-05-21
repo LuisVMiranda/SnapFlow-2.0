@@ -137,7 +137,9 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
            undo_original_path = $8,
            undo_thumb_path = $9,
            undo_preview_path = $10,
-           undo_preset_snapshot = $11
+           undo_preset_snapshot = $11,
+           size_bytes = coalesce($12, size_bytes),
+           checksum = coalesce($13, checksum)
        where id = $1 and deleted_at is null
        returning *`,
       [
@@ -154,6 +156,8 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
         updates.undoPresetSnapshot === undefined || updates.undoPresetSnapshot === null
           ? null
           : JSON.stringify(updates.undoPresetSnapshot),
+        updates.sizeBytes ?? null,
+        updates.checksum ?? null,
       ]
     );
     return rowToPhoto(result.rows[0], config);

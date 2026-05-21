@@ -202,6 +202,15 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return hash.digest('hex');
   }
 
+  async function fileMetadata(relativePath) {
+    const abs = absolutePath(relativePath);
+    const stat = await fs.stat(abs);
+    return {
+      sizeBytes: stat.size,
+      checksum: await checksumFile(abs),
+    };
+  }
+
   async function currentWatermarkSettings() {
     if (!watermarkSettings || typeof watermarkSettings.getSettings !== 'function') {
       return DEFAULT_WATERMARK_SETTINGS;
@@ -385,11 +394,13 @@ function createMediaService(config, { watermarkSettings } = {}) {
         unlinkRelativeFile(photo.undoThumbPath),
         unlinkRelativeFile(photo.undoPreviewPath),
       ]);
+      const metadata = await fileMetadata(photo.originalPath);
 
       return {
         originalPath: photo.originalPath,
         thumbPath: photo.thumbPath,
         previewPath: photo.previewPath,
+        ...metadata,
         appliedPresetIds: appliedPresetIds(presetStack),
         appliedPresetSnapshot: presetStack,
         presetAppliedAt: new Date().toISOString(),
@@ -421,10 +432,12 @@ function createMediaService(config, { watermarkSettings } = {}) {
         replaceRelativeFile(photo.undoPreviewPath, photo.previewPath),
       ]);
       const previousStack = Array.isArray(photo.undoPresetSnapshot) ? photo.undoPresetSnapshot : [];
+      const metadata = await fileMetadata(photo.originalPath);
       return {
         originalPath: photo.originalPath,
         thumbPath: photo.thumbPath,
         previewPath: photo.previewPath,
+        ...metadata,
         appliedPresetIds: appliedPresetIds(previousStack),
         appliedPresetSnapshot: previousStack,
         presetAppliedAt: previousStack.length ? new Date().toISOString() : null,
