@@ -1,11 +1,7 @@
 import { SessionOpsCard } from '../components/SessionOpsCard';
 import { formatMoney } from '../lib/formatters';
 import { DEFAULT_PRICING } from '../lib/pricing';
-
-function approvalUrl(sessionId) {
-  const origin = typeof window === 'undefined' ? '' : window.location.origin;
-  return `${origin}/adminApproval=${encodeURIComponent(sessionId || '')}`;
-}
+import { buildAdminApprovalUrl } from '../lib/adminApproval';
 
 export function ManualPaymentPendingScreen({
   activeStage,
@@ -37,7 +33,7 @@ export function ManualPaymentPendingScreen({
 
   const openApproval = () => {
     if (!sessionId || typeof window === 'undefined') return;
-    window.open(approvalUrl(sessionId), '_blank', 'noopener,noreferrer');
+    window.open(buildAdminApprovalUrl(sessionId), '_blank', 'noopener,noreferrer');
   };
 
   return (

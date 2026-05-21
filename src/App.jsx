@@ -12,6 +12,7 @@ import { SummaryScreen } from './screens/SummaryScreen';
 import { usePhotoPresets } from './hooks/usePhotoPresets';
 import { useSnapFlowController } from './hooks/useSnapFlowController';
 import { useEffect, useState } from 'react';
+import { readAdminApprovalSessionId } from './lib/adminApproval';
 
 export default function App() {
   const {
@@ -135,8 +136,7 @@ export default function App() {
     if (screen === 'dashboard' || shareToken) setSelectedPhotoPresetIds([]);
   }, [screen, shareToken]);
 
-  const adminApprovalSessionId =
-    typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('adminApproval');
+  const adminApprovalSessionId = readAdminApprovalSessionId();
   const renderScreen = (content) => (
     <>
       {content}

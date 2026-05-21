@@ -133,6 +133,18 @@ function makeController(overrides = {}) {
 }
 
 describe('App shared-gallery null states', () => {
+  it('routes legacy manual approval links to the protected approval screen', () => {
+    window.history.pushState({}, '', '/adminApproval=sess_legacy');
+    controllerMock.value = makeController({ screen: 'manual-pending' });
+
+    render(<App />);
+
+    expect(screen.getByText('Aprovação protegida')).toBeInTheDocument();
+    expect(screen.getByText(/credencial administrativa/i)).toBeInTheDocument();
+
+    window.history.pushState({}, '', '/');
+  });
+
   it('renders the shared code gate before metadata finishes loading', () => {
     controllerMock.value = makeController({ screen: 'share-lock', shareSessionInfo: null });
 
