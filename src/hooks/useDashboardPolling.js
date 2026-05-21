@@ -57,11 +57,9 @@ export function useDashboardPolling({
   hasSeenNotification,
   isAdminUnlocked,
   rememberNotifications,
-  screen,
   setDashData,
   setNotice,
   setPendingManualSessions,
-  shareToken,
 }) {
   useEffect(() => {
     let cancelled = false;
@@ -78,8 +76,6 @@ export function useDashboardPolling({
         if (cancelled) return;
 
         setDashData(data);
-        if (shareToken) return;
-
         const { notifications, pendingManual } = paymentNotifications(data.recent, hasSeenNotification);
         if (notifications.length) {
           setNotice(notifications[0]);
@@ -92,14 +88,10 @@ export function useDashboardPolling({
       }
     };
 
-    if (screen === 'dashboard') {
-      loadDashboard();
-    }
+    loadDashboard();
 
     const interval = setInterval(() => {
-      if (!shareToken) {
-        loadDashboard();
-      }
+      loadDashboard();
     }, 5000);
 
     return () => {
@@ -111,10 +103,8 @@ export function useDashboardPolling({
     hasSeenNotification,
     isAdminUnlocked,
     rememberNotifications,
-    screen,
     setDashData,
     setNotice,
     setPendingManualSessions,
-    shareToken,
   ]);
 }

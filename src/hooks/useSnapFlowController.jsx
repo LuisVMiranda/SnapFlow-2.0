@@ -10,6 +10,7 @@ import { NoticeBanner } from '../components/NoticeBanner';
 import { useAdminAccess } from './useAdminAccess';
 import { useDashboardPolling } from './useDashboardPolling';
 import { useCredentialsSettings } from './useCredentialsSettings';
+import { useManualApprovalShortcut } from './useManualApprovalShortcut';
 import { useNoticeCenter } from './useNoticeCenter';
 import { usePackageSettings } from './usePackageSettings';
 import { usePersistSnapFlowState, getSavedSnapFlowState, resolveInitialSnapFlowScreen } from './useSnapFlowPersistence';
@@ -18,7 +19,6 @@ import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
 import { useWhatsAppTemplates } from './useWhatsAppTemplates';
 import { useWatermarkSettings } from './useWatermarkSettings';
-
 export function useSnapFlowController() {
   const [shareToken] = useState(() => detectShareToken());
   const {
@@ -33,23 +33,18 @@ export function useSnapFlowController() {
     toggleNotificationCenter,
     unreadNoticeCount,
   } = useNoticeCenter();
-  
   useShareProtections(shareToken, setNotice);
-
   const [screen, setScreen] = useState(resolveInitialSnapFlowScreen);
   const initialType = shareToken ? 'eventos' : getSavedSnapFlowState('type', 'eventos');
   const [type, setType] = useState(() => DEFAULT_PRICING[initialType] ? initialType : 'eventos');
-  
   const initialPhotos = shareToken ? [] : getSavedSnapFlowState('photos', []);
   const [photos, setPhotos] = useState(() => Array.isArray(initialPhotos) ? initialPhotos : []);
   const [photosPage, setPhotosPage] = useState(() => normalizePhotosPage(EMPTY_PHOTOS_PAGE));
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [photoPageError, setPhotoPageError] = useState('');
   const [hasLoadedPhotosPage, setHasLoadedPhotosPage] = useState(false);
-  
   const initialSelected = shareToken ? [] : getSavedSnapFlowState('selected', []);
   const [selected, setSelected] = useState(() => Array.isArray(initialSelected) ? initialSelected : []);
-  
   const [clientPhone, setClientPhone] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientPhone', ''));
   const [clientName, setClientName] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientName', ''));
   const [clientEmail, setClientEmail] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientEmail', ''));
@@ -123,7 +118,7 @@ export function useSnapFlowController() {
     recent: [],
     shareRecent: [],
   });
-  const [, setPendingManualSessions] = useState([]);
+  const [pendingManualSessions, setPendingManualSessions] = useState([]);
   const {
     cleanupPreview,
     fetchRetentionSettings,
@@ -264,16 +259,21 @@ export function useSnapFlowController() {
     }
   }, [isAdminUnlocked, adminHeaders, setNotice]);
 
+  const approvePendingManualSession = useManualApprovalShortcut({
+    adminHeaders,
+    fetchDashboard,
+    setNotice,
+    setPendingManualSessions,
+  });
+
   useDashboardPolling({
     adminHeaders,
     hasSeenNotification,
     isAdminUnlocked,
     rememberNotifications,
-    screen,
     setDashData,
     setNotice,
     setPendingManualSessions,
-    shareToken,
   });
 
   useEffect(() => {
@@ -496,6 +496,7 @@ export function useSnapFlowController() {
     adminRemember,
     adminRetryAfterSeconds,
     adminToken,
+    approvePendingManualSession,
     allPhotosSelected,
     brokenPhotoIds,
     cleanupPreview,
@@ -534,6 +535,7 @@ export function useSnapFlowController() {
     noticeBanner,
     notificationCenter,
     packageSettingsStatus,
+    pendingManualSessions,
     period,
     photoPageCounts,
     photoPageError,

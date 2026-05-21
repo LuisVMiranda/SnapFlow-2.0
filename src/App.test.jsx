@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
 
@@ -33,6 +34,7 @@ function makeController(overrides = {}) {
     adminLockedUntil: '',
     adminRemember: false,
     adminRetryAfterSeconds: 0,
+    approvePendingManualSession: noop,
     allPhotosSelected: false,
     brokenPhotoIds: [],
     cleanupPreview: null,
@@ -71,6 +73,7 @@ function makeController(overrides = {}) {
     noticeBanner: null,
     notificationCenter: null,
     packageSettingsStatus: 'idle',
+    pendingManualSessions: [],
     period: 'hoje',
     photoPageCounts: { loadedCount: 1, selectedCount: 0, selectedLoadedCount: 0, totalCount: 1 },
     photoPageError: '',
@@ -177,5 +180,55 @@ describe('App shared-gallery null states', () => {
 
     expect(screen.getByAltText('Foto selecionada')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remover da sacola' })).toBeInTheDocument();
+  });
+
+  it('shows an admin-only quick approval prompt while viewing a shared gallery', async () => {
+    const user = userEvent.setup();
+    const approvePendingManualSession = vi.fn().mockResolvedValue(true);
+    controllerMock.value = makeController({
+      approvePendingManualSession,
+      isAdminUnlocked: true,
+      pendingManualSessions: [
+        {
+          amount: 45,
+          clientName: 'Dudis',
+          id: 'manual_1',
+          paymentMethod: 'Dinheiro/Cartão',
+          phone: '+55 21975191926',
+          photoCount: 3,
+          status: 'pending',
+        },
+      ],
+      screen: 'manual-pending',
+    });
+
+    render(<App />);
+
+    expect(screen.getByText('Pagamento em dinheiro/cartão pendente')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Liberar fotos/i }));
+
+    expect(approvePendingManualSession).toHaveBeenCalledWith('manual_1');
+  });
+
+  it('does not show the quick approval prompt to public clients', () => {
+    controllerMock.value = makeController({
+      isAdminUnlocked: false,
+      pendingManualSessions: [
+        {
+          amount: 45,
+          clientName: 'Dudis',
+          id: 'manual_1',
+          paymentMethod: 'Dinheiro/Cartão',
+          phone: '+55 21975191926',
+          photoCount: 3,
+          status: 'pending',
+        },
+      ],
+      screen: 'manual-pending',
+    });
+
+    render(<App />);
+
+    expect(screen.queryByText('Pagamento em dinheiro/cartão pendente')).not.toBeInTheDocument();
   });
 });

@@ -37,6 +37,79 @@
   gap: 16px;
 }
 
+.pending-admin-approval {
+  align-items: center;
+  background: rgba(18, 32, 46, 0.94);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(30, 144, 255, 0.36);
+  border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+  color: #fff;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 14px;
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  top: max(78px, calc(env(safe-area-inset-top) + 78px));
+  z-index: 1190;
+}
+
+.pending-admin-approval-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pending-admin-approval-copy strong {
+  font-size: 13px;
+}
+
+.pending-admin-approval-copy span,
+.pending-admin-approval-copy small {
+  color: #cfe4ff;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pending-admin-approval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.pending-admin-approval-actions .share-quick-btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 34px;
+}
+
+.pending-admin-approval-actions .approve-session-btn {
+  margin-top: 0;
+  width: auto;
+}
+
+@media (max-width: 760px) {
+  .pending-admin-approval {
+    grid-template-columns: 1fr;
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    top: max(72px, calc(env(safe-area-inset-top) + 72px));
+  }
+
+  .pending-admin-approval-actions {
+    justify-content: stretch;
+  }
+
+  .pending-admin-approval-actions .share-quick-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 .scroll-top-button {
   align-items: center;
   background: rgba(10, 10, 10, 0.86);

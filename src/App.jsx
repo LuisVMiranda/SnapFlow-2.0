@@ -1,5 +1,6 @@
 import './index.css';
 import { PhotoViewer } from './components/PhotoViewer';
+import { PendingManualApprovalPrompt } from './components/PendingManualApprovalPrompt';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { AdminApprovalScreen } from './screens/AdminApprovalScreen';
 import { ConfirmedScreen } from './screens/ConfirmedScreen';
@@ -12,7 +13,7 @@ import { SummaryScreen } from './screens/SummaryScreen';
 import { usePhotoPresets } from './hooks/usePhotoPresets';
 import { useSnapFlowController } from './hooks/useSnapFlowController';
 import { useEffect, useState } from 'react';
-import { readAdminApprovalSessionId } from './lib/adminApproval';
+import { buildAdminApprovalUrl, readAdminApprovalSessionId } from './lib/adminApproval';
 
 export default function App() {
   const {
@@ -26,6 +27,7 @@ export default function App() {
     adminRemember,
     adminRetryAfterSeconds,
     allPhotosSelected,
+    approvePendingManualSession,
     brokenPhotoIds,
     cleanupPreview,
     clientName,
@@ -63,6 +65,7 @@ export default function App() {
     noticeBanner,
     notificationCenter,
     packageSettingsStatus,
+    pendingManualSessions,
     period,
     photoPageCounts,
     photoPageError,
@@ -129,6 +132,7 @@ export default function App() {
     updatePhotoPreset,
   } = usePhotoPresets({ adminJsonHeaders, isAdminUnlocked, setNotice });
   const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
+  const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
 
@@ -137,9 +141,30 @@ export default function App() {
   }, [screen, shareToken]);
 
   const adminApprovalSessionId = readAdminApprovalSessionId();
+  const approveFromPrompt = async (targetSessionId) => {
+    setBusyPendingApprovalId(targetSessionId);
+    try {
+      await approvePendingManualSession(targetSessionId);
+    } finally {
+      setBusyPendingApprovalId('');
+    }
+  };
+  const openApprovalFromPrompt = (targetSessionId) => {
+    if (!targetSessionId || typeof window === 'undefined') return;
+    window.open(buildAdminApprovalUrl(targetSessionId), '_blank', 'noopener,noreferrer');
+  };
+  const pendingApprovalPrompt = isAdminUnlocked ? (
+    <PendingManualApprovalPrompt
+      busySessionId={busyPendingApprovalId}
+      onApprove={approveFromPrompt}
+      onOpenApproval={openApprovalFromPrompt}
+      sessions={adminApprovalSessionId ? [] : pendingManualSessions}
+    />
+  ) : null;
   const renderScreen = (content) => (
     <>
       {content}
+      {pendingApprovalPrompt}
       <ScrollToTopButton />
     </>
   );

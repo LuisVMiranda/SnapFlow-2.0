@@ -1,7 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
-import { paymentNotifications } from './useDashboardPolling';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { paymentNotifications, useDashboardPolling } from './useDashboardPolling';
 
 describe('paymentNotifications', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it('ignores stale approved Pix sessions when deciding top-right notifications', () => {
     const staleApprovedSession = {
       id: 'pix_old',
@@ -46,5 +53,45 @@ describe('paymentNotifications', () => {
     expect(result.notifications).toHaveLength(1);
     expect(result.notifications[0].key).toBe('pix-approved:pix_new');
     expect(result.notifications[0].message).toMatch(/Bia/);
+  });
+
+  it('polls shared-gallery screens immediately for admin pending manual approvals', async () => {
+    vi.useFakeTimers();
+    const manualSession = {
+      amount: 45,
+      clientName: 'Dudis',
+      id: 'manual_1',
+      paymentMethod: 'Dinheiro/Cartão',
+      photoCount: 3,
+      status: 'pending',
+    };
+    const rememberNotifications = vi.fn();
+    const setDashData = vi.fn();
+    const setNotice = vi.fn();
+    const setPendingManualSessions = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ chartSeries: {}, recent: [manualSession], shareRecent: [], stats: {} }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderHook(() => useDashboardPolling({
+      adminHeaders: () => ({ Authorization: 'Bearer admin-secret' }),
+      hasSeenNotification: () => false,
+      isAdminUnlocked: true,
+      rememberNotifications,
+      setDashData,
+      setNotice,
+      setPendingManualSessions,
+    }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(setPendingManualSessions).toHaveBeenCalledWith([manualSession]);
+    expect(setDashData).toHaveBeenCalledWith(expect.objectContaining({ recent: [manualSession] }));
+    expect(setNotice).toHaveBeenCalledWith(expect.objectContaining({ key: 'manual-pending:manual_1' }));
+    expect(rememberNotifications).toHaveBeenCalledWith(['manual-pending:manual_1']);
   });
 });
