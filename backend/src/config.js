@@ -42,7 +42,7 @@ function createConfig() {
     deliveredPhotoRetentionDays: numberFromEnv('DELIVERED_PHOTO_RETENTION_DAYS', 30),
     expiredShareRetentionDays: numberFromEnv('EXPIRED_SHARE_RETENTION_DAYS', 7),
     autoCleanupEnabled: String(process.env.AUTO_CLEANUP_ENABLED || 'false') === 'true',
-    autoEnhanceEnabled: booleanFromEnv('AUTO_ENHANCE', true),
+    autoEnhanceEnabled: booleanFromEnv('AUTO_ENHANCE', false),
     autoEnhanceLevel: autoEnhanceLevelFromEnv(process.env.AUTO_ENHANCE_LEVEL),
   };
 }

@@ -5,7 +5,7 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 ## Principais recursos
 
 - Upload de fotos pelo painel, com miniaturas, pré-visualizações e armazenamento privado.
-- Auto Enhance leve com Sharp após a rotação EXIF, ativável por ambiente, para deixar as fotos mais vivas sem aparência artificial.
+- Auto Enhance leve opcional com Sharp após a rotação EXIF, ativável por ambiente, para deixar as fotos mais vivas sem aparência artificial quando o fotógrafo quiser.
 - Seleção de fotos por cliente, com contador, pacote ativo e cálculo automático de preço.
 - Pacotes e preços editáveis no painel administrativo.
 - Desconto manual aplicável em qualquer venda, mesmo fora do pacote de desconto.
@@ -172,7 +172,7 @@ PUBLIC_BASE_URL=http://localhost:5173
 HOST=127.0.0.1
 PORT=3000
 STORAGE_ROOT=./storage
-AUTO_ENHANCE=true
+AUTO_ENHANCE=false
 AUTO_ENHANCE_LEVEL=balanced
 UPLOAD_PROCESSING_CONCURRENCY=3
 ```
@@ -295,28 +295,28 @@ cmd /c npm.cmd run build
 
 ## Auto Enhance
 
-O backend pode aplicar um tratamento leve e automático nas imagens durante o upload:
+O backend pode aplicar um tratamento leve e automático nas imagens durante o upload, mas esse recurso é opcional e vem desligado por padrão para não editar fotos sem intenção do fotógrafo:
 
 ```text
-Upload -> Rotate EXIF -> Auto Enhance -> Thumbnail -> Save
+Upload -> Rotate EXIF -> Auto Enhance opcional -> Thumbnail -> Save
 ```
 
-O objetivo é melhorar a foto de forma invisível, sem transformar o SnapFlow em editor manual. O pipeline usa Sharp com análise leve de luminosidade, ajustes suaves de brilho/saturação, contraste linear, sharpen leve e JPEG otimizado. Fotos escuras entram automaticamente em um preset `low_light`, que levanta sombras com mais cuidado e evita contraste negativo demais.
+O objetivo é permitir uma melhoria leve quando o operador quiser, sem misturar isso com os presets escolhidos manualmente em cada galeria. O pipeline usa Sharp com análise leve de luminosidade, ajustes suaves de brilho/saturação, contraste linear, sharpen leve e JPEG otimizado. Fotos escuras entram automaticamente em um preset `low_light`, que levanta sombras com mais cuidado e evita contraste negativo demais.
 
 Configuração em `backend\.env.local`:
 
 ```env
-AUTO_ENHANCE=true
+AUTO_ENHANCE=false
 AUTO_ENHANCE_LEVEL=balanced
 ```
 
 Níveis disponíveis:
 
 - `soft`: ajuste mais discreto.
-- `balanced`: padrão recomendado para evento e venda rápida.
+- `balanced`: opção recomendada para evento e venda rápida quando o Auto Enhance for ativado.
 - `cinematic`: um pouco mais presente, ainda sem HDR artificial.
 
-Para desligar o recurso, use `AUTO_ENHANCE=false` e reinicie o backend. Quando ativo, o backend registra logs como `[AUTO_ENHANCE] Processing image...`.
+Para ativar o recurso, use `AUTO_ENHANCE=true` e reinicie o backend. Quando ativo, o backend registra logs como `[AUTO_ENHANCE] Processing image...`. Se a intenção for usar apenas presets manuais por galeria, mantenha `AUTO_ENHANCE=false`.
 
 O processamento de lotes usa paralelismo controlado por `UPLOAD_PROCESSING_CONCURRENCY`. O padrão recomendado é `3`. Em máquinas mais fortes, teste `4`; em notebooks fracos ou com pouca memória, use `2` ou `1`.
 

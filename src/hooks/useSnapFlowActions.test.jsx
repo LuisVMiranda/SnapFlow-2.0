@@ -95,4 +95,32 @@ describe('useSnapFlowActions shared null states', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('keeps the package from the shared gallery instead of falling back before packages load', async () => {
+    const setType = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        customerAccessToken: 'customer-token',
+        packageType: 'marco_dos_corais',
+        photos: [{ id: 'photo_1', url: '/photo.jpg', thumbUrl: '/thumb.jpg' }],
+        photosPage: { hasMore: false, loadedCount: 1, totalCount: 1 },
+        photoCount: 1,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const actions = useSnapFlowActions(makeActionsConfig({
+      setType,
+      shareCodeInput: 'ABCD',
+      pricingOptions: {
+        eventos: { label: 'Eventos', shortLabel: 'Eventos', unit: 10, bulk: 8, threshold: 3 },
+      },
+    }));
+    await actions.handleUnlockSharedSession();
+
+    expect(setType).toHaveBeenCalledWith('marco_dos_corais');
+  });
 });

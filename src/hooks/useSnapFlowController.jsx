@@ -37,7 +37,7 @@ export function useSnapFlowController() {
   useShareProtections(shareToken, setNotice);
 
   const [screen, setScreen] = useState(resolveInitialSnapFlowScreen);
-  const initialType = getSavedSnapFlowState('type', 'eventos');
+  const initialType = shareToken ? 'eventos' : getSavedSnapFlowState('type', 'eventos');
   const [type, setType] = useState(() => DEFAULT_PRICING[initialType] ? initialType : 'eventos');
   
   const initialPhotos = shareToken ? [] : getSavedSnapFlowState('photos', []);
@@ -47,19 +47,27 @@ export function useSnapFlowController() {
   const [photoPageError, setPhotoPageError] = useState('');
   const [hasLoadedPhotosPage, setHasLoadedPhotosPage] = useState(false);
   
-  const initialSelected = getSavedSnapFlowState('selected', []);
+  const initialSelected = shareToken ? [] : getSavedSnapFlowState('selected', []);
   const [selected, setSelected] = useState(() => Array.isArray(initialSelected) ? initialSelected : []);
   
-  const [clientPhone, setClientPhone] = useState(() => getSavedSnapFlowState('clientPhone', ''));
-  const [clientName, setClientName] = useState(() => getSavedSnapFlowState('clientName', ''));
-  const [clientEmail, setClientEmail] = useState(() => getSavedSnapFlowState('clientEmail', ''));
-  const [manualDiscountEnabled, setManualDiscountEnabled] = useState(() => getSavedSnapFlowState('manualDiscountEnabled', false));
-  const [manualDiscountDraft, setManualDiscountDraft] = useState(() => getSavedSnapFlowState('manualDiscountDraft', ''));
-  const [sessionId, setSessionId] = useState(() => getSavedSnapFlowState('sessionId', ''));
-  const [qrCodeBase64, setQrCodeBase64] = useState(() => getSavedSnapFlowState('qrCodeBase64', ''));
-  const [pixCopyPaste, setPixCopyPaste] = useState(() => getSavedSnapFlowState('pixCopyPaste', ''));
-  const [pixWhatsAppMessage, setPixWhatsAppMessage] = useState(() => getSavedSnapFlowState('pixWhatsAppMessage', ''));
+  const [clientPhone, setClientPhone] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientPhone', ''));
+  const [clientName, setClientName] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientName', ''));
+  const [clientEmail, setClientEmail] = useState(() => shareToken ? '' : getSavedSnapFlowState('clientEmail', ''));
+  const [manualDiscountEnabled, setManualDiscountEnabled] = useState(() => shareToken ? false : getSavedSnapFlowState('manualDiscountEnabled', false));
+  const [manualDiscountDraft, setManualDiscountDraft] = useState(() => shareToken ? '' : getSavedSnapFlowState('manualDiscountDraft', ''));
+  const [sessionId, setSessionId] = useState(() => shareToken ? '' : getSavedSnapFlowState('sessionId', ''));
+  const [qrCodeBase64, setQrCodeBase64] = useState(() => shareToken ? '' : getSavedSnapFlowState('qrCodeBase64', ''));
+  const [pixCopyPaste, setPixCopyPaste] = useState(() => shareToken ? '' : getSavedSnapFlowState('pixCopyPaste', ''));
+  const [pixWhatsAppMessage, setPixWhatsAppMessage] = useState(() => shareToken ? '' : getSavedSnapFlowState('pixWhatsAppMessage', ''));
   const [liveOps, setLiveOps] = useState(() => {
+    if (shareToken) {
+      return {
+        paymentStatus: 'draft',
+        deliveryStatus: 'idle',
+        deliveryError: null,
+        paymentMethod: null,
+      };
+    }
     const saved = getSavedSnapFlowState('liveOps', null);
     return saved && typeof saved === 'object' ? saved : {
       paymentStatus: 'draft',
@@ -75,7 +83,11 @@ export function useSnapFlowController() {
   const [brokenPhotoIds, setBrokenPhotoIds] = useState([]);
   const [shareSessionInfo, setShareSessionInfo] = useState(null);
   const [shareCodeInput, setShareCodeInput] = useState('');
-  const [shareAccess, setShareAccess] = useState(() => getSavedSnapFlowState('share-access', null));
+  const [shareAccess, setShareAccess] = useState(() => {
+    const saved = getSavedSnapFlowState('share-access', null);
+    if (shareToken && saved?.token !== shareToken) return null;
+    return saved;
+  });
   const [shareActionLoading, setShareActionLoading] = useState(false);
   const [shareDurationMinutes, setShareDurationMinutes] = useState(30);
   const safeShareAccess = shareAccess && typeof shareAccess === 'object' ? shareAccess : {};
@@ -130,6 +142,7 @@ export function useSnapFlowController() {
     adminJsonHeaders,
     currentType: type,
     isAdminUnlocked,
+    preserveUnknownType: Boolean(shareToken),
     setNotice,
     setType,
   });
@@ -168,6 +181,7 @@ export function useSnapFlowController() {
     clientEmail,
     clientName,
     clientPhone,
+    disabled: Boolean(shareToken),
     liveOps,
     manualDiscountDraft,
     manualDiscountEnabled,
@@ -185,6 +199,11 @@ export function useSnapFlowController() {
       try { window.localStorage.removeItem('snapflow-photos'); } catch { /* ignore */ }
     }
   }, [shareToken, setNotice]);
+
+  useEffect(() => {
+    if (!shareToken || !safeShareSessionInfo.packageType) return;
+    setType(safeShareSessionInfo.packageType);
+  }, [safeShareSessionInfo.packageType, shareToken]);
 
   const toggle = (id) =>
     setSelected((previous) =>

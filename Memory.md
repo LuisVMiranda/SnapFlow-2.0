@@ -14,28 +14,28 @@ O foco principal e transformar vendas presenciais de fotografia em uma experienc
 - **Frontend React PWA:** interface mobile-first para fotografo e cliente, com foco em velocidade operacional, galeria visual, carrinho, checkout e painel administrativo.
 - **Backend Node.js + Express:** API local/remota para vendas, galerias, pagamentos, processamento de imagens, WhatsApp, credenciais, retencao, dashboard e seguranca.
 - **PostgreSQL:** persistencia principal de fotos, sessoes, galerias, credenciais, carrinhos compartilhados, metricas e eventos de conversao.
-- **Sharp:** pipeline de midia para rotacao EXIF, Auto Enhance leve, thumbnails e compressao otimizada.
+- **Sharp:** pipeline de midia para rotacao EXIF, Auto Enhance opcional, thumbnails e compressao otimizada.
 - **Mercado Pago Pix:** geracao de Pix e aprovacao via webhook.
 - **WhatsApp Web:** entrega automatica das fotos como documento, preservando qualidade.
 - **Fluxo hibrido online/local:** o sistema pode operar em ambiente local com Docker/PostgreSQL e ser exposto por URL publica segura quando necessario.
 
 ## Funcionalidades ativas
 
-### 1. Upload, processamento e Auto Enhance
+### 1. Upload, processamento e Auto Enhance opcional
 
 O upload passa pelo backend e usa Sharp antes de salvar as imagens. O fluxo atual e:
 
 ```text
-Upload -> Rotate EXIF -> Auto Enhance leve -> Thumbnail -> Save
+Upload -> Rotate EXIF -> Auto Enhance opcional -> Thumbnail -> Save
 ```
 
-O Auto Enhance e controlado por ambiente:
+O Auto Enhance e controlado por ambiente e fica desligado por padrao para evitar edicao automatica antes de o fotografo escolher presets de galeria:
 
-- `AUTO_ENHANCE=true`
+- `AUTO_ENHANCE=false`
 - `AUTO_ENHANCE_LEVEL=soft|balanced|cinematic`
 - `UPLOAD_PROCESSING_CONCURRENCY=3`
 
-O objetivo e deixar a foto mais viva e equilibrada sem aparencia artificial. O ajuste e leve, sem IA pesada, sem GPU e sem transformar o produto em um Lightroom. O Auto Enhance mede uma amostra pequena da luminosidade da imagem e troca para um preset `low_light` ou `dim_light` quando a foto esta escura, evitando que o contraste afunde ainda mais as sombras.
+Quando ativado manualmente com `AUTO_ENHANCE=true`, o objetivo e deixar a foto mais viva e equilibrada sem aparencia artificial. O ajuste e leve, sem IA pesada, sem GPU e sem transformar o produto em um Lightroom. O Auto Enhance mede uma amostra pequena da luminosidade da imagem e troca para um preset `low_light` ou `dim_light` quando a foto esta escura, evitando que o contraste afunde ainda mais as sombras.
 
 O processamento de uploads usa paralelismo controlado para acelerar lotes. O padrao atual processa ate 3 fotos em paralelo, mantendo a ordem de retorno para a galeria e evitando consumo exagerado de RAM.
 

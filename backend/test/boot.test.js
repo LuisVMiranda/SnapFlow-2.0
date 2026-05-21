@@ -29,18 +29,18 @@ test('server host can be explicitly opened for VPS or trusted LAN use', () => {
   else process.env.HOST = previousHost;
 });
 
-test('auto enhance is enabled by default and can be disabled by environment', () => {
+test('auto enhance is opt-in and can be enabled by environment', () => {
   const previousAutoEnhance = process.env.AUTO_ENHANCE;
   const previousAutoEnhanceLevel = process.env.AUTO_ENHANCE_LEVEL;
   delete process.env.AUTO_ENHANCE;
   delete process.env.AUTO_ENHANCE_LEVEL;
 
   const { createConfig } = require('../src/config');
-  assert.equal(createConfig().autoEnhanceEnabled, true);
+  assert.equal(createConfig().autoEnhanceEnabled, false);
   assert.equal(createConfig().autoEnhanceLevel, 'balanced');
 
-  process.env.AUTO_ENHANCE = 'false';
-  assert.equal(createConfig().autoEnhanceEnabled, false);
+  process.env.AUTO_ENHANCE = 'true';
+  assert.equal(createConfig().autoEnhanceEnabled, true);
 
   process.env.AUTO_ENHANCE_LEVEL = 'cinematic';
   assert.equal(createConfig().autoEnhanceLevel, 'cinematic');

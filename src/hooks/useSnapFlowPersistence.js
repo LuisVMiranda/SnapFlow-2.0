@@ -29,6 +29,7 @@ export function usePersistSnapFlowState({
   clientEmail,
   clientName,
   clientPhone,
+  disabled = false,
   liveOps,
   manualDiscountDraft,
   manualDiscountEnabled,
@@ -41,6 +42,7 @@ export function usePersistSnapFlowState({
   type,
 }) {
   useEffect(() => {
+    if (disabled) return;
     if (typeof window === 'undefined') return;
     try {
       const values = {
@@ -68,6 +70,7 @@ export function usePersistSnapFlowState({
     clientEmail,
     clientName,
     clientPhone,
+    disabled,
     liveOps,
     manualDiscountDraft,
     manualDiscountEnabled,

@@ -15,11 +15,19 @@ describe('resolveInitialScreen', () => {
     expect(resolveInitialScreen({ shareToken: 'abc', savedScreen: 'gallery' })).toBe('share-lock');
   });
 
-  it('restores an unlocked share flow only for the same token', () => {
+  it('does not treat an admin-created share link as unlocked customer access', () => {
     expect(resolveInitialScreen({
       shareToken: 'abc',
       savedScreen: 'summary',
       savedShareAccess: { token: 'abc' },
-    })).toBe('summary');
+    })).toBe('share-lock');
+  });
+
+  it('restores an unlocked share flow to the gallery instead of a stale checkout screen', () => {
+    expect(resolveInitialScreen({
+      shareToken: 'abc',
+      savedScreen: 'summary',
+      savedShareAccess: { token: 'abc', customerAccessToken: 'customer-token' },
+    })).toBe('gallery');
   });
 });

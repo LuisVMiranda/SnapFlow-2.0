@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { DEFAULT_PRICING, firstPackageKey, normalizePricingOptions } from '../lib/pricing';
 
-export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnlocked, setNotice, setType }) {
+export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnlocked, preserveUnknownType = false, setNotice, setType }) {
   const [pricingOptions, setPricingOptions] = useState(DEFAULT_PRICING);
-  const [packageSettingsStatus, setPackageSettingsStatus] = useState('idle');
+  const [packageSettingsStatus, setPackageSettingsStatus] = useState('loading');
 
   useEffect(() => {
     let cancelled = false;
@@ -14,9 +14,13 @@ export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnloc
         const response = await fetch(`${API_BASE_URL}/api/packages`);
         const data = await readJsonResponse(response);
         if (!response.ok) throw new Error(buildApiErrorMessage('Não foi possível carregar os pacotes.', response, data));
-        if (!cancelled) setPricingOptions(normalizePricingOptions(data));
+        if (!cancelled) {
+          setPricingOptions(normalizePricingOptions(data));
+          setPackageSettingsStatus('idle');
+        }
       } catch (error) {
         console.warn('Falha ao carregar pacotes:', error);
+        if (!cancelled) setPackageSettingsStatus('error');
       }
     };
 
@@ -27,9 +31,10 @@ export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnloc
   }, []);
 
   useEffect(() => {
-    if (pricingOptions[currentType]) return;
+    if (packageSettingsStatus === 'loading') return;
+    if (pricingOptions[currentType] || preserveUnknownType) return;
     setType(firstPackageKey(pricingOptions));
-  }, [currentType, pricingOptions, setType]);
+  }, [currentType, packageSettingsStatus, preserveUnknownType, pricingOptions, setType]);
 
   const savePackageSettings = useCallback(async (draft) => {
     if (!isAdminUnlocked) {
@@ -53,7 +58,7 @@ export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnloc
 
       const normalized = normalizePricingOptions(data);
       setPricingOptions(normalized);
-      if (!normalized[currentType]) setType(firstPackageKey(normalized));
+      if (!normalized[currentType] && !preserveUnknownType) setType(firstPackageKey(normalized));
       setNotice('Pacotes de fotos salvos.');
       setPackageSettingsStatus('saved');
       return true;
@@ -62,7 +67,7 @@ export function usePackageSettings({ adminJsonHeaders, currentType, isAdminUnloc
       setPackageSettingsStatus('error');
       return false;
     }
-  }, [adminJsonHeaders, currentType, isAdminUnlocked, setNotice, setType]);
+  }, [adminJsonHeaders, currentType, isAdminUnlocked, preserveUnknownType, setNotice, setType]);
 
   return { packageSettingsStatus, pricingOptions, savePackageSettings };
 }

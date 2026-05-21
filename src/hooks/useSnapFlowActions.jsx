@@ -340,7 +340,7 @@ export function useSnapFlowActions(config) {
     setClientName(data.clientName || '');
     setClientEmail(data.clientEmail || '');
     setClientPhone(data.phone || '');
-    setType(pricingOptions[data.packageType] ? data.packageType : firstPackageKey(pricingOptions));
+    setType(data.packageType || firstPackageKey(pricingOptions));
     setShareAccess({
       token: shareToken,
       customerAccessToken: data.customerAccessToken,
