@@ -79,7 +79,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
 
   async function countPhotosForShare(shareToken) {
     const result = await query('select count(*)::int as count from photos where share_token = $1 and deleted_at is null', [shareToken]);
-    return Number(result.rows[0].count || 0);
+    return Number(result.rows[0]?.count || 0);
   }
 
   async function listPhotosForSharePage(shareToken, options = {}) {
@@ -111,7 +111,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     ]);
 
     const photos = photosResult.rows.map((row) => rowToPhoto(row, config));
-    return buildPhotoPage(photos, limit, countResult.rows[0].count || 0);
+    return buildPhotoPage(photos, limit, countResult.rows[0]?.count || 0);
   }
 
   async function deletePhotoFromShare(shareToken, photoId) {

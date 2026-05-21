@@ -38,6 +38,9 @@ async function main() {
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);
     console.log('SnapFlow pronto com Postgres, armazenamento privado e fila de entrega.');
+    console.log(config.autoEnhanceEnabled
+      ? `Auto Enhance ativado no upload (${config.autoEnhanceLevel}). Para usar apenas presets manuais, defina AUTO_ENHANCE=false.`
+      : 'Auto Enhance desligado no upload. Presets manuais continuam disponiveis por galeria.');
   });
 
   whatsapp.initialize().catch((error) => {

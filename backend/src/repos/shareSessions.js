@@ -19,6 +19,13 @@ const SHARE_WITH_SALES_SQL = `
   ) sales on sales.share_token = ss.token
 `;
 
+function normalizeCartPhotoIds(photoIds) {
+  return (Array.isArray(photoIds) ? photoIds : [])
+    .filter((photoId) => photoId !== null && photoId !== undefined)
+    .map(String)
+    .filter(Boolean);
+}
+
 function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsForShare, query }) {
   async function createShareSession(share) {
     const result = await query(
@@ -315,12 +322,11 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
 
   async function getShareCart(token) {
     const result = await query('select photo_ids from share_carts where share_token = $1', [token]);
-    const photoIds = result.rows[0].photo_ids;
-    return Array.isArray(photoIds) ? photoIds.map(String).filter(Boolean) : [];
+    return normalizeCartPhotoIds(result.rows[0]?.photo_ids);
   }
 
   async function saveShareCart(token, photoIds = []) {
-    const uniquePhotoIds = [...new Set((Array.isArray(photoIds) ? photoIds : []).map(String).filter(Boolean))];
+    const uniquePhotoIds = [...new Set(normalizeCartPhotoIds(photoIds))];
     const result = await query(
       `insert into share_carts (share_token, photo_ids, updated_at)
        values ($1, $2::jsonb, now())
@@ -329,7 +335,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
        returning photo_ids`,
       [token, JSON.stringify(uniquePhotoIds)]
     );
-    return Array.isArray(result.rows[0].photo_ids) ? result.rows[0].photo_ids.map(String).filter(Boolean) : [];
+    return normalizeCartPhotoIds(result.rows[0]?.photo_ids);
   }
 
   async function extendShareSession(token, minutes) {
