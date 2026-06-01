@@ -4,6 +4,7 @@ const { createConversionEventRepo } = require('./conversionEvents');
 const { createDeliveryJobRepo } = require('./deliveryJobs');
 const { createPaymentEventRepo } = require('./paymentEvents');
 const { createPhotoRepo } = require('./photos');
+const { createOverlayAssetRepo } = require('./overlayAssets');
 const { createSessionRepo } = require('./sessions');
 const { createSettingsRepo } = require('./settings');
 const { createShareSessionRepo } = require('./shareSessions');
@@ -40,6 +41,7 @@ function createRepos(config) {
     ...createDeliveryJobRepo({ query }),
     ...createPaymentEventRepo({ query }),
     ...createSettingsRepo(context),
+    ...createOverlayAssetRepo(context),
     ...createWatermarkAssetRepo(context),
     close,
   };

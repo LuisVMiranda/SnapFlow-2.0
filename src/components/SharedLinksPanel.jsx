@@ -6,7 +6,9 @@ import { formatMoney } from '../lib/formatters';
 import { mergePresetIds } from '../lib/photoPresets';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
+import { mergeDetailPhotos, normalizeShareDetails } from '../lib/shareDetails';
 import { draftFromShare, galleryRouteErrorMessage, gallerySalesLabel, shareLink, statusMeta } from '../lib/sharedLinksPanel';
+import { useGalleryOverlayActions } from '../hooks/useGalleryOverlayActions';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 
 export function SharedLinksPanel({
@@ -18,6 +20,7 @@ export function SharedLinksPanel({
   pricingOptions,
   setNotice,
   watermarkAssets = [],
+  overlayAssets = [],
   withAdminMediaToken = (url) => url,
 }) {
   const [editingToken, setEditingToken] = useState('');
@@ -26,30 +29,7 @@ export function SharedLinksPanel({
   const [loadingDetailsToken, setLoadingDetailsToken] = useState('');
   const [photoActionToken, setPhotoActionToken] = useState('');
 
-  const normalizeDetails = (data) => ({
-    ...data,
-    watermarkAsset: data.watermarkAsset ? {
-      ...data.watermarkAsset,
-      url: withAdminMediaToken(data.watermarkAsset.url),
-    } : null,
-    photosPage: data.photosPage || { hasMore: false, nextCursor: null, loadedCount: 0, totalCount: data.photoCount || 0 },
-    photos: Array.isArray(data.photos)
-      ? data.photos.map((photo) => ({
-          ...photo,
-          url: withAdminMediaToken(photo.url),
-          thumbUrl: withAdminMediaToken(photo.thumbUrl || photo.url),
-        }))
-      : [],
-  });
-
-  const mergeDetailPhotos = (currentPhotos = [], nextPhotos = []) => {
-    const seen = new Set();
-    return [...currentPhotos, ...nextPhotos].filter((photo) => {
-      if (!photo.id || seen.has(photo.id)) return false;
-      seen.add(photo.id);
-      return true;
-    });
-  };
+  const normalizeDetails = (data) => normalizeShareDetails(data, withAdminMediaToken);
 
   const loadShareDetails = async (shareSession) => {
     setLoadingDetailsToken(shareSession.token);
@@ -143,6 +123,15 @@ export function SharedLinksPanel({
       };
     });
   };
+
+  const { applyGalleryOverlay, clearGalleryOverlay } = useGalleryOverlayActions({
+    adminJsonHeaders,
+    drafts,
+    fetchDashboard,
+    loadShareDetails,
+    setNotice,
+    setPhotoActionToken,
+  });
 
   const startEditing = async (shareSession) => {
     const isClosing = editingToken === shareSession.token;
@@ -489,7 +478,7 @@ export function SharedLinksPanel({
   return (
     <div className="recent-sessions">
       <div className="recent-header">
-        <h3>Links compartilhados</h3>
+        <h3>Galerias</h3>
       </div>
 
       {dashData.shareRecent.map((shareSession) => {
@@ -534,7 +523,9 @@ export function SharedLinksPanel({
 
             {isEditing ? (
               <ShareGalleryEditor
+                applyGalleryOverlay={applyGalleryOverlay}
                 closeEditor={() => setEditingToken('')}
+                clearGalleryOverlay={clearGalleryOverlay}
                 deletePhoto={deletePhoto}
                 detail={details[shareSession.token]}
                 draft={draft}
@@ -542,6 +533,7 @@ export function SharedLinksPanel({
                 isLoading={loadingDetailsToken === shareSession.token}
                 isPhotoBusy={photoActionToken === shareSession.token}
                 loadMorePhotos={loadMoreSharePhotos}
+                overlayAssets={overlayAssets}
                 photoPresets={photoPresets}
                 pricingOptions={pricingOptions}
                 removePhotoPresets={removePhotoPresets}
@@ -561,7 +553,7 @@ export function SharedLinksPanel({
         );
       })}
 
-      {dashData.shareRecent.length === 0 ? <div className="empty-state">Nenhum link compartilhado ainda</div> : null}
+      {dashData.shareRecent.length === 0 ? <div className="empty-state">Nenhuma galeria ainda</div> : null}
     </div>
   );
 }

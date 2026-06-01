@@ -25,6 +25,7 @@ export function DashboardScreen({
   credentialsStatus,
   dashData,
   deletePhotoPreset,
+  deleteOverlayAsset,
   deleteWatermarkAsset,
   deleteCredential,
   fetchDashboard,
@@ -40,6 +41,8 @@ export function DashboardScreen({
   packageSettingsStatus,
   photoPresets,
   photoPresetStatus,
+  overlayAssets,
+  overlayAssetStatus,
   period,
   pricingOptions = DEFAULT_PRICING,
   previewCleanup,
@@ -60,7 +63,9 @@ export function DashboardScreen({
   total,
   type,
   updatePhotoPreset,
+  updateOverlayAsset,
   updateWatermarkAsset,
+  uploadOverlayAsset,
   uploadWatermarkAsset,
   withAdminMediaToken,
   whatsAppTemplateStatus,
@@ -104,6 +109,8 @@ export function DashboardScreen({
           packageSettingsStatus={packageSettingsStatus}
           photoPresets={photoPresets}
           photoPresetStatus={photoPresetStatus}
+          overlayAssets={overlayAssets}
+          overlayAssetStatus={overlayAssetStatus}
           previewCleanup={previewCleanup}
           pricingOptions={pricingOptions}
           retentionSettings={retentionSettings}
@@ -116,6 +123,7 @@ export function DashboardScreen({
           setType={setType}
           type={type}
           updatePhotoPreset={updatePhotoPreset}
+          updateOverlayAsset={updateOverlayAsset}
           updateWatermarkAsset={updateWatermarkAsset}
           whatsAppTemplateStatus={whatsAppTemplateStatus}
           whatsAppTemplates={whatsAppTemplates}
@@ -124,6 +132,8 @@ export function DashboardScreen({
           watermarkSettings={watermarkSettings}
           watermarkSettingsStatus={watermarkSettingsStatus}
           deleteWatermarkAsset={deleteWatermarkAsset}
+          deleteOverlayAsset={deleteOverlayAsset}
+          uploadOverlayAsset={uploadOverlayAsset}
           uploadWatermarkAsset={uploadWatermarkAsset}
         />
       );
@@ -155,6 +165,7 @@ export function DashboardScreen({
         liveOps={liveOps}
         pricingOptions={pricingOptions}
         photoPresets={photoPresets}
+        overlayAssets={overlayAssets}
         watermarkAssets={watermarkAssets}
         setNotice={setNotice}
         setType={setType}

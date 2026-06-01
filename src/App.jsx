@@ -12,6 +12,7 @@ import { ShareLockScreen } from './screens/ShareLockScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
 import { usePhotoPresets } from './hooks/usePhotoPresets';
 import { useSnapFlowController } from './hooks/useSnapFlowController';
+import { useOverlayAssets } from './hooks/useOverlayAssets';
 import { useWatermarkAssets } from './hooks/useWatermarkAssets';
 import { useEffect, useState } from 'react';
 import { buildAdminApprovalUrl, readAdminApprovalSessionId } from './lib/adminApproval';
@@ -133,6 +134,19 @@ export default function App() {
     updatePhotoPreset,
   } = usePhotoPresets({ adminJsonHeaders, isAdminUnlocked, setNotice });
   const {
+    deleteOverlayAsset,
+    overlayAssets,
+    overlayAssetStatus,
+    updateOverlayAsset,
+    uploadOverlayAsset,
+  } = useOverlayAssets({
+    adminHeaders,
+    adminJsonHeaders,
+    isAdminUnlocked,
+    setNotice,
+    withAdminMediaToken,
+  });
+  const {
     deleteWatermarkAsset,
     updateWatermarkAsset,
     uploadWatermarkAsset,
@@ -146,12 +160,19 @@ export default function App() {
     withAdminMediaToken,
   });
   const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
+  const [selectedOverlayAssetId, setSelectedOverlayAssetId] = useState('');
+  const [selectedOverlaySettings, setSelectedOverlaySettings] = useState({});
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
+  const effectiveOverlaySettings = safeShareSessionInfo.overlaySettings || { enabled: false };
 
   useEffect(() => {
-    if (screen === 'dashboard' || shareToken) setSelectedPhotoPresetIds([]);
+    if (screen === 'dashboard' || shareToken) {
+      setSelectedPhotoPresetIds([]);
+      setSelectedOverlayAssetId('');
+      setSelectedOverlaySettings({});
+    }
   }, [screen, shareToken]);
 
   const adminApprovalSessionId = readAdminApprovalSessionId();
@@ -230,6 +251,7 @@ export default function App() {
         total={subtotal}
         setViewerIndex={setViewerIndex}
         markBrokenPhoto={markBrokenPhoto}
+        overlaySettings={effectiveOverlaySettings}
         toggle={toggle}
         watermarkSettings={effectiveWatermarkSettings}
       />
@@ -256,6 +278,7 @@ export default function App() {
         createPhotoPreset={createPhotoPreset}
         dashData={dashData}
         deletePhotoPreset={deletePhotoPreset}
+        deleteOverlayAsset={deleteOverlayAsset}
         deleteWatermarkAsset={deleteWatermarkAsset}
         deleteCredential={deleteCredential}
         fetchDashboard={fetchDashboard}
@@ -271,6 +294,8 @@ export default function App() {
         packageSettingsStatus={packageSettingsStatus}
         photoPresets={photoPresets}
         photoPresetStatus={photoPresetStatus}
+        overlayAssets={overlayAssets}
+        overlayAssetStatus={overlayAssetStatus}
         watermarkAssets={watermarkAssets}
         watermarkAssetStatus={watermarkAssetStatus}
         period={period}
@@ -293,7 +318,9 @@ export default function App() {
         total={total}
         type={type}
         updatePhotoPreset={updatePhotoPreset}
+        updateOverlayAsset={updateOverlayAsset}
         updateWatermarkAsset={updateWatermarkAsset}
+        uploadOverlayAsset={uploadOverlayAsset}
         uploadWatermarkAsset={uploadWatermarkAsset}
         withAdminMediaToken={withAdminMediaToken}
         whatsAppTemplateStatus={whatsAppTemplateStatus}
@@ -335,6 +362,7 @@ export default function App() {
         total={subtotal}
         type={type}
         unit={unit}
+        overlaySettings={effectiveOverlaySettings}
         watermarkSettings={effectiveWatermarkSettings}
       />
     );
@@ -360,10 +388,13 @@ export default function App() {
         manualDiscountDraft={manualDiscountDraft}
         manualDiscountEnabled={manualDiscountEnabled}
         noticeBanner={noticeBanner}
+        overlayAssets={overlayAssets}
         photoPresets={photoPresets}
         pricingOptions={pricingOptions}
         resetSession={resetSession}
         selectedPhotoItems={selectedPhotoItems}
+        selectedOverlayAssetId={selectedOverlayAssetId}
+        selectedOverlaySettings={selectedOverlaySettings}
         selectedPhotoPresetIds={selectedPhotoPresetIds}
         setClientEmail={setClientEmail}
         setClientName={setClientName}
@@ -371,6 +402,8 @@ export default function App() {
         setManualDiscountDraft={setManualDiscountDraft}
         setManualDiscountEnabled={setManualDiscountEnabled}
         setNotice={setNotice}
+        setSelectedOverlayAssetId={setSelectedOverlayAssetId}
+        setSelectedOverlaySettings={setSelectedOverlaySettings}
         setSelectedPhotoPresetIds={setSelectedPhotoPresetIds}
         setScreen={setScreen}
         setShareDurationMinutes={setShareDurationMinutes}

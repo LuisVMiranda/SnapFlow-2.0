@@ -1,4 +1,5 @@
 const { fromCents, rowToSession, rowToShare, toCents } = require('./mappers');
+const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
 
 function createSessionRepo({ pool, query, withTransaction }) {
   async function createSession(session, photoIds = []) {
@@ -244,6 +245,10 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.watermark_asset_id,
                 ss.watermark_settings,
                 ss.watermark_updated_at,
+                ss.overlay_asset_id,
+                ss.overlay_enabled,
+                ss.overlay_settings,
+                ss.overlay_updated_at,
                 coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
                 coalesce(sales.sold_order_count, 0)::int as sold_order_count,
                 coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,
@@ -321,6 +326,77 @@ function createSessionRepo({ pool, query, withTransaction }) {
     };
   }
 
+  async function ensureDirectSaleGalleries(options = {}) {
+    const retentionDays = Number(options.defaultGalleryRetentionDays) || 30;
+    const baseUrl = String(options.publicBaseUrl || '').trim();
+    return withTransaction(pool, async (client) => {
+      const result = await client.query(
+        `select s.*
+         from sessions s
+         where s.share_token is null
+           and s.status <> 'cancelled'
+           and exists (
+             select 1
+             from photos p
+             where p.session_id = s.id
+               and p.share_token is null
+               and p.deleted_at is null
+           )
+         order by s.created_at desc
+         limit 20
+         for update skip locked`
+      );
+      const repaired = [];
+      for (const row of result.rows) {
+        const token = randomToken(12);
+        const accessCode = generateAccessCode(4);
+        const expiresAt = addDays(new Date(), retentionDays);
+        const link = baseUrl ? new URL(`/s/${token}`, baseUrl).toString() : null;
+        const galleryName = row.client_name ? `Venda - ${row.client_name}` : 'Venda direta';
+        await client.query(
+          `insert into share_sessions
+            (token, gallery_id, gallery_name, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link)
+           values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14)`,
+          [
+            token,
+            galleryName,
+            hashValue(accessCode),
+            accessCode,
+            row.phone || '',
+            row.client_name || '',
+            row.client_email || '',
+            row.package_type || 'eventos',
+            Number(row.photo_count || 0),
+            Number(row.subtotal_cents || row.amount_cents || 0),
+            Number(row.discount_cents || 0),
+            Number(row.amount_cents || 0),
+            expiresAt,
+            link,
+          ]
+        );
+        const photosResult = await client.query(
+          `update photos
+           set share_token = $1,
+               retention_expires_at = coalesce(retention_expires_at, $2)
+           where session_id = $3
+             and share_token is null
+             and deleted_at is null
+           returning id`,
+          [token, expiresAt, row.id]
+        );
+        await client.query(
+          `update share_sessions
+           set photo_count = $2
+           where token = $1`,
+          [token, photosResult.rowCount]
+        );
+        await client.query('update sessions set share_token = $2 where id = $1 and share_token is null', [row.id, token]);
+        repaired.push({ sessionId: row.id, shareToken: token, photoCount: photosResult.rowCount });
+      }
+      return repaired;
+    });
+  }
+
   async function clearSalesStats() {
     const result = await query('delete from sessions returning id');
     return { deletedSessions: result.rowCount };
@@ -333,6 +409,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
     clearSalesStats,
     createSession,
     dashboard,
+    ensureDirectSaleGalleries,
     getSession,
     getSessionByPaymentId,
     updateDeliveryStatus,

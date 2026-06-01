@@ -167,6 +167,89 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.gallery-overlay-tools .gallery-preset-actions {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gallery-client-overlay {
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.gallery-client-overlay img,
+.overlay-preview-layer {
+  object-fit: contain;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.overlay-preview-backdrop {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 60;
+}
+
+.overlay-preview-modal {
+  background: #151515;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  display: grid;
+  gap: 14px;
+  max-height: min(92vh, 860px);
+  max-width: 760px;
+  overflow: auto;
+  padding: 18px;
+  width: min(100%, 760px);
+}
+
+.overlay-preview-modal .modal-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.overlay-preview-modal .icon-button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.overlay-preview-frame {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  display: flex;
+  min-height: 340px;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+}
+
+.overlay-preview-photo {
+  display: block;
+  height: auto;
+  max-height: 68vh;
+  object-fit: contain;
+  width: 100%;
+}
+
 .watermark-preview-frame {
   background:
     linear-gradient(135deg, rgba(30, 144, 255, 0.18), rgba(0, 200, 81, 0.12)),
@@ -204,10 +287,11 @@
   }
 
   .watermark-settings-layout,
-  .watermark-controls,
-  .watermark-asset-upload,
-  .gallery-watermark-controls,
-  .gallery-watermark-tools .gallery-preset-actions {
+    .watermark-controls,
+    .watermark-asset-upload,
+    .gallery-watermark-controls,
+    .gallery-overlay-tools .gallery-preset-actions,
+    .gallery-watermark-tools .gallery-preset-actions {
     grid-template-columns: 1fr;
   }
 

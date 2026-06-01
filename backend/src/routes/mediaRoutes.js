@@ -27,6 +27,20 @@ function createMediaRouter({ auth, config, media, repos }) {
   );
 
   router.get(
+    '/admin/overlay-assets/:assetId/file',
+    asyncHandler(async (req, res) => {
+      if (!hasAdminMediaAccess(req)) {
+        throw new HttpError(403, 'Acesso administrativo invalido para visualizar o overlay.', 'admin_required');
+      }
+      const asset = typeof repos.getOverlayAsset === 'function'
+        ? await repos.getOverlayAsset(req.params.assetId)
+        : null;
+      if (!asset) throw new HttpError(404, 'Overlay não encontrado.', 'overlay_asset_not_found');
+      await media.sendOverlayAsset(res, asset);
+    })
+  );
+
+  router.get(
     '/admin/watermark-assets/:assetId/file',
     asyncHandler(async (req, res) => {
       if (!hasAdminMediaAccess(req)) {

@@ -8,116 +8,31 @@ const { applyPhotoEditingStack, jpegQualityForPresetStack } = require('./photoEd
 const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
 const { buildImageWatermarkSvg, buildWatermarkSvg, watermarkPositions } = require('./mediaWatermarkService');
 const {
+  AUTO_ENHANCE_PRESETS,
+  adaptiveAutoEnhancePreset,
+  applyAutoEnhance,
+  autoEnhancePreset,
+  imageToneStats,
+} = require('./mediaEnhanceService');
+const {
+  OVERLAY_ASSET_MAX_BYTES,
+  OVERLAY_ASSET_MIME_TYPES,
+  buildOverlaySvg,
+  validateOverlayAssetFile,
+} = require('./mediaOverlayService');
+const {
   WATERMARK_ASSET_MAX_BYTES,
   WATERMARK_ASSET_MIME_TYPES,
   validateWatermarkAssetFile,
 } = require('./mediaWatermarkAssetValidation');
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
-const AUTO_ENHANCE_PRESETS = {
-  soft: {
-    brightness: 1.03,
-    saturation: 1.04,
-    contrast: 1.04,
-    intercept: -4,
-    sharpenSigma: 1.1,
-    jpegQuality: 92,
-  },
-  balanced: {
-    brightness: 1.06,
-    saturation: 1.08,
-    contrast: 1.08,
-    intercept: -6,
-    sharpenSigma: 1.15,
-    jpegQuality: 92,
-  },
-  cinematic: {
-    brightness: 1.07,
-    saturation: 1.1,
-    contrast: 1.12,
-    intercept: -8,
-    sharpenSigma: 1.2,
-    jpegQuality: 92,
-  },
-};
-
-const LOW_LIGHT_PRESET = {
-  brightness: 1.14,
-  saturation: 1.06,
-  contrast: 1.02,
-  intercept: 10,
-  sharpenSigma: 1.05,
-  jpegQuality: 92,
-  mode: 'low_light',
-};
-
-const DIM_LIGHT_PRESET = {
-  brightness: 1.1,
-  saturation: 1.07,
-  contrast: 1.04,
-  intercept: 6,
-  sharpenSigma: 1.08,
-  jpegQuality: 92,
-  mode: 'dim_light',
-};
-
 function safeRelativePath(value) {
   const normalized = String(value || '').replace(/\\/g, '/');
   if (!normalized || normalized.includes('..') || path.isAbsolute(normalized)) {
     throw new HttpError(400, 'Caminho de arquivo inválido. Use apenas arquivos dentro da pasta privada de armazenamento do SnapFlow.', 'invalid_file_path');
   }
   return normalized;
-}
-
-function autoEnhancePreset(level = 'balanced') {
-  return AUTO_ENHANCE_PRESETS[level] || AUTO_ENHANCE_PRESETS.balanced;
-}
-
-function luminanceFromStats(stats) {
-  const channels = stats?.channels || [];
-  if (channels.length < 3) return null;
-  const red = Number(channels[0].mean);
-  const green = Number(channels[1].mean);
-  const blue = Number(channels[2].mean);
-  if (![red, green, blue].every(Number.isFinite)) return null;
-  return (red * 0.2126) + (green * 0.7152) + (blue * 0.0722);
-}
-
-function adaptiveAutoEnhancePreset(level = 'balanced', stats = null) {
-  const base = autoEnhancePreset(level);
-  const luminance = luminanceFromStats(stats);
-  if (!Number.isFinite(luminance)) return { ...base, mode: level };
-
-  if (luminance < 82) {
-    return { ...LOW_LIGHT_PRESET, luminance };
-  }
-
-  if (luminance < 112) {
-    return { ...DIM_LIGHT_PRESET, luminance };
-  }
-
-  return { ...base, mode: level, luminance };
-}
-
-async function imageToneStats(filePath) {
-  return sharp(filePath, { sequentialRead: true })
-    .rotate()
-    .resize({ width: 96, height: 96, fit: 'inside', withoutEnlargement: true })
-    .removeAlpha()
-    .stats();
-}
-
-function applyAutoEnhance(image, levelOrPreset = 'balanced') {
-  const preset = typeof levelOrPreset === 'object' ? levelOrPreset : autoEnhancePreset(levelOrPreset);
-  return image
-    .modulate({
-      brightness: preset.brightness,
-      saturation: preset.saturation,
-    })
-    .linear(preset.contrast, preset.intercept)
-    .sharpen({
-      sigma: preset.sharpenSigma,
-    });
 }
 
 async function mapWithConcurrency(items, concurrency, mapper) {
@@ -144,6 +59,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     temp: path.join(config.storageRoot, 'tmp'),
     undo: path.join(config.storageRoot, 'undo'),
     archive: path.join(config.storageRoot, 'archive'),
+    overlayAssets: path.join(config.storageRoot, 'overlay-assets'),
     watermarkAssets: path.join(config.storageRoot, 'watermark-assets'),
   };
 
@@ -197,6 +113,20 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return buildWatermarkSvg(width, height, watermark?.settings || watermark || await currentWatermarkSettings());
   }
 
+  async function overlayInputForPreview(width, height, overlay) {
+    if (!overlay?.enabled || overlay.kind !== 'image' || !overlay.assetPath) return null;
+    const assetBuffer = await fs.readFile(absolutePath(overlay.assetPath));
+    return buildOverlaySvg(width, height, assetBuffer, overlay.asset, overlay.settings);
+  }
+
+  async function protectionInputsForPreview(width, height, options = {}) {
+    const inputs = [];
+    const overlayInput = await overlayInputForPreview(width, height, options.overlay);
+    if (overlayInput) inputs.push({ input: overlayInput, gravity: 'center' });
+    inputs.push({ input: await watermarkInputForPreview(width, height, options.watermark), gravity: 'center' });
+    return inputs;
+  }
+
   function presetUndoRel(kind, photoId) {
     return `undo/${kind}/${photoId}-${randomToken(8)}.jpg`;
   }
@@ -238,6 +168,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     if (presetStack.length) basePipeline = applyPhotoEditingStack(basePipeline, presetStack);
 
     const watermark = options.watermark || await currentWatermarkSettings();
+    const overlay = options.overlay || null;
     const qualityFallback = config.autoEnhanceEnabled && sourceIsPristine ? enhancePreset.jpegQuality : 94;
     const originalQuality = jpegQualityForPresetStack(presetStack, qualityFallback);
     const tempSuffix = `${photo.id}-${randomToken(8)}`;
@@ -257,7 +188,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
         .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
         .toBuffer({ resolveWithObject: true })
         .then(async (preview) => sharp(preview.data)
-          .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+          .composite(await protectionInputsForPreview(preview.info.width, preview.info.height, { overlay, watermark }))
           .jpeg({ quality: 72, mozjpeg: true })
           .toFile(absolutePath(nextPreviewRel))),
     ]);
@@ -290,6 +221,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
         console.log(`[AUTO_ENHANCE] Processing image ${file.originalname || id} with ${enhancePreset.mode || enhanceLevel} preset...${luminance}`);
       }
       const watermark = options.watermark || await currentWatermarkSettings();
+      const overlay = options.overlay || null;
       const originalQuality = jpegQualityForPresetStack(presetStack, config.autoEnhanceEnabled ? enhancePreset.jpegQuality : 94);
 
       await Promise.all([
@@ -307,7 +239,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
           .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
           .toBuffer({ resolveWithObject: true })
           .then(async (preview) => sharp(preview.data)
-            .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+            .composite(await protectionInputsForPreview(preview.info.width, preview.info.height, { overlay, watermark }))
             .jpeg({ quality: 72, mozjpeg: true })
             .toFile(previewAbs)),
       ]);
@@ -346,7 +278,6 @@ function createMediaService(config, { watermarkSettings } = {}) {
     uploadFiles.forEach(validateUploadFile);
     return mapWithConcurrency(uploadFiles, config.uploadProcessingConcurrency || 3, (file) => processUploadedFile(file, retentionExpiresAt, options));
   }
-
   async function reprocessPhotoWithPresets(photo, presetStack = [], options = {}) {
     await ensureStorage();
     const undoOriginalPath = presetUndoRel('originals', photo.id);
@@ -429,7 +360,6 @@ function createMediaService(config, { watermarkSettings } = {}) {
       throw new HttpError(400, `Não foi possível desfazer o preset da foto "${photo.id}". Confirme que os arquivos de desfazer ainda existem no armazenamento local.`, 'photo_preset_undo_failed', { photoId: photo.id, reason: error.message });
     }
   }
-
   async function processWatermarkAssetUpload(file) {
     await ensureStorage();
     validateWatermarkAssetFile(file);
@@ -466,35 +396,93 @@ function createMediaService(config, { watermarkSettings } = {}) {
       await fs.unlink(file.path).catch(() => {});
     }
   }
-
+  async function processOverlayAssetUpload(file) {
+    await ensureStorage();
+    validateOverlayAssetFile(file);
+    const id = `overlay_asset_${randomToken(12)}`;
+    const storagePath = `overlay-assets/${id}.png`;
+    const targetAbs = absolutePath(storagePath);
+    try {
+      await sharp(file.path, { sequentialRead: true })
+        .rotate()
+        .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toFile(targetAbs);
+      const metadata = await sharp(targetAbs).metadata();
+      const stat = await fs.stat(targetAbs);
+      return {
+        id,
+        originalFilename: file.originalname || '',
+        storagePath,
+        mimeType: 'image/png',
+        width: Number(metadata.width || 0),
+        height: Number(metadata.height || 0),
+        sizeBytes: stat.size,
+        checksum: await checksumFile(targetAbs),
+      };
+    } catch (error) {
+      await fs.unlink(targetAbs).catch(() => {});
+      throw new HttpError(
+        400,
+        `Não foi possível processar o overlay "${file.originalname || 'enviado'}". Envie PNG, JPG ou WebP válido.`,
+        'overlay_asset_processing_failed',
+        { fileName: file.originalname, reason: error.message }
+      );
+    } finally {
+      await fs.unlink(file.path).catch(() => {});
+    }
+  }
   async function removeWatermarkAsset(asset) {
     if (!asset?.storagePath) return;
     await unlinkRelativeFile(asset.storagePath);
   }
 
-  async function reprocessPhotoWatermark(photo, watermark) {
+  async function removeOverlayAsset(asset) {
+    if (!asset?.storagePath) return;
+    await unlinkRelativeFile(asset.storagePath);
+  }
+
+  async function reprocessPhotoPreview(photo, options = {}) {
     await ensureStorage();
     if (!photo.originalPath) {
-      throw new HttpError(400, 'Esta foto não possui arquivo base para reaplicar a marca d\'água.', 'photo_source_missing');
+      throw new HttpError(400, 'Esta foto não possui arquivo base para reaplicar proteções.', 'photo_source_missing');
     }
-    const tempPreviewRel = `tmp/${photo.id}-${randomToken(8)}-watermark-preview.jpg`;
+    const tempPreviewRel = `tmp/${photo.id}-${randomToken(8)}-preview.jpg`;
     try {
       await sharp(absolutePath(photo.originalPath), { sequentialRead: true })
         .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
         .toBuffer({ resolveWithObject: true })
         .then(async (preview) => sharp(preview.data)
-          .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+          .composite(await protectionInputsForPreview(preview.info.width, preview.info.height, options))
           .jpeg({ quality: 72, mozjpeg: true })
           .toFile(absolutePath(tempPreviewRel)));
       await replaceRelativeFile(tempPreviewRel, photo.previewPath);
       return {
         previewPath: photo.previewPath,
-        watermarkAppliedAt: new Date().toISOString(),
+        overlayAppliedAt: options.markOverlay ? new Date().toISOString() : undefined,
+        watermarkAppliedAt: options.markWatermark ? new Date().toISOString() : undefined,
       };
     } catch (error) {
       await unlinkRelativeFile(tempPreviewRel);
-      throw new HttpError(400, `Não foi possível reaplicar a marca d'água na foto "${photo.id}".`, 'photo_watermark_apply_failed', { photoId: photo.id, reason: error.message });
+      throw new HttpError(400, `Não foi possível reaplicar proteções na foto "${photo.id}".`, 'photo_protection_apply_failed', { photoId: photo.id, reason: error.message });
     }
+  }
+
+  async function reprocessPhotoWatermark(photo, watermark, options = {}) {
+    return reprocessPhotoPreview(photo, {
+      overlay: options.overlay || null,
+      watermark,
+      markWatermark: true,
+    });
+  }
+
+  async function reprocessPhotoOverlay(photo, overlay, options = {}) {
+    return reprocessPhotoPreview(photo, {
+      overlay,
+      watermark: options.watermark || await currentWatermarkSettings(),
+      markOverlay: true,
+      markWatermark: true,
+    });
   }
 
   async function sendFile(res, photo, variant) {
@@ -514,6 +502,16 @@ function createMediaService(config, { watermarkSettings } = {}) {
 
   async function sendWatermarkAsset(res, asset) {
     if (!asset?.storagePath) throw new HttpError(404, "Marca d'água não encontrada.", 'watermark_asset_not_found');
+    res.set({
+      'Cache-Control': 'private, max-age=300',
+      'Content-Type': asset.mimeType || 'image/png',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.sendFile(absolutePath(asset.storagePath));
+  }
+
+  async function sendOverlayAsset(res, asset) {
+    if (!asset?.storagePath) throw new HttpError(404, 'Overlay não encontrado.', 'overlay_asset_not_found');
     res.set({
       'Cache-Control': 'private, max-age=300',
       'Content-Type': asset.mimeType || 'image/png',
@@ -562,16 +560,22 @@ function createMediaService(config, { watermarkSettings } = {}) {
     maxUploadBytes: config.maxUploadMb * 1024 * 1024,
     maxFiles: config.maxFilesPerUpload,
     allowedMimeTypes: ALLOWED_MIME_TYPES,
+    allowedOverlayMimeTypes: OVERLAY_ASSET_MIME_TYPES,
     allowedWatermarkMimeTypes: WATERMARK_ASSET_MIME_TYPES,
+    maxOverlayAssetBytes: OVERLAY_ASSET_MAX_BYTES,
     maxWatermarkAssetBytes: WATERMARK_ASSET_MAX_BYTES,
     absolutePath,
+    processOverlayAssetUpload,
     processWatermarkAssetUpload,
     processUploadedFiles,
+    reprocessPhotoOverlay,
     reprocessPhotoWatermark,
     reprocessPhotoWithPresets,
     restorePhotoPresetUndo,
     sendFile,
+    sendOverlayAsset,
     sendWatermarkAsset,
+    removeOverlayAsset,
     removeWatermarkAsset,
     removeOrArchive,
   };
@@ -581,6 +585,7 @@ module.exports = {
   createMediaService,
   ALLOWED_MIME_TYPES,
   AUTO_ENHANCE_PRESETS,
+  OVERLAY_ASSET_MIME_TYPES,
   WATERMARK_ASSET_MIME_TYPES,
   adaptiveAutoEnhancePreset,
   applyAutoEnhance,

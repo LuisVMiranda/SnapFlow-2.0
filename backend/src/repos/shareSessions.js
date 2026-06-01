@@ -197,6 +197,37 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     return rowToShare(result.rows[0], { includeAccessCode: true });
   }
 
+  async function updateShareOverlayState(token, updates = {}) {
+    const nextAssetId = updates.overlayAssetId || null;
+    const result = await query(
+      `update share_sessions
+       set overlay_asset_id = $2,
+           overlay_enabled = coalesce($3, false),
+           overlay_settings = coalesce($4, '{}'::jsonb),
+           overlay_updated_at = coalesce($5, now())
+       where token = $1
+         and deleted_at is null
+         and (
+           $2::text is null
+           or exists (
+             select 1
+             from overlay_assets
+             where id = $2
+               and deleted_at is null
+           )
+         )
+       returning *`,
+      [
+        token,
+        nextAssetId,
+        updates.overlayEnabled === undefined ? null : Boolean(updates.overlayEnabled),
+        updates.overlaySettings === undefined ? null : JSON.stringify(updates.overlaySettings || {}),
+        updates.overlayUpdatedAt || null,
+      ]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true });
+  }
+
   async function reactivateShareSession(token, updates = {}) {
     const result = await query(
       `update share_sessions
@@ -410,6 +441,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     revokeShareSession,
     saveShareCart,
     updateShareSession,
+    updateShareOverlayState,
     updateSharePresetState,
     updateShareWatermarkState,
   };

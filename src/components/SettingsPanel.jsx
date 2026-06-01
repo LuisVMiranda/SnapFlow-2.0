@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { PackageSettingsModal } from './PackageSettingsModal';
+import { OverlayAssetLibraryPanel } from './OverlayAssetLibraryPanel';
 import { PhotoPresetSettingsPanel } from './PhotoPresetSettingsPanel';
 import { RetentionPanel } from './RetentionPanel';
 import { WatermarkAssetLibraryPanel } from './WatermarkAssetLibraryPanel';
@@ -12,7 +13,10 @@ export function SettingsPanel({
   cleanupPreview,
   createPhotoPreset,
   deletePhotoPreset,
+  deleteOverlayAsset,
   deleteWatermarkAsset,
+  overlayAssets,
+  overlayAssetStatus,
   packageSettingsStatus,
   photoPresets,
   photoPresetStatus,
@@ -28,7 +32,9 @@ export function SettingsPanel({
   retentionSettings,
   type,
   updatePhotoPreset,
+  updateOverlayAsset,
   updateWatermarkAsset,
+  uploadOverlayAsset,
   whatsAppTemplateStatus,
   whatsAppTemplates,
   watermarkAssets,
@@ -114,6 +120,20 @@ export function SettingsPanel({
           onSave={saveWatermarkSettings}
           settings={watermarkSettings}
           status={watermarkSettingsStatus}
+        />
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        emoji="🧩"
+        help="Envie imagens reutilizaveis para aplicar como camada visual nas previas de uma galeria."
+        title="Overlays de galeria"
+      >
+        <OverlayAssetLibraryPanel
+          assets={overlayAssets}
+          deleteAsset={deleteOverlayAsset}
+          status={overlayAssetStatus}
+          updateAsset={updateOverlayAsset}
+          uploadAsset={uploadOverlayAsset}
         />
       </CollapsibleSection>
 

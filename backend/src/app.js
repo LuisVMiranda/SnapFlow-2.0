@@ -12,21 +12,26 @@ const { createPackageRouter } = require('./routes/packageRoutes');
 const { createPaymentRouter } = require('./routes/paymentRoutes');
 const { createPhotoPresetRouter } = require('./routes/photoPresetRoutes');
 const { createShareRouter } = require('./routes/shareRoutes');
+const { createOverlayAssetRouter } = require('./routes/overlayAssetRoutes');
 const { createWatermarkAssetRouter } = require('./routes/watermarkAssetRoutes');
+const { createGalleryOverlayService } = require('./services/galleryOverlayService');
 const { createGalleryWatermarkService } = require('./services/galleryWatermarkService');
 const { createGalleryPresetService } = require('./services/galleryPresetService');
 const { createPhotoEditingPresetService } = require('./services/photoEditingPresetService');
+const { createOverlayAssetService } = require('./services/overlayAssetService');
 const { createWatermarkAssetService } = require('./services/watermarkAssetService');
 
-function createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets: providedPhotoPresets, galleryPresets: providedGalleryPresets, galleryWatermarks: providedGalleryWatermarks, watermarkAssets: providedWatermarkAssets }) {
+function createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets: providedPhotoPresets, galleryPresets: providedGalleryPresets, galleryOverlays: providedGalleryOverlays, galleryWatermarks: providedGalleryWatermarks, overlayAssets: providedOverlayAssets, watermarkAssets: providedWatermarkAssets }) {
   const app = express();
   const auth = createAuth(config);
   const upload = createUploader(config, media);
   const photoPresets = providedPhotoPresets || createPhotoEditingPresetService({ repos });
+  const overlayAssets = providedOverlayAssets || createOverlayAssetService({ media, repos });
   const watermarkAssets = providedWatermarkAssets || createWatermarkAssetService({ media, repos });
+  const galleryOverlays = providedGalleryOverlays || createGalleryOverlayService({ media, repos, watermarkSettings: watermark });
   const galleryWatermarks = providedGalleryWatermarks || createGalleryWatermarkService({ media, repos, watermarkSettings: watermark });
-  const galleryPresets = providedGalleryPresets || createGalleryPresetService({ galleryWatermarks, media, photoPresets, repos });
-  const deps = { auth, config, credentials, deliveryQueue, galleryPresets, galleryWatermarks, media, packages, payment, photoPresets, repos, retention, upload, watermarkAssets, whatsapp, whatsappTemplates, watermark };
+  const galleryPresets = providedGalleryPresets || createGalleryPresetService({ galleryOverlays, galleryWatermarks, media, photoPresets, repos });
+  const deps = { auth, config, credentials, deliveryQueue, galleryOverlays, galleryPresets, galleryWatermarks, media, overlayAssets, packages, payment, photoPresets, repos, retention, upload, watermarkAssets, whatsapp, whatsappTemplates, watermark };
 
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
@@ -35,6 +40,7 @@ function createApp({ config, repos, media, payment, deliveryQueue, retention, pa
   app.use('/api/admin', createAdminRouter(deps));
   app.use('/api/admin', createAdminOpsRouter(deps));
   app.use('/api/admin', createPhotoPresetRouter(deps));
+  app.use('/api/admin', createOverlayAssetRouter(deps));
   app.use('/api/admin', createWatermarkAssetRouter(deps));
   app.use('/api/admin', createCredentialRouter(deps));
   app.use('/api', createShareRouter(deps));

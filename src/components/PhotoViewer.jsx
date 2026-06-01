@@ -1,4 +1,5 @@
 import { formatMoney } from '../lib/formatters';
+import { GalleryOverlayLayer } from './GalleryOverlayLayer';
 import { WatermarkOverlay } from './WatermarkOverlay';
 
 export function PhotoViewer({
@@ -11,6 +12,7 @@ export function PhotoViewer({
   total,
   setViewerIndex,
   markBrokenPhoto,
+  overlaySettings,
   toggle,
   watermarkSettings,
 }) {
@@ -61,7 +63,10 @@ export function PhotoViewer({
                 }}
               />
               {shareToken ? (
-                <WatermarkOverlay settings={watermarkSettings} />
+                <>
+                  <GalleryOverlayLayer settings={overlaySettings} />
+                  <WatermarkOverlay settings={watermarkSettings} />
+                </>
               ) : null}
             </>
           )}

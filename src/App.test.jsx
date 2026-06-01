@@ -29,6 +29,16 @@ vi.mock('./hooks/useWatermarkAssets', () => ({
   }),
 }));
 
+vi.mock('./hooks/useOverlayAssets', () => ({
+  useOverlayAssets: () => ({
+    deleteOverlayAsset: () => {},
+    overlayAssets: [],
+    overlayAssetStatus: 'idle',
+    updateOverlayAsset: () => {},
+    uploadOverlayAsset: () => {},
+  }),
+}));
+
 const noop = () => {};
 
 function makeController(overrides = {}) {

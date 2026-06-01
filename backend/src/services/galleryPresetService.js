@@ -28,7 +28,7 @@ async function mapWithSmallConcurrency(items, concurrency, mapper) {
   return results;
 }
 
-function createGalleryPresetService({ galleryWatermarks, media, photoPresets, repos }) {
+function createGalleryPresetService({ galleryOverlays, galleryWatermarks, media, photoPresets, repos }) {
   async function getShareOrFail(token) {
     const share = await repos.getShareSession(token, { includeAccessCode: true });
     if (!share) {
@@ -50,8 +50,11 @@ function createGalleryPresetService({ galleryWatermarks, media, photoPresets, re
     const watermark = galleryWatermarks && typeof galleryWatermarks.effectiveForShare === 'function'
       ? await galleryWatermarks.effectiveForShare(share)
       : null;
+    const overlay = galleryOverlays && typeof galleryOverlays.effectiveForShare === 'function'
+      ? await galleryOverlays.effectiveForShare(share)
+      : null;
     const updatedPhotos = await mapWithSmallConcurrency(photos, 2, async (photo) => {
-      const processed = await media.reprocessPhotoWithPresets(photo, stack, { watermark });
+      const processed = await media.reprocessPhotoWithPresets(photo, stack, { overlay, watermark });
       return repos.updatePhotoPresetState(photo.id, processed);
     });
     return updatedPhotos;

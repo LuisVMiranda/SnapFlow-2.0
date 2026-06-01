@@ -426,7 +426,7 @@ export function useSnapFlowActions(config) {
     }
   };
 
-  const handleCreateShareSession = async (photoPresetIds = []) => {
+  const handleCreateShareSession = async (photoPresetIds = [], overlay = {}) => {
     if (!selectedPhotoItems.length) {
       setNotice('Selecione ao menos uma foto para gerar o link.');
       return;
@@ -450,6 +450,7 @@ export function useSnapFlowActions(config) {
           total,
           expiresMinutes: shareDurationMinutes,
           photoPresetIds,
+          ...(overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
         }),
       });
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { OverlayPreviewModal } from '../components/OverlayPreviewModal';
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
 import { validateOptionalEmail } from '../lib/email';
@@ -26,10 +27,13 @@ export function SummaryScreen({
   manualDiscountDraft = '',
   manualDiscountEnabled = false,
   noticeBanner,
+  overlayAssets = [],
   photoPresets = [],
   pricingOptions = DEFAULT_PRICING,
   resetSession,
   selectedPhotoItems,
+  selectedOverlayAssetId = '',
+  selectedOverlaySettings = {},
   selectedPhotoPresetIds = [],
   setClientName,
   setClientEmail,
@@ -37,6 +41,8 @@ export function SummaryScreen({
   setManualDiscountDraft = () => {},
   setManualDiscountEnabled = () => {},
   setNotice = () => {},
+  setSelectedOverlayAssetId = () => {},
+  setSelectedOverlaySettings = () => {},
   setSelectedPhotoPresetIds = () => {},
   setScreen,
   setShareDurationMinutes,
@@ -52,6 +58,7 @@ export function SummaryScreen({
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
   const packageNudge = buildPackageNudge(count, type, pricingOptions);
   const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(clientPhone));
+  const [isOverlayModalOpen, setIsOverlayModalOpen] = useState(false);
 
   const phoneValidation = validateClientPhone(phoneDraft);
   const emailValidation = validateOptionalEmail(clientEmail);
@@ -69,6 +76,8 @@ export function SummaryScreen({
     : undefined;
   const hasManualDiscount = Number(discountAmount || 0) > 0;
   const selectedPresetStack = resolvePresetStack(photoPresets, selectedPhotoPresetIds);
+  const selectedOverlayAsset = overlayAssets.find((asset) => asset.id === selectedOverlayAssetId);
+  const overlayPreviewUrl = selectedPhotoItems?.[0]?.url || selectedPhotoItems?.[0]?.thumbUrl || '';
 
   const updatePhoneValue = (nextParts) => {
     const nextDraft = { ...phoneDraft, ...nextParts };
@@ -98,7 +107,17 @@ export function SummaryScreen({
     if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
       return;
     }
-    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds));
+    const hasOverlaySettings = selectedOverlaySettings && Object.keys(selectedOverlaySettings).length > 0;
+    const overlayPayload = selectedOverlayAssetId
+      ? { assetId: selectedOverlayAssetId, ...(hasOverlaySettings ? { settings: selectedOverlaySettings } : {}) }
+      : { assetId: '' };
+    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, overlayPayload));
+  };
+
+  const saveInitialOverlay = (next) => {
+    setSelectedOverlayAssetId(next.assetId);
+    setSelectedOverlaySettings(next.settings || {});
+    setIsOverlayModalOpen(false);
   };
 
   const togglePreset = (presetId) => {
@@ -244,6 +263,54 @@ export function SummaryScreen({
               Presets ativos nesta criação: {selectedPresetStack.map((preset) => preset.name).join(' + ')}
             </small>
           ) : null}
+        </div>
+      ) : null}
+
+      {!shareToken && overlayAssets.length ? (
+        <div className="summary-card" style={{ marginTop: '16px' }}>
+          <div className="summary-label">Overlay da galeria</div>
+          <small className="summary-help">
+            Opcional. Escolha um overlay existente para aplicar nas prévias assim que o link for criado.
+          </small>
+          <select
+            aria-label="Overlay inicial da galeria"
+            className="phone-input"
+            style={{ marginTop: '12px' }}
+            value={selectedOverlayAssetId}
+            onChange={(event) => {
+              setSelectedOverlayAssetId(event.target.value);
+              if (!event.target.value) setSelectedOverlaySettings({});
+            }}
+          >
+            <option value="">Sem overlay inicial</option>
+            {overlayAssets.map((asset) => (
+              <option key={asset.id} value={asset.id}>{asset.identifier}</option>
+            ))}
+          </select>
+          {selectedOverlayAsset ? (
+            <small className="summary-help success" style={{ display: 'block', marginTop: '10px' }}>
+              Overlay inicial: {selectedOverlayAsset.identifier}
+            </small>
+          ) : null}
+          <button
+            className="share-quick-btn approve-session-btn"
+            disabled={!overlayPreviewUrl}
+            style={{ marginTop: '12px' }}
+            type="button"
+            onClick={() => setIsOverlayModalOpen(true)}
+          >
+            {selectedOverlayAsset ? 'Ajustar overlay' : 'Adicionar overlay'}
+          </button>
+          {!overlayPreviewUrl ? <small className="summary-help">Selecione ao menos uma foto para pré-visualizar o overlay.</small> : null}
+          <OverlayPreviewModal
+            assets={overlayAssets}
+            initialAssetId={selectedOverlayAssetId}
+            initialSettings={selectedOverlaySettings}
+            isOpen={isOverlayModalOpen}
+            onClose={() => setIsOverlayModalOpen(false)}
+            onSave={saveInitialOverlay}
+            previewUrl={overlayPreviewUrl}
+          />
         </div>
       ) : null}
 

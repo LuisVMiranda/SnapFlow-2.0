@@ -13,6 +13,7 @@ export function GalleryControlPanel({
   hasActiveSession,
   isUploading,
   liveOps,
+  overlayAssets,
   photoPresets,
   pricingOptions,
   setNotice,
@@ -75,6 +76,7 @@ export function GalleryControlPanel({
         adminJsonHeaders={adminJsonHeaders}
         dashData={dashData}
         fetchDashboard={fetchDashboard}
+        overlayAssets={overlayAssets}
         photoPresets={photoPresets}
         pricingOptions={pricingOptions}
         setNotice={setNotice}

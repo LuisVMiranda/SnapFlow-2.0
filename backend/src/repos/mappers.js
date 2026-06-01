@@ -33,7 +33,7 @@ function rowToSession(row) {
 
 function rowToPhoto(row, config) {
   if (!row) return null;
-  const mediaVersion = String(row.watermark_applied_at || row.preset_applied_at || row.checksum || row.created_at || '').replace(/\s+/g, '');
+  const mediaVersion = mediaVersionFromRow(row);
   const versionQuery = mediaVersion ? `?v=${encodeURIComponent(mediaVersion)}` : '';
   return {
     id: row.id,
@@ -52,6 +52,7 @@ function rowToPhoto(row, config) {
     appliedPresetIds: row.applied_preset_ids || [],
     appliedPresetSnapshot: row.applied_preset_snapshot || [],
     presetAppliedAt: row.preset_applied_at || null,
+    overlayAppliedAt: row.overlay_applied_at || null,
     watermarkAppliedAt: row.watermark_applied_at || null,
     mediaVersion,
     undoOriginalPath: row.undo_original_path || null,
@@ -61,6 +62,15 @@ function rowToPhoto(row, config) {
     url: `${config.publicBaseUrl}/api/media/${row.id}/preview${versionQuery}`,
     thumbUrl: `${config.publicBaseUrl}/api/media/${row.id}/thumb${versionQuery}`,
   };
+}
+
+function mediaVersionFromRow(row) {
+  const dated = [row.overlay_applied_at, row.watermark_applied_at, row.preset_applied_at, row.created_at]
+    .filter(Boolean)
+    .map((value) => ({ value: String(value), time: new Date(value).getTime() }))
+    .filter((entry) => Number.isFinite(entry.time))
+    .sort((left, right) => right.time - left.time);
+  return String(dated[0]?.value || row.checksum || '').replace(/\s+/g, '');
 }
 
 function rowToShare(row, options = {}) {
@@ -94,6 +104,10 @@ function rowToShare(row, options = {}) {
     watermarkAssetId: row.watermark_asset_id || '',
     watermarkSettings: row.watermark_settings || {},
     watermarkUpdatedAt: row.watermark_updated_at || null,
+    overlayAssetId: row.overlay_asset_id || '',
+    overlayEnabled: Boolean(row.overlay_enabled),
+    overlaySettings: row.overlay_settings || {},
+    overlayUpdatedAt: row.overlay_updated_at || null,
     sales: {
       soldPhotoCount: Number(row.sold_photo_count || 0),
       soldOrderCount: Number(row.sold_order_count || 0),
@@ -104,6 +118,24 @@ function rowToShare(row, options = {}) {
   if (options.includeSensitive) payload.accessCodeHash = row.access_code_hash;
   if (options.includeSensitive || options.includeAccessCode) payload.accessCode = row.access_code || null;
   return payload;
+}
+
+function rowToOverlayAsset(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    identifier: row.identifier || '',
+    originalFilename: row.original_filename || '',
+    storagePath: row.storage_path,
+    mimeType: row.mime_type || 'image/png',
+    width: Number(row.width || 0),
+    height: Number(row.height || 0),
+    sizeBytes: Number(row.size_bytes || 0),
+    checksum: row.checksum || '',
+    deletedAt: row.deleted_at || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 function rowToWatermarkAsset(row) {
@@ -124,4 +156,4 @@ function rowToWatermarkAsset(row) {
   };
 }
 
-module.exports = { fromCents, rowToPhoto, rowToSession, rowToShare, rowToWatermarkAsset, toCents };
+module.exports = { fromCents, rowToOverlayAsset, rowToPhoto, rowToSession, rowToShare, rowToWatermarkAsset, toCents };

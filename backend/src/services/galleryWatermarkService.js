@@ -1,6 +1,7 @@
 const { HttpError } = require('../errors');
 const { normalizeWatermarkSettings } = require('./watermarkSettingsService');
 const { watermarkAssetPayload } = require('./watermarkAssetService');
+const { normalizeOverlaySettings } = require('./overlaySettingsService');
 
 function hasExplicitWatermarkSettings(value = {}) {
   return ['width', 'height', 'opacity', 'instances'].some((field) => value[field] !== undefined && value[field] !== null);
@@ -96,11 +97,26 @@ function createGalleryWatermarkService({ media, repos, watermarkSettings }) {
     if (!media || typeof media.reprocessPhotoWatermark !== 'function' || typeof repos.listPhotosForShare !== 'function') {
       return [];
     }
+    const overlay = await overlayForShare(share);
     const photos = await repos.listPhotosForShare(share.token);
     return mapWithSmallConcurrency(photos, 2, async (photo) => {
-      const processed = await media.reprocessPhotoWatermark(photo, watermark);
+      const processed = await media.reprocessPhotoWatermark(photo, watermark, { overlay });
       return repos.updatePhotoWatermarkState(photo.id, processed);
     });
+  }
+
+  async function overlayForShare(share) {
+    if (!share?.overlayEnabled || !share.overlayAssetId || typeof repos.getOverlayAsset !== 'function') return null;
+    const asset = await repos.getOverlayAsset(share.overlayAssetId);
+    if (!asset) return null;
+    return {
+      enabled: true,
+      kind: 'image',
+      asset,
+      assetPath: asset.storagePath,
+      settings: normalizeOverlaySettings(share.overlaySettings || {}),
+      share,
+    };
   }
 
   async function assignToShareNow(token, payload = {}) {

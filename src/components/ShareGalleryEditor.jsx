@@ -4,11 +4,14 @@ import { formatMoney } from '../lib/formatters';
 import { resolvePresetStack } from '../lib/photoPresets';
 import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
+import { GalleryOverlaySection } from './GalleryOverlaySection';
 import { PhotoPresetPreview } from './PhotoPresetPreview';
 
 export function ShareGalleryEditor({
+  applyGalleryOverlay = () => {},
   applyGalleryWatermark = () => {},
   applyPhotoPresets = () => {},
+  clearGalleryOverlay = () => {},
   clearGalleryWatermark = () => {},
   closeEditor,
   deletePhoto,
@@ -17,6 +20,7 @@ export function ShareGalleryEditor({
   isLoading,
   isPhotoBusy,
   loadMorePhotos = () => {},
+  overlayAssets = [],
   photoPresets = [],
   pricingOptions,
   removePhotoPresets = () => {},
@@ -251,6 +255,16 @@ export function ShareGalleryEditor({
           </button>
         </div>
       </section>
+      <GalleryOverlaySection
+        applyGalleryOverlay={applyGalleryOverlay}
+        clearGalleryOverlay={clearGalleryOverlay}
+        detail={galleryDetail}
+        draft={draft}
+        isPhotoBusy={isPhotoBusy}
+        overlayAssets={overlayAssets}
+        previewUrl={presetPreviewUrl}
+        shareSession={shareSession}
+      />
       <section className="gallery-preset-tools gallery-watermark-tools" aria-label="Marca d'água da galeria">
         <div>
           <strong>Marca d'água da galeria</strong>

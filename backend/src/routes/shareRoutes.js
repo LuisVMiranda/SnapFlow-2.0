@@ -71,7 +71,7 @@ async function resolveShareOrder({ packages, repos, req }) {
   return { count, photoIds, share, ...totals };
 }
 
-function createShareRouter({ galleryWatermarks, media, packages, payment, repos, watermark }) {
+function createShareRouter({ galleryOverlays, galleryWatermarks, media, packages, payment, repos, watermark }) {
   const router = express.Router();
 
   async function publicPayload(share, options = {}) {
@@ -81,6 +81,12 @@ function createShareRouter({ galleryWatermarks, media, packages, payment, repos,
       payload.watermarkSettings = galleryWatermarks.clientWatermarkPayload(effective, options.customerAccessToken || '');
     } else if (watermark && typeof watermark.getSettings === 'function') {
       payload.watermarkSettings = await watermark.getSettings();
+    }
+    if (galleryOverlays && typeof galleryOverlays.effectiveForShare === 'function') {
+      const effectiveOverlay = await galleryOverlays.effectiveForShare(share);
+      payload.overlaySettings = galleryOverlays.clientOverlayPayload(effectiveOverlay, options.customerAccessToken || '');
+    } else {
+      payload.overlaySettings = { enabled: false };
     }
     return payload;
   }
@@ -126,6 +132,24 @@ function createShareRouter({ galleryWatermarks, media, packages, payment, repos,
         photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
         photosPage: page,
       });
+    })
+  );
+
+  router.get(
+    '/share-session/:token/overlay/:assetId',
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token);
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
+      validateCustomerAccess(req, share.token);
+      if (!share.overlayEnabled || share.overlayAssetId !== req.params.assetId) {
+        throw new HttpError(404, 'Overlay não encontrado para esta galeria.', 'overlay_asset_not_found');
+      }
+      const asset = typeof repos.getOverlayAsset === 'function'
+        ? await repos.getOverlayAsset(req.params.assetId)
+        : null;
+      if (!asset) throw new HttpError(404, 'Overlay não encontrado.', 'overlay_asset_not_found');
+      await media.sendOverlayAsset(res, asset);
     })
   );
 

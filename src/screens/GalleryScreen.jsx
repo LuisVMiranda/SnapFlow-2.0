@@ -1,5 +1,6 @@
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
+import { GalleryOverlayLayer } from '../components/GalleryOverlayLayer';
 import { WatermarkOverlay } from '../components/WatermarkOverlay';
 import { formatMoney } from '../lib/formatters';
 import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
@@ -19,6 +20,7 @@ export function GalleryScreen({
   photoPageError = '',
   photos,
   photosPage,
+  overlaySettings,
   pricingOptions = DEFAULT_PRICING,
   remaining,
   resetSession,
@@ -114,7 +116,10 @@ export function GalleryScreen({
                     }}
                   />
                   {shareToken ? (
-                    <WatermarkOverlay settings={watermarkSettings} />
+                    <>
+                      <GalleryOverlayLayer settings={overlaySettings} />
+                      <WatermarkOverlay settings={watermarkSettings} />
+                    </>
                   ) : null}
                 </>
               )}

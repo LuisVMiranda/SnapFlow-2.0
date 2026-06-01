@@ -255,6 +255,70 @@ describe('SummaryScreen', () => {
     expect(confirmSpy).toHaveBeenCalledWith(
       'Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link'
     );
-    expect(props.handleCreateShareSession).toHaveBeenCalledWith(['soft']);
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith(['soft'], { assetId: '' });
+  });
+
+  it('lets admin choose an existing overlay while creating a gallery link', async () => {
+    const user = userEvent.setup();
+    const props = buildProps({
+      handleCreateShareSession: vi.fn(),
+      overlayAssets: [
+        { id: 'overlay_1', identifier: 'Moldura azul' },
+        { id: 'overlay_2', identifier: 'Logo festa' },
+      ],
+    });
+
+    function Wrapper() {
+      const [selectedOverlayAssetId, setSelectedOverlayAssetId] = useState('overlay_1');
+      return (
+        <SummaryScreen
+          {...props}
+          selectedOverlayAssetId={selectedOverlayAssetId}
+          setSelectedOverlayAssetId={setSelectedOverlayAssetId}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+
+    await user.selectOptions(screen.getByLabelText('Overlay inicial da galeria'), 'overlay_2');
+    await user.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
+
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], { assetId: 'overlay_2' });
+  });
+
+  it('saves initial overlay settings from the creation preview modal', async () => {
+    const user = userEvent.setup();
+    const props = buildProps({
+      handleCreateShareSession: vi.fn(),
+      overlayAssets: [{ id: 'overlay_1', identifier: 'Moldura azul', url: '/overlay.png' }],
+      selectedPhotoItems: [{ id: 'p1', url: '/preview.jpg' }],
+    });
+
+    function Wrapper() {
+      const [selectedOverlayAssetId, setSelectedOverlayAssetId] = useState('');
+      const [selectedOverlaySettings, setSelectedOverlaySettings] = useState({});
+      return (
+        <SummaryScreen
+          {...props}
+          selectedOverlayAssetId={selectedOverlayAssetId}
+          selectedOverlaySettings={selectedOverlaySettings}
+          setSelectedOverlayAssetId={setSelectedOverlayAssetId}
+          setSelectedOverlaySettings={setSelectedOverlaySettings}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+
+    await user.click(screen.getByRole('button', { name: /Adicionar overlay/i }));
+    expect(screen.getByRole('dialog', { name: /Ajustar overlay da galeria/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Salvar overlay/i }));
+    await user.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
+
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
+      assetId: 'overlay_1',
+      settings: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+    });
   });
 });

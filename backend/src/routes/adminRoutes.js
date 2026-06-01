@@ -3,9 +3,10 @@ const { HttpError, asyncHandler } = require('../errors');
 const { applyManualDiscount, normalizeDiscountAmount, normalizeSubtotal } = require('../services/discounts');
 const { optionalEmail } = require('../services/email');
 const { validateClientPhone } = require('../services/phone');
-const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
+const { addDays, generateAccessCode, hashValue } = require('../tokens');
 const { adminPhotoPagePayload, adminPhotoPayload, adminShareDetails } = require('./adminSharePayloads');
-const { publicBaseUrlForRequest, toPhotoIds } = require('./helpers');
+const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
+const { toPhotoIds } = require('./helpers');
 
 function normalizeAccessCode(value) {
   return String(value || '')
@@ -56,13 +57,6 @@ async function resolveSaleAmounts(body = {}) {
   };
 }
 
-async function resolvePublicBaseUrl(req, config, credentials) {
-  const savedUrl = typeof credentials.getSecretValue === 'function'
-    ? await credentials.getSecretValue('publicBaseUrl')
-    : '';
-  return savedUrl || publicBaseUrlForRequest(req, config);
-}
-
 async function sendShareLinkMessage({ whatsapp, phone, message }) {
   if (!whatsapp || typeof whatsapp.sendText !== 'function') {
     return { whatsappSent: false, whatsappStatus: 'unavailable', whatsappError: 'WhatsApp indisponível. Abra Vendas, confira o cartão WhatsApp de envio e tente reconectar.' };
@@ -90,45 +84,7 @@ function whatsappSendErrorMessage(error) {
   return message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.';
 }
 
-async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, galleryDescription, galleryName, phone, photoIds, repos, requestBody, retentionExpiresAt }) {
-  const existingShare = typeof repos.findShareWithExactPhotos === 'function'
-    ? await repos.findShareWithExactPhotos(photoIds)
-    : null;
-  const token = existingShare?.token || randomToken(12);
-  const stableAccessCode = existingShare?.accessCode || accessCode;
-  const link = new URL(`/s/${token}`, baseUrl).toString();
-  const payload = {
-    token,
-    accessCodeHash: existingShare?.accessCodeHash || hashValue(stableAccessCode),
-    accessCode: stableAccessCode,
-    phone: phone.stored,
-    clientName: requestBody.clientName,
-    clientEmail: requestBody.clientEmail,
-    galleryName,
-    galleryDescription,
-    packageType: requestBody.packageType || 'eventos',
-    photoCount: Number(requestBody.count) || photoIds.length,
-    subtotal: Number(requestBody.subtotal) || 0,
-    discountAmount: Number(requestBody.discountAmount) || 0,
-    total: Number(requestBody.total) || 0,
-    expiresAt,
-    retentionExpiresAt,
-    link,
-    photoIds,
-  };
-
-  const share = existingShare && typeof repos.restoreShareSession === 'function'
-    ? await repos.restoreShareSession(existingShare.token, payload)
-    : await repos.createShareSession(payload);
-
-  if (share && typeof repos.deleteDetachedShareDuplicates === 'function') {
-    await repos.deleteDetachedShareDuplicates(share);
-  }
-
-  return { accessCode: stableAccessCode, link, share };
-}
-
-function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
+function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -159,6 +115,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
     '/dashboard',
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
+      if (typeof repos.ensureDirectSaleGalleries === 'function') {
+        await repos.ensureDirectSaleGalleries({
+          defaultGalleryRetentionDays: config.defaultGalleryRetentionDays,
+          publicBaseUrl: await resolvePublicBaseUrl(req, config, credentials),
+        });
+      }
       res.json(await repos.dashboard());
     })
   );
@@ -199,7 +161,34 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       const phone = validateClientPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
+      const clientName = normalizeClientName(req.body.clientName);
+      const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
+      let shareToken = String(req.body.shareToken || '').trim();
+      if (!shareToken && photoIds.length) {
+        const now = new Date();
+        const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
+        const saleGallery = await createOrRestoreShareSession({
+          accessCode: generateAccessCode(4),
+          baseUrl: await resolvePublicBaseUrl(req, config, credentials),
+          expiresAt: retentionExpiresAt,
+          galleryDescription: '',
+          galleryName: clientName ? `Venda - ${clientName}` : 'Venda direta',
+          phone,
+          photoIds,
+          repos,
+          requestBody: {
+            ...req.body,
+            clientName,
+            clientEmail,
+            subtotal: totals.subtotal,
+            discountAmount: totals.configuredDiscountAmount,
+            total: totals.total,
+          },
+          retentionExpiresAt,
+        });
+        shareToken = saleGallery.share?.token || '';
+      }
       const session = await repos.createSession(
         {
           id: req.body.sessionId,
@@ -208,11 +197,11 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
           photoCount: req.body.count,
           packageType: req.body.packageType,
           phone: phone.stored,
-          clientName: normalizeClientName(req.body.clientName),
-          clientEmail: normalizeClientEmail(req.body.clientEmail),
+          clientName,
+          clientEmail,
           status: 'pending',
           paymentMethod: 'Dinheiro/Cartão',
-          shareToken: req.body.shareToken || null,
+          shareToken: shareToken || null,
           deliveryStatus: 'idle',
         },
         photoIds
@@ -227,6 +216,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
       }
       res.json({
         sessionId: session.id,
+        shareToken: session.shareToken,
         status: session.status,
         deliveryStatus: session.deliveryStatus,
         paymentMethod: session.paymentMethod,
@@ -306,27 +296,34 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
         ? await galleryPresets.applyGalleryPresets(share.token, requestedPresetIds, { confirmReplace: true })
         : null;
       const finalShare = presetResult?.share || share;
+      const overlayAssetId = String(req.body.overlayAssetId || '').trim();
+      const overlayResult = overlayAssetId && galleryOverlays?.assignToShare
+        ? await galleryOverlays.assignToShare(finalShare.token, { assetId: overlayAssetId, enabled: true, settings: req.body.overlaySettings })
+        : null;
+      const responseShare = overlayResult?.share || finalShare;
 
       const whatsappMessage = await whatsappTemplates.renderShareLinkMessage({ link, accessCode: resolvedAccessCode, expiresMinutes: safeMinutes, name: clientName, clientName });
       const whatsappResult = await sendShareLinkMessage({ whatsapp, phone: phone.stored, message: whatsappMessage });
 
       res.json({
-        token: finalShare.token,
-        galleryId: finalShare.galleryId,
+        token: responseShare.token,
+        galleryId: responseShare.galleryId,
         accessCode: resolvedAccessCode,
         expiresAt,
         link,
         whatsappMessage,
         clientName,
         clientEmail,
-        galleryName: finalShare.galleryName,
-        galleryDescription: finalShare.galleryDescription,
-        photoPresetIds: finalShare.photoPresetIds || [],
-        photoPresetSnapshot: finalShare.photoPresetSnapshot || [],
-        subtotal: finalShare.subtotal,
-        discountAmount: finalShare.discountAmount,
-        total: finalShare.total,
-        sales: finalShare.sales,
+        galleryName: responseShare.galleryName,
+        galleryDescription: responseShare.galleryDescription,
+        overlayAssetId: responseShare.overlayAssetId || '',
+        overlayEnabled: Boolean(responseShare.overlayEnabled),
+        photoPresetIds: responseShare.photoPresetIds || [],
+        photoPresetSnapshot: responseShare.photoPresetSnapshot || [],
+        subtotal: responseShare.subtotal,
+        discountAmount: responseShare.discountAmount,
+        total: responseShare.total,
+        sales: responseShare.sales,
         ...whatsappResult,
       });
     })
@@ -447,7 +444,11 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
       const effectiveWatermark = galleryWatermarks && typeof galleryWatermarks.effectiveForShare === 'function'
         ? await galleryWatermarks.effectiveForShare(share)
         : null;
+      const effectiveOverlay = galleryOverlays && typeof galleryOverlays.effectiveForShare === 'function'
+        ? await galleryOverlays.effectiveForShare(share)
+        : null;
       const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt, {
+        overlay: effectiveOverlay,
         presetStack: share.photoPresetSnapshot || [],
         watermark: effectiveWatermark,
       });

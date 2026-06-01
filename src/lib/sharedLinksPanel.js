@@ -1,5 +1,6 @@
 import { buildApiErrorMessage } from './apiClient';
 import { formatMoney } from './formatters';
+import { normalizeOverlaySettings } from '../hooks/useOverlaySettings';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 
 export function statusMeta(status) {
@@ -25,6 +26,9 @@ export function draftFromShare(shareSession) {
     packageType: shareSession.packageType || '',
     phone: shareSession.phone || '',
     photoPresetIds: shareSession.photoPresetIds || [],
+    overlayAssetId: shareSession.overlayAssetId || '',
+    overlayEnabled: Boolean(shareSession.overlayEnabled),
+    overlaySettings: normalizeOverlaySettings(shareSession.overlaySettings || {}),
     subtotal: String(shareSession.subtotal ?? shareSession.total ?? ''),
     watermarkAssetId: shareSession.watermarkAssetId || '',
     watermarkSettings: normalizeWatermarkSettings(shareSession.watermarkSettings || {}),
