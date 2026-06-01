@@ -6,6 +6,21 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
     return repos.enqueueDelivery(sessionId);
   }
 
+  async function deliveryOverlayForSession(session) {
+    if (!session?.shareToken || typeof repos.getShareSession !== 'function' || typeof repos.getOverlayAsset !== 'function') return null;
+    const share = await repos.getShareSession(session.shareToken, { includeAccessCode: true });
+    if (!share?.overlayEnabled || !share.overlayAssetId) return null;
+    const asset = await repos.getOverlayAsset(share.overlayAssetId);
+    if (!asset) return null;
+    return {
+      enabled: true,
+      kind: 'image',
+      asset,
+      assetPath: asset.storagePath,
+      settings: share.overlaySettings || {},
+    };
+  }
+
   async function processOnce() {
     if (running) return;
     running = true;
@@ -29,6 +44,9 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
       const sessionPhotos = await repos.listPhotosForSession(job.session_id);
       if (!sessionPhotos.length) throw new Error('Nenhuma foto encontrada para esta venda. Verifique se a galeria ainda possui fotos antes de reenviar.');
       await repos.updateDeliveryStatus(job.session_id, 'sending');
+      const prepared = media.prepareDeliveryPhotos
+        ? await media.prepareDeliveryPhotos(sessionPhotos, await deliveryOverlayForSession(session))
+        : { photos: sessionPhotos, cleanup: async () => {} };
       const message = whatsappTemplates
         ? await whatsappTemplates.renderDeliveryThanksMessage({
             count: sessionPhotos.length,
@@ -36,9 +54,13 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
             sessionId: session.id,
             name: session.clientName || '',
             clientName: session.clientName || '',
-          })
+        })
         : undefined;
-      await whatsapp.sendPhotos(session.phone, sessionPhotos, media.storageRoot, message);
+      try {
+        await whatsapp.sendPhotos(session.phone, prepared.photos, media.storageRoot, message);
+      } finally {
+        await prepared.cleanup();
+      }
       await repos.completeDeliveryJob(job.id);
       await repos.updateDeliveryStatus(job.session_id, 'sent');
       if (typeof repos.recordConversionEvent === 'function') {

@@ -7,6 +7,7 @@ const { HttpError } = require('../errors');
 const { applyPhotoEditingStack, jpegQualityForPresetStack } = require('./photoEditingPresetService');
 const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
 const { buildImageWatermarkSvg, buildWatermarkSvg, watermarkPositions } = require('./mediaWatermarkService');
+const { prepareDeliveryPhotos } = require('./mediaDeliveryService');
 const {
   AUTO_ENHANCE_PRESETS,
   adaptiveAutoEnhancePreset,
@@ -567,6 +568,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     absolutePath,
     processOverlayAssetUpload,
     processWatermarkAssetUpload,
+    prepareDeliveryPhotos: (photos, overlay) => prepareDeliveryPhotos(photos, overlay, absolutePath),
     processUploadedFiles,
     reprocessPhotoOverlay,
     reprocessPhotoWatermark,

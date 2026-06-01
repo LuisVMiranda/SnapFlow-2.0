@@ -235,11 +235,16 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 8px;
+  cursor: grab;
   display: flex;
   min-height: 340px;
   overflow: hidden;
   position: relative;
   touch-action: none;
+}
+
+.overlay-preview-frame:active {
+  cursor: grabbing;
 }
 
 .overlay-preview-photo {

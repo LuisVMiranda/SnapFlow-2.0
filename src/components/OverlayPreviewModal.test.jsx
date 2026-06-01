@@ -68,4 +68,34 @@ describe('OverlayPreviewModal', () => {
       settings: { x: 0.5, y: 0.5, widthRatio: 0.9, opacity: 0.4 },
     });
   });
+
+  it('lets the admin drag the overlay across the preview', () => {
+    const onSave = vi.fn();
+    render(
+      <OverlayPreviewModal
+        assets={assets}
+        initialAssetId="overlay_1"
+        initialSettings={{ x: 0.1, y: 0.1, widthRatio: 0.35, opacity: 0.75 }}
+        isOpen
+        onClose={vi.fn()}
+        onSave={onSave}
+        previewUrl="/photo.jpg"
+      />
+    );
+
+    const frame = document.querySelector('.overlay-preview-frame');
+    Object.defineProperty(frame, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100 }),
+    });
+    fireEvent.pointerDown(frame, { clientX: 20, clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(frame, { clientX: 180, clientY: 90, pointerId: 1 });
+    fireEvent.pointerUp(frame, { pointerId: 1 });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar overlay/i }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      assetId: 'overlay_1',
+      enabled: true,
+      settings: { x: 0.9, y: 0.9, widthRatio: 0.35, opacity: 0.75 },
+    });
+  });
 });

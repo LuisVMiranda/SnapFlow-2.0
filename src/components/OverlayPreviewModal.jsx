@@ -17,6 +17,7 @@ export function OverlayPreviewModal({
 }) {
   const frameRef = useRef(null);
   const didInitializeRef = useRef(false);
+  const isDraggingRef = useRef(false);
   const [assetId, setAssetId] = useState(initialAssetId);
   const [settings, setSettings] = useState(() => normalizeOverlaySettings(initialSettings));
   const firstAssetId = assets[0]?.id || '';
@@ -50,6 +51,11 @@ export function OverlayPreviewModal({
     }));
   };
 
+  const stopDrag = (event) => {
+    isDraggingRef.current = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
   const save = () => {
     if (!assetId) return;
     onSave({ assetId, enabled: true, settings: normalizeOverlaySettings(settings) });
@@ -79,18 +85,23 @@ export function OverlayPreviewModal({
           className="overlay-preview-frame"
           ref={frameRef}
           onPointerDown={(event) => {
+            event.preventDefault();
+            isDraggingRef.current = true;
             event.currentTarget.setPointerCapture?.(event.pointerId);
             updateFromPointer(event);
           }}
           onPointerMove={(event) => {
-            if (event.buttons === 1) updateFromPointer(event);
+            if (isDraggingRef.current) updateFromPointer(event);
           }}
+          onPointerCancel={stopDrag}
+          onPointerUp={stopDrag}
         >
-          {previewUrl ? <img alt="" className="overlay-preview-photo" src={previewUrl} /> : <div className="share-gallery-empty">Adicione uma foto antes de configurar overlay.</div>}
+          {previewUrl ? <img alt="" className="overlay-preview-photo" draggable={false} src={previewUrl} /> : <div className="share-gallery-empty">Adicione uma foto antes de configurar overlay.</div>}
           {selectedAsset ? (
             <img
               alt=""
               className="overlay-preview-layer"
+              draggable={false}
               src={selectedAsset.url}
               style={{
                 left: `${settings.x * 100}%`,

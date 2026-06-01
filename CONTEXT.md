@@ -9,4 +9,4 @@
 - Shared gallery: conjunto administrável de fotos, controles de prévia e link/código, criado por compartilhamento direto ou por venda direta.
 - Delivery session: tentativa de venda/envio das fotos; pode falhar sem remover ou substituir a Shared gallery.
 - Plan B watermark: marca d'água padrão da SnapFlow usada quando uma galeria não tem imagem de marca personalizada.
-- Paid original: arquivo limpo entregue ao cliente depois da liberação de pagamento, sem marca d'água de prévia.
+- Paid original: arquivo entregue ao cliente depois da liberação de pagamento, sem marca d'água de prévia; quando uma Gallery overlay está ativa, ela é aplicada também na entrega.

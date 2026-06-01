@@ -97,3 +97,62 @@ test('delivery queue does not send photos before manual payment approval', async
   assert.equal(cancelledJob.jobId, 8);
   assert.match(cancelledJob.reason, /aguarda aprovação/);
 });
+
+test('delivery queue sends overlay-prepared photos for galleries with active overlay', async () => {
+  let claimed = false;
+  let cleanupCalled = false;
+  let sentPhotos = [];
+  let receivedOverlay = null;
+  const repos = {
+    async claimDeliveryJob() {
+      if (claimed) return null;
+      claimed = true;
+      return { id: 9, session_id: 'sess_overlay' };
+    },
+    async getSession() {
+      return { id: 'sess_overlay', status: 'approved', phone: '11999999999', shareToken: 'share_1' };
+    },
+    async getShareSession() {
+      return {
+        token: 'share_1',
+        overlayEnabled: true,
+        overlayAssetId: 'overlay_1',
+        overlaySettings: { x: 0.8, y: 0.2, widthRatio: 0.4, opacity: 0.9 },
+      };
+    },
+    async getOverlayAsset() {
+      return { id: 'overlay_1', storagePath: 'overlay-assets/overlay_1.png' };
+    },
+    async listPhotosForSession() {
+      return [{ id: 'photo_1', originalPath: 'originals/photo_1.jpg' }];
+    },
+    async updateDeliveryStatus() {},
+    async completeDeliveryJob() {},
+    async failDeliveryJob() {},
+  };
+  const media = {
+    storageRoot: 'C:/snap/storage',
+    async prepareDeliveryPhotos(photos, overlay) {
+      receivedOverlay = overlay;
+      return {
+        photos: photos.map((photo) => ({ ...photo, originalPath: 'tmp/photo_1-delivery.jpg' })),
+        cleanup: async () => { cleanupCalled = true; },
+      };
+    },
+  };
+  const whatsapp = {
+    async sendPhotos(phone, photos) {
+      assert.equal(phone, '11999999999');
+      sentPhotos = photos;
+    },
+  };
+
+  const queue = createDeliveryQueue({ media, repos, whatsapp, whatsappTemplates: null });
+
+  await queue.processOnce();
+
+  assert.equal(receivedOverlay.assetPath, 'overlay-assets/overlay_1.png');
+  assert.deepEqual(receivedOverlay.settings, { x: 0.8, y: 0.2, widthRatio: 0.4, opacity: 0.9 });
+  assert.deepEqual(sentPhotos.map((photo) => photo.originalPath), ['tmp/photo_1-delivery.jpg']);
+  assert.equal(cleanupCalled, true);
+});
