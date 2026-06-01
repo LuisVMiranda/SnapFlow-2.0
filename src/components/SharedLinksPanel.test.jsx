@@ -369,4 +369,81 @@ describe('SharedLinksPanel', () => {
       expect.objectContaining({ method: 'POST' })
     );
   });
+
+  it("assigns and clears a reusable watermark asset from the gallery editor", async () => {
+    const user = userEvent.setup();
+    let isAssigned = false;
+    const asset = {
+      id: 'asset_1',
+      name: 'Brand X',
+      url: '/api/admin/watermark-assets/asset_1/file?admin_token=admin123',
+      width: 120,
+      height: 80,
+      sizeBytes: 4096,
+    };
+    globalThis.fetch = vi.fn(async (url, options = {}) => {
+      if (String(url).endsWith('/watermark') && options.method === 'PATCH') {
+        isAssigned = true;
+        return new Response(JSON.stringify({
+          changedPhotoCount: 2,
+          share: { watermarkAssetId: 'asset_1', watermarkSettings: { width: 320, height: 140, opacity: 0.55, instances: 1 } },
+          watermarkAsset: asset,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (String(url).endsWith('/watermark') && options.method === 'DELETE') {
+        isAssigned = false;
+        return new Response(JSON.stringify({ changedPhotoCount: 2, watermarkSettings: { width: 420, height: 140, opacity: 0.55, instances: 1 } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({
+        token: 'old-token',
+        watermarkAsset: isAssigned ? asset : null,
+        watermarkAssetId: isAssigned ? 'asset_1' : '',
+        watermarkSettings: isAssigned ? { width: 320, height: 140, opacity: 0.55, instances: 1 } : { width: 420, height: 140, opacity: 0.55, instances: 1 },
+        photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    render(
+      <SharedLinksPanel
+        {...baseProps}
+        watermarkAssets={[asset]}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    await user.selectOptions(await screen.findByLabelText('Imagem da marca'), 'asset_1');
+    await user.clear(screen.getByDisplayValue('420'));
+    await user.type(screen.getByLabelText("Largura da marca d'água"), '320');
+    await user.click(screen.getByRole('button', { name: 'Aplicar marca' }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/watermark',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: expect.stringContaining('"assetId":"asset_1"'),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/watermark',
+      expect.objectContaining({
+        body: expect.stringContaining('"width":320'),
+      })
+    );
+
+    await waitFor(() => expect(screen.getByText('Ativa agora: Brand X')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: 'Usar Plan B' }));
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/watermark',
+      expect.objectContaining({ method: 'DELETE' })
+    );
+  });
 });

@@ -6,48 +6,8 @@ import { formatMoney } from '../lib/formatters';
 import { mergePresetIds } from '../lib/photoPresets';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
-
-function statusMeta(status) {
-  if (status === 'revoked') return { label: 'Revogado', tone: 'danger' };
-  if (status === 'expired') return { label: 'Expirado', tone: 'neutral' };
-  if (status === 'opened') return { label: 'Aberto', tone: 'success' };
-  return { label: 'Ativo', tone: 'info' };
-}
-
-function shareLink(shareSession) {
-  return shareSession.link || `${window.location.origin}/s/${shareSession.token}`;
-}
-
-function draftFromShare(shareSession) {
-  return {
-    accessCode: shareSession.accessCode || '',
-    clientName: shareSession.clientName || '',
-    clientEmail: shareSession.clientEmail || '',
-    discountAmount: String(shareSession.discountAmount ?? ''),
-    expiresMinutes: '',
-    galleryDescription: shareSession.galleryDescription || '',
-    galleryName: shareSession.galleryName || '',
-    packageType: shareSession.packageType || '',
-    phone: shareSession.phone || '',
-    photoPresetIds: shareSession.photoPresetIds || [],
-    subtotal: String(shareSession.subtotal ?? shareSession.total ?? ''),
-  };
-}
-
-function gallerySalesLabel(shareSession) {
-  const sales = shareSession.sales || {};
-  const soldPhotoCount = Number(sales.soldPhotoCount || 0);
-  const soldOrderCount = Number(sales.soldOrderCount || 0);
-  const soldAmount = Number(sales.soldAmount || 0);
-  return `${soldPhotoCount} foto(s) vendidas até agora em ${soldOrderCount} pedido(s) - ${formatMoney(soldAmount)}`;
-}
-
-function galleryRouteErrorMessage(prefix, response, data) {
-  const message = buildApiErrorMessage(prefix, response, data);
-  return data.code === 'api_route_not_found'
-    ? `${message} Backend desatualizado. Reinicie o servidor para carregar as rotas de galeria.`
-    : message;
-}
+import { draftFromShare, galleryRouteErrorMessage, gallerySalesLabel, shareLink, statusMeta } from '../lib/sharedLinksPanel';
+import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 
 export function SharedLinksPanel({
   adminHeaders,
@@ -57,6 +17,7 @@ export function SharedLinksPanel({
   photoPresets = [],
   pricingOptions,
   setNotice,
+  watermarkAssets = [],
   withAdminMediaToken = (url) => url,
 }) {
   const [editingToken, setEditingToken] = useState('');
@@ -67,6 +28,10 @@ export function SharedLinksPanel({
 
   const normalizeDetails = (data) => ({
     ...data,
+    watermarkAsset: data.watermarkAsset ? {
+      ...data.watermarkAsset,
+      url: withAdminMediaToken(data.watermarkAsset.url),
+    } : null,
     photosPage: data.photosPage || { hasMore: false, nextCursor: null, loadedCount: 0, totalCount: data.photoCount || 0 },
     photos: Array.isArray(data.photos)
       ? data.photos.map((photo) => ({
@@ -158,6 +123,22 @@ export function SharedLinksPanel({
         [token]: {
           ...currentDraft,
           photoPresetIds: mergePresetIds(currentDraft.photoPresetIds || [], presetId),
+        },
+      };
+    });
+  };
+
+  const updateDraftWatermarkSetting = (token, field, value) => {
+    setDrafts((previous) => {
+      const currentDraft = previous[token] || {};
+      return {
+        ...previous,
+        [token]: {
+          ...currentDraft,
+          watermarkSettings: {
+            ...(currentDraft.watermarkSettings || {}),
+            [field]: value,
+          },
         },
       };
     });
@@ -390,6 +371,67 @@ export function SharedLinksPanel({
     }
   };
 
+  const applyGalleryWatermark = async (shareSession) => {
+    const draft = drafts[shareSession.token] || draftFromShare(shareSession);
+    if (!draft.watermarkAssetId) {
+      setNotice("Selecione uma marca d'água para aplicar nesta galeria.");
+      return;
+    }
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/watermark`, {
+        method: 'PATCH',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({
+          assetId: draft.watermarkAssetId,
+          settings: normalizeWatermarkSettings(draft.watermarkSettings),
+        }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage("Não foi possível aplicar a marca d'água nesta galeria.", response, data));
+        return;
+      }
+      setNotice(`Marca d'água aplicada em ${data.changedPhotoCount || 0} foto(s).`);
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage("Não foi possível aplicar a marca d'água nesta galeria.", error));
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
+  const clearGalleryWatermark = async (shareSession) => {
+    setPhotoActionToken(shareSession.token);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/watermark`, {
+        method: 'DELETE',
+        headers: adminJsonHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage("Não foi possível remover a marca d'água desta galeria.", response, data));
+        return;
+      }
+      setDrafts((previous) => ({
+        ...previous,
+        [shareSession.token]: {
+          ...(previous[shareSession.token] || draftFromShare(shareSession)),
+          watermarkAssetId: '',
+          watermarkSettings: normalizeWatermarkSettings(data.watermarkSettings || {}),
+        },
+      }));
+      setNotice(`Galeria voltou ao Plan B em ${data.changedPhotoCount || 0} foto(s).`);
+      await loadShareDetails(shareSession);
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage("Não foi possível remover a marca d'água desta galeria.", error));
+    } finally {
+      setPhotoActionToken('');
+    }
+  };
+
   const saveShare = async (event, shareSession) => {
     event.preventDefault();
     const draft = drafts[shareSession.token] || draftFromShare(shareSession);
@@ -503,12 +545,16 @@ export function SharedLinksPanel({
                 photoPresets={photoPresets}
                 pricingOptions={pricingOptions}
                 removePhotoPresets={removePhotoPresets}
+                applyGalleryWatermark={applyGalleryWatermark}
+                clearGalleryWatermark={clearGalleryWatermark}
                 saveShare={saveShare}
                 shareSession={shareSession}
                 toggleDraftPreset={toggleDraftPreset}
                 undoPhotoPresetApplication={undoPhotoPresetApplication}
                 updateDraft={updateDraft}
+                updateDraftWatermarkSetting={updateDraftWatermarkSetting}
                 uploadPhotos={uploadPhotos}
+                watermarkAssets={watermarkAssets}
               />
             ) : null}
           </div>

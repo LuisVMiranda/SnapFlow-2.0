@@ -3,10 +3,13 @@ import { applyManualDiscount } from '../lib/discounts';
 import { formatMoney } from '../lib/formatters';
 import { resolvePresetStack } from '../lib/photoPresets';
 import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
+import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 import { PhotoPresetPreview } from './PhotoPresetPreview';
 
 export function ShareGalleryEditor({
+  applyGalleryWatermark = () => {},
   applyPhotoPresets = () => {},
+  clearGalleryWatermark = () => {},
   closeEditor,
   deletePhoto,
   detail,
@@ -22,7 +25,9 @@ export function ShareGalleryEditor({
   toggleDraftPreset = () => {},
   undoPhotoPresetApplication = () => {},
   updateDraft,
+  updateDraftWatermarkSetting = () => {},
   uploadPhotos,
+  watermarkAssets = [],
 }) {
   const galleryDetail = detail || {};
   const photos = galleryDetail.photos || [];
@@ -43,6 +48,18 @@ export function ShareGalleryEditor({
   const activePresetIds = galleryDetail.photoPresetIds || shareSession.photoPresetIds || [];
   const selectedPresetStack = resolvePresetStack(photoPresets, selectedPresetIds);
   const activePresetStack = galleryDetail.photoPresetSnapshot || shareSession.photoPresetSnapshot || [];
+  const activeWatermarkAssetId = galleryDetail.watermarkAssetId || shareSession.watermarkAssetId || '';
+  const selectedWatermarkAssetId = draft.watermarkAssetId ?? activeWatermarkAssetId;
+  const selectedWatermarkAsset = watermarkAssets.find((asset) => asset.id === selectedWatermarkAssetId);
+  const activeWatermarkAsset = galleryDetail.watermarkAsset || watermarkAssets.find((asset) => asset.id === activeWatermarkAssetId);
+  const watermarkSettingsSource = draft.watermarkSettings || galleryDetail.watermarkSettings || shareSession.watermarkSettings || {};
+  const watermarkSettings = normalizeWatermarkSettings(watermarkSettingsSource);
+  const watermarkInputValues = {
+    height: watermarkSettingsSource.height ?? watermarkSettings.height,
+    instances: watermarkSettingsSource.instances ?? watermarkSettings.instances,
+    opacity: watermarkSettingsSource.opacity ?? watermarkSettings.opacity,
+    width: watermarkSettingsSource.width ?? watermarkSettings.width,
+  };
   const [phoneDraft, setPhoneDraft] = useState(() => splitStoredPhone(draft.phone));
   const updatePhoneValue = (nextParts) => {
     const nextDraft = { ...phoneDraft, ...nextParts };
@@ -231,6 +248,104 @@ export function ShareGalleryEditor({
           </button>
           <button className="share-quick-btn" disabled={isPhotoBusy} type="button" onClick={() => undoPhotoPresetApplication(shareSession)}>
             Desfazer reaplicação
+          </button>
+        </div>
+      </section>
+      <section className="gallery-preset-tools gallery-watermark-tools" aria-label="Marca d'água da galeria">
+        <div>
+          <strong>Marca d'água da galeria</strong>
+          <small className="summary-help" style={{ display: 'block' }}>
+            Aplique uma imagem proprietária nesta galeria. Sem imagem ativa, as prévias usam o Plan B SnapFlow.
+          </small>
+        </div>
+        <label>
+          Imagem da marca
+          <select
+            className="phone-input"
+            value={selectedWatermarkAssetId || ''}
+            onChange={(event) => updateDraft(shareSession.token, 'watermarkAssetId', event.target.value)}
+          >
+            <option value="">Usar Plan B SnapFlow</option>
+            {watermarkAssets.map((asset) => (
+              <option key={asset.id} value={asset.id}>{asset.name}</option>
+            ))}
+          </select>
+        </label>
+        <div className="watermark-controls gallery-watermark-controls">
+          <label>
+            <span>Largura</span>
+            <input
+              aria-label="Largura da marca d'água"
+              className="phone-input"
+              max="900"
+              min="120"
+              onChange={(event) => updateDraftWatermarkSetting(shareSession.token, 'width', event.target.value)}
+              step="10"
+              type="number"
+              value={watermarkInputValues.width}
+            />
+            <small>{watermarkSettings.width}px</small>
+          </label>
+          <label>
+            <span>Altura</span>
+            <input
+              aria-label="Altura da marca d'água"
+              className="phone-input"
+              max="360"
+              min="40"
+              onChange={(event) => updateDraftWatermarkSetting(shareSession.token, 'height', event.target.value)}
+              step="10"
+              type="number"
+              value={watermarkInputValues.height}
+            />
+            <small>{watermarkSettings.height}px</small>
+          </label>
+          <label>
+            <span>Opacidade</span>
+            <input
+              aria-label="Opacidade da marca d'água"
+              className="watermark-range"
+              max="0.95"
+              min="0.05"
+              onChange={(event) => updateDraftWatermarkSetting(shareSession.token, 'opacity', event.target.value)}
+              step="0.05"
+              type="range"
+              value={watermarkInputValues.opacity}
+            />
+            <small>{Math.round(watermarkSettings.opacity * 100)}%</small>
+          </label>
+          <label>
+            <span>Repetições</span>
+            <input
+              aria-label="Repetições da marca d'água"
+              className="phone-input"
+              max="24"
+              min="1"
+              onChange={(event) => updateDraftWatermarkSetting(shareSession.token, 'instances', event.target.value)}
+              step="1"
+              type="number"
+              value={watermarkInputValues.instances}
+            />
+            <small>{watermarkSettings.instances} instância(s)</small>
+          </label>
+        </div>
+        {selectedWatermarkAsset ? (
+          <div className="gallery-watermark-preview">
+            <img alt="" src={selectedWatermarkAsset.url} />
+            <small>{selectedWatermarkAsset.name}</small>
+          </div>
+        ) : null}
+        {activeWatermarkAsset ? (
+          <small className="summary-help success">Ativa agora: {activeWatermarkAsset.name}</small>
+        ) : (
+          <small className="summary-help">Ativa agora: Plan B SnapFlow.</small>
+        )}
+        <div className="gallery-preset-actions">
+          <button className="share-quick-btn approve-session-btn" disabled={isPhotoBusy || !selectedWatermarkAssetId} type="button" onClick={() => applyGalleryWatermark(shareSession)}>
+            Aplicar marca
+          </button>
+          <button className="share-quick-btn share-quick-btn-danger" disabled={isPhotoBusy || !activeWatermarkAssetId} type="button" onClick={() => clearGalleryWatermark(shareSession)}>
+            Usar Plan B
           </button>
         </div>
       </section>

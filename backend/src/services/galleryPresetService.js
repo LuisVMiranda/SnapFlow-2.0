@@ -28,7 +28,7 @@ async function mapWithSmallConcurrency(items, concurrency, mapper) {
   return results;
 }
 
-function createGalleryPresetService({ media, photoPresets, repos }) {
+function createGalleryPresetService({ galleryWatermarks, media, photoPresets, repos }) {
   async function getShareOrFail(token) {
     const share = await repos.getShareSession(token, { includeAccessCode: true });
     if (!share) {
@@ -47,8 +47,11 @@ function createGalleryPresetService({ media, photoPresets, repos }) {
     if (!photos.length) {
       throw new HttpError(400, 'Esta galeria não possui fotos para receber presets. Adicione fotos em Ver/Editar e tente novamente.', 'share_photos_missing');
     }
+    const watermark = galleryWatermarks && typeof galleryWatermarks.effectiveForShare === 'function'
+      ? await galleryWatermarks.effectiveForShare(share)
+      : null;
     const updatedPhotos = await mapWithSmallConcurrency(photos, 2, async (photo) => {
-      const processed = await media.reprocessPhotoWithPresets(photo, stack);
+      const processed = await media.reprocessPhotoWithPresets(photo, stack, { watermark });
       return repos.updatePhotoPresetState(photo.id, processed);
     });
     return updatedPhotos;

@@ -25,6 +25,7 @@ export function DashboardScreen({
   credentialsStatus,
   dashData,
   deletePhotoPreset,
+  deleteWatermarkAsset,
   deleteCredential,
   fetchDashboard,
   handleFileUpload,
@@ -59,9 +60,13 @@ export function DashboardScreen({
   total,
   type,
   updatePhotoPreset,
+  updateWatermarkAsset,
+  uploadWatermarkAsset,
   withAdminMediaToken,
   whatsAppTemplateStatus,
   whatsAppTemplates,
+  watermarkAssets,
+  watermarkAssetStatus,
   watermarkSettings,
   watermarkSettingsStatus,
 }) {
@@ -111,10 +116,15 @@ export function DashboardScreen({
           setType={setType}
           type={type}
           updatePhotoPreset={updatePhotoPreset}
+          updateWatermarkAsset={updateWatermarkAsset}
           whatsAppTemplateStatus={whatsAppTemplateStatus}
           whatsAppTemplates={whatsAppTemplates}
+          watermarkAssets={watermarkAssets}
+          watermarkAssetStatus={watermarkAssetStatus}
           watermarkSettings={watermarkSettings}
           watermarkSettingsStatus={watermarkSettingsStatus}
+          deleteWatermarkAsset={deleteWatermarkAsset}
+          uploadWatermarkAsset={uploadWatermarkAsset}
         />
       );
     }
@@ -145,6 +155,7 @@ export function DashboardScreen({
         liveOps={liveOps}
         pricingOptions={pricingOptions}
         photoPresets={photoPresets}
+        watermarkAssets={watermarkAssets}
         setNotice={setNotice}
         setType={setType}
         startNewSession={startNewSession}

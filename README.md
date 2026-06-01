@@ -25,6 +25,7 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 - Galerias grandes carregadas em lotes, evitando abrir centenas de fotos de uma vez.
 - Recriação/revalidação intencional de galeria sem duplicar links desnecessários.
 - Edição de galeria pelo admin: visualizar fotos, adicionar, remover, alterar telefone, cliente, código, pacote, total e tempo.
+- Biblioteca de marcas d'água reutilizáveis, com aplicação por galeria e fallback Plan B SnapFlow.
 - Revogar, estender, copiar e abrir links compartilhados.
 - Proteções no modo cliente para reduzir cópia indevida e acesso fora da galeria.
 - Dashboard de vendas com períodos diário, semanal, mensal e anual.
@@ -424,6 +425,8 @@ As mensagens de compartilhamento usam `{linkText}` para exibir um texto de link 
 
 O dashboard registra eventos de conversão dessas galerias em `conversion_events`, permitindo acompanhar onde a venda presencial perde velocidade: link aberto, galeria desbloqueada, carrinho salvo, Pix gerado, pagamento manual solicitado, pagamento aprovado e entrega enviada.
 
+Marca d'água por galeria: em `Configurações`, o administrador envia imagens de marca uma vez e reutiliza em galerias futuras. Em `Ver/Editar`, cada galeria pode receber uma marca própria com largura, altura, opacidade e repetição; sem imagem personalizada, as prévias usam automaticamente o Plan B SnapFlow. A personalização protege prévias e visualização pública, enquanto os originais pagos continuam limpos.
+
 No modo admin, `Ver/Editar` permite:
 
 - ver prévias das fotos daquela galeria;
@@ -433,6 +436,7 @@ No modo admin, `Ver/Editar` permite:
 - alterar WhatsApp;
 - alterar pacote e total;
 - alterar código de acesso;
+- aplicar ou remover marca d'água personalizada;
 - reabrir a galeria por mais minutos.
 
 Em `Vendas`, pedidos pendentes em dinheiro/cartão mostram `Liberar fotos` e `Cancelar liberação`. Use `Cancelar liberação` quando o cliente desistir, quando a solicitação for só um teste ou quando o pagamento não for concluído. A sessão fica registrada como cancelada e não pode mais ser aprovada por aquele pedido; se o cliente quiser comprar depois, gere uma nova solicitação.

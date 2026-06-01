@@ -19,6 +19,20 @@ import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
 import { useWhatsAppTemplates } from './useWhatsAppTemplates';
 import { useWatermarkSettings } from './useWatermarkSettings';
+
+const EMPTY_LIVE_OPS = {
+  paymentStatus: 'draft',
+  deliveryStatus: 'idle',
+  deliveryError: null,
+  paymentMethod: null,
+};
+
+function initialLiveOps(shareToken) {
+  if (shareToken) return { ...EMPTY_LIVE_OPS };
+  const saved = getSavedSnapFlowState('liveOps', null);
+  return saved && typeof saved === 'object' ? saved : { ...EMPTY_LIVE_OPS };
+}
+
 export function useSnapFlowController() {
   const [shareToken] = useState(() => detectShareToken());
   const {
@@ -54,23 +68,7 @@ export function useSnapFlowController() {
   const [qrCodeBase64, setQrCodeBase64] = useState(() => shareToken ? '' : getSavedSnapFlowState('qrCodeBase64', ''));
   const [pixCopyPaste, setPixCopyPaste] = useState(() => shareToken ? '' : getSavedSnapFlowState('pixCopyPaste', ''));
   const [pixWhatsAppMessage, setPixWhatsAppMessage] = useState(() => shareToken ? '' : getSavedSnapFlowState('pixWhatsAppMessage', ''));
-  const [liveOps, setLiveOps] = useState(() => {
-    if (shareToken) {
-      return {
-        paymentStatus: 'draft',
-        deliveryStatus: 'idle',
-        deliveryError: null,
-        paymentMethod: null,
-      };
-    }
-    const saved = getSavedSnapFlowState('liveOps', null);
-    return saved && typeof saved === 'object' ? saved : {
-      paymentStatus: 'draft',
-      deliveryStatus: 'idle',
-      deliveryError: null,
-      paymentMethod: null,
-    };
-  });
+  const [liveOps, setLiveOps] = useState(() => initialLiveOps(shareToken));
   const [period, setPeriod] = useState('hoje');
   const [viewerIndex, setViewerIndex] = useState(null);
   const [isGeneratingPix, setIsGeneratingPix] = useState(false);
@@ -288,7 +286,11 @@ export function useSnapFlowController() {
 
     const loadSharedSession = async () => {
       try {
-        const response = await fetch(API_BASE_URL + '/api/share-session/' + shareToken);
+        const response = await fetch(API_BASE_URL + '/api/share-session/' + shareToken, {
+          headers: safeShareAccess.customerAccessToken
+            ? { Authorization: `Bearer ${safeShareAccess.customerAccessToken}` }
+            : {},
+        });
         const data = await readJsonResponse(response);
         if (!response.ok) {
           throw new Error(buildApiErrorMessage('Não foi possível carregar o link compartilhado.', response, data));
@@ -307,7 +309,7 @@ export function useSnapFlowController() {
     loadSharedSession();
 
     return undefined;
-  }, [shareToken, setNotice]);
+  }, [safeShareAccess.customerAccessToken, shareToken, setNotice]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return undefined;

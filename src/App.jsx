@@ -12,6 +12,7 @@ import { ShareLockScreen } from './screens/ShareLockScreen';
 import { SummaryScreen } from './screens/SummaryScreen';
 import { usePhotoPresets } from './hooks/usePhotoPresets';
 import { useSnapFlowController } from './hooks/useSnapFlowController';
+import { useWatermarkAssets } from './hooks/useWatermarkAssets';
 import { useEffect, useState } from 'react';
 import { buildAdminApprovalUrl, readAdminApprovalSessionId } from './lib/adminApproval';
 
@@ -131,6 +132,19 @@ export default function App() {
     photoPresetStatus,
     updatePhotoPreset,
   } = usePhotoPresets({ adminJsonHeaders, isAdminUnlocked, setNotice });
+  const {
+    deleteWatermarkAsset,
+    updateWatermarkAsset,
+    uploadWatermarkAsset,
+    watermarkAssets,
+    watermarkAssetStatus,
+  } = useWatermarkAssets({
+    adminHeaders,
+    adminJsonHeaders,
+    isAdminUnlocked,
+    setNotice,
+    withAdminMediaToken,
+  });
   const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
@@ -242,6 +256,7 @@ export default function App() {
         createPhotoPreset={createPhotoPreset}
         dashData={dashData}
         deletePhotoPreset={deletePhotoPreset}
+        deleteWatermarkAsset={deleteWatermarkAsset}
         deleteCredential={deleteCredential}
         fetchDashboard={fetchDashboard}
         handleFileUpload={handleFileUpload}
@@ -256,6 +271,8 @@ export default function App() {
         packageSettingsStatus={packageSettingsStatus}
         photoPresets={photoPresets}
         photoPresetStatus={photoPresetStatus}
+        watermarkAssets={watermarkAssets}
+        watermarkAssetStatus={watermarkAssetStatus}
         period={period}
         pricingOptions={pricingOptions}
         previewCleanup={previewCleanup}
@@ -276,6 +293,8 @@ export default function App() {
         total={total}
         type={type}
         updatePhotoPreset={updatePhotoPreset}
+        updateWatermarkAsset={updateWatermarkAsset}
+        uploadWatermarkAsset={uploadWatermarkAsset}
         withAdminMediaToken={withAdminMediaToken}
         whatsAppTemplateStatus={whatsAppTemplateStatus}
         whatsAppTemplates={whatsAppTemplates}

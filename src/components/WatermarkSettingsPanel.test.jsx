@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
+import { WatermarkOverlay } from './WatermarkOverlay';
 
 describe('WatermarkSettingsPanel', () => {
   it('renders watermark controls and a repeated SnapFlow preview', () => {
@@ -42,5 +43,28 @@ describe('WatermarkSettingsPanel', () => {
       opacity: 0.55,
       instances: 6,
     });
+  });
+});
+
+describe('WatermarkOverlay', () => {
+  it('renders an image watermark overlay when asset metadata is provided', () => {
+    const { container } = render(
+      <div style={{ position: 'relative' }}>
+        <WatermarkOverlay
+          settings={{
+            kind: 'image',
+            assetUrl: '/api/share-session/share_1/watermark/asset_1?access_token=token',
+            width: 320,
+            height: 120,
+            opacity: 0.4,
+            instances: 2,
+          }}
+        />
+      </div>
+    );
+
+    const images = container.querySelectorAll('.preview-watermark-image img');
+    expect(images).toHaveLength(2);
+    expect(images[0]).toHaveAttribute('src', '/api/share-session/share_1/watermark/asset_1?access_token=token');
   });
 });

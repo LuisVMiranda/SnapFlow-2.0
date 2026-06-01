@@ -33,7 +33,7 @@ function rowToSession(row) {
 
 function rowToPhoto(row, config) {
   if (!row) return null;
-  const mediaVersion = String(row.preset_applied_at || row.checksum || row.created_at || '').replace(/\s+/g, '');
+  const mediaVersion = String(row.watermark_applied_at || row.preset_applied_at || row.checksum || row.created_at || '').replace(/\s+/g, '');
   const versionQuery = mediaVersion ? `?v=${encodeURIComponent(mediaVersion)}` : '';
   return {
     id: row.id,
@@ -52,6 +52,7 @@ function rowToPhoto(row, config) {
     appliedPresetIds: row.applied_preset_ids || [],
     appliedPresetSnapshot: row.applied_preset_snapshot || [],
     presetAppliedAt: row.preset_applied_at || null,
+    watermarkAppliedAt: row.watermark_applied_at || null,
     mediaVersion,
     undoOriginalPath: row.undo_original_path || null,
     undoThumbPath: row.undo_thumb_path || null,
@@ -90,6 +91,9 @@ function rowToShare(row, options = {}) {
     photoPresetSnapshot: row.photo_preset_snapshot || [],
     photoPresetAppliedAt: row.photo_preset_applied_at || null,
     photoPresetUndoSnapshot: row.photo_preset_undo_snapshot || null,
+    watermarkAssetId: row.watermark_asset_id || '',
+    watermarkSettings: row.watermark_settings || {},
+    watermarkUpdatedAt: row.watermark_updated_at || null,
     sales: {
       soldPhotoCount: Number(row.sold_photo_count || 0),
       soldOrderCount: Number(row.sold_order_count || 0),
@@ -102,4 +106,22 @@ function rowToShare(row, options = {}) {
   return payload;
 }
 
-module.exports = { fromCents, rowToPhoto, rowToSession, rowToShare, toCents };
+function rowToWatermarkAsset(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name || '',
+    originalFilename: row.original_filename || '',
+    storagePath: row.storage_path,
+    mimeType: row.mime_type || 'image/png',
+    width: Number(row.width || 0),
+    height: Number(row.height || 0),
+    sizeBytes: Number(row.size_bytes || 0),
+    checksum: row.checksum || '',
+    deletedAt: row.deleted_at || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+module.exports = { fromCents, rowToPhoto, rowToSession, rowToShare, rowToWatermarkAsset, toCents };

@@ -72,6 +72,17 @@
   font-size: clamp(12px, 3vw, 24px);
 }
 
+.preview-watermark-image {
+  border: 0;
+  color: transparent;
+  text-shadow: none;
+}
+
+.preview-watermark-image img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
 
 /* SEGREDINHO DA LOGO TRANSPARENTE SEM PHOTOSHOP */
 .logo img { mix-blend-mode: screen; width: 150px; object-fit: contain; }

@@ -163,6 +163,22 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     return rowToPhoto(result.rows[0], config);
   }
 
+  async function updatePhotoWatermarkState(photoId, updates = {}) {
+    const result = await query(
+      `update photos
+       set preview_path = coalesce($2, preview_path),
+           watermark_applied_at = coalesce($3, now())
+       where id = $1 and deleted_at is null
+       returning *`,
+      [
+        photoId,
+        updates.previewPath || null,
+        updates.watermarkAppliedAt || null,
+      ]
+    );
+    return rowToPhoto(result.rows[0], config);
+  }
+
   async function listPhotosForSession(sessionId) {
     const result = await query('select * from photos where session_id = $1 and deleted_at is null order by created_at', [sessionId]);
     return result.rows.map((row) => rowToPhoto(row, config));
@@ -184,6 +200,7 @@ function createPhotoRepo({ config, pool, query, withTransaction }) {
     listPhotosForSharePage,
     listPhotosForSession,
     listPhotosForShare,
+    updatePhotoWatermarkState,
     updatePhotoPresetState,
   };
 }

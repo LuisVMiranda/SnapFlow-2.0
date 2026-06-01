@@ -4,6 +4,7 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { PackageSettingsModal } from './PackageSettingsModal';
 import { PhotoPresetSettingsPanel } from './PhotoPresetSettingsPanel';
 import { RetentionPanel } from './RetentionPanel';
+import { WatermarkAssetLibraryPanel } from './WatermarkAssetLibraryPanel';
 import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
 import { WhatsAppTemplatesPanel } from './WhatsAppTemplatesPanel';
 
@@ -11,6 +12,7 @@ export function SettingsPanel({
   cleanupPreview,
   createPhotoPreset,
   deletePhotoPreset,
+  deleteWatermarkAsset,
   packageSettingsStatus,
   photoPresets,
   photoPresetStatus,
@@ -26,10 +28,14 @@ export function SettingsPanel({
   retentionSettings,
   type,
   updatePhotoPreset,
+  updateWatermarkAsset,
   whatsAppTemplateStatus,
   whatsAppTemplates,
+  watermarkAssets,
+  watermarkAssetStatus,
   watermarkSettings,
   watermarkSettingsStatus,
+  uploadWatermarkAsset,
 }) {
   const [isPackageEditorOpen, setIsPackageEditorOpen] = useState(false);
 
@@ -96,6 +102,13 @@ export function SettingsPanel({
         help="Ajuste como o texto SnapFlow aparece nas imagens de prévia enviadas ao cliente."
         title="Marca d'água das prévias"
       >
+        <WatermarkAssetLibraryPanel
+          assets={watermarkAssets}
+          deleteAsset={deleteWatermarkAsset}
+          status={watermarkAssetStatus}
+          updateAsset={updateWatermarkAsset}
+          uploadAsset={uploadWatermarkAsset}
+        />
         <WatermarkSettingsPanel
           embedded
           onSave={saveWatermarkSettings}

@@ -128,7 +128,7 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
   return { accessCode: stableAccessCode, link, share };
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPresets, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
+function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -444,8 +444,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryPr
       const share = await repos.getShareSession(req.params.token, { includeAccessCode: true });
       if (!share) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       const retentionExpiresAt = share.retentionExpiresAt || addDays(new Date(), config.defaultGalleryRetentionDays);
+      const effectiveWatermark = galleryWatermarks && typeof galleryWatermarks.effectiveForShare === 'function'
+        ? await galleryWatermarks.effectiveForShare(share)
+        : null;
       const processed = await media.processUploadedFiles(req.files || [], retentionExpiresAt, {
         presetStack: share.photoPresetSnapshot || [],
+        watermark: effectiveWatermark,
       });
       await repos.createPhotos(processed.map((photo) => ({ ...photo, shareToken: share.token })));
       await repos.refreshSharePhotoCount(share.token);

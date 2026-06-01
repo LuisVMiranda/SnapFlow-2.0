@@ -10,6 +10,7 @@ const {
   AUTO_ENHANCE_PRESETS,
   adaptiveAutoEnhancePreset,
   buildWatermarkSvg,
+  buildImageWatermarkSvg,
   createMediaService,
   mapWithConcurrency,
 } = require('../src/services/mediaService');
@@ -147,6 +148,72 @@ test('media service can run lightweight auto enhance during upload', async () =>
   } finally {
     console.log = originalLog;
   }
+});
+
+test('image watermark SVG embeds uploaded brand asset according to settings', async () => {
+  const asset = await sharp({
+    create: {
+      width: 80,
+      height: 40,
+      channels: 4,
+      background: '#ff0000',
+    },
+  }).png().toBuffer();
+
+  const svg = buildImageWatermarkSvg(800, 600, asset, {
+    width: 200,
+    height: 80,
+    opacity: 0.45,
+    instances: 3,
+  }).toString('utf8');
+
+  assert.equal((svg.match(/<image/g) || []).length, 3);
+  assert.match(svg, /opacity="0.45"/);
+  assert.match(svg, /data:image\/png;base64/);
+});
+
+test('media service can bake custom image watermark into previews', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-media-image-watermark-'));
+  const assetDir = path.join(root, 'watermark-assets');
+  await fs.mkdir(assetDir, { recursive: true });
+  const assetPath = path.join(assetDir, 'brand.png');
+  const input = path.join(root, 'black.png');
+  await sharp({
+    create: {
+      width: 420,
+      height: 260,
+      channels: 3,
+      background: '#000000',
+    },
+  }).png().toFile(input);
+  await sharp({
+    create: {
+      width: 220,
+      height: 90,
+      channels: 4,
+      background: '#ff0000',
+    },
+  }).png().toFile(assetPath);
+
+  const media = createMediaService({
+    storageRoot: root,
+    maxUploadMb: 25,
+    maxFilesPerUpload: 100,
+    publicBaseUrl: 'http://localhost:5174',
+  });
+
+  const [photo] = await media.processUploadedFiles([
+    { path: input, originalname: 'black.png', mimetype: 'image/png' },
+  ], null, {
+    watermark: {
+      kind: 'image',
+      assetPath: 'watermark-assets/brand.png',
+      settings: { width: 220, height: 90, opacity: 0.95, instances: 1 },
+    },
+  });
+
+  const stats = await sharp(path.join(root, photo.previewPath), { sequentialRead: true }).removeAlpha().stats();
+  assert.ok(Number(stats.channels[0].mean) > Number(stats.channels[1].mean) + 10);
 });
 
 test('media service stores applied photo preset metadata during upload', async () => {

@@ -168,6 +168,35 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     return rowToShare(result.rows[0], { includeAccessCode: true });
   }
 
+  async function updateShareWatermarkState(token, updates = {}) {
+    const nextAssetId = updates.watermarkAssetId || null;
+    const result = await query(
+      `update share_sessions
+       set watermark_asset_id = $2,
+           watermark_settings = coalesce($3, '{}'::jsonb),
+           watermark_updated_at = coalesce($4, now())
+       where token = $1
+         and deleted_at is null
+         and (
+           $2::text is null
+           or exists (
+             select 1
+             from watermark_assets
+             where id = $2
+               and deleted_at is null
+           )
+         )
+       returning *`,
+      [
+        token,
+        nextAssetId,
+        updates.watermarkSettings === undefined ? null : JSON.stringify(updates.watermarkSettings || {}),
+        updates.watermarkUpdatedAt || null,
+      ]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true });
+  }
+
   async function reactivateShareSession(token, updates = {}) {
     const result = await query(
       `update share_sessions
@@ -382,6 +411,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     saveShareCart,
     updateShareSession,
     updateSharePresetState,
+    updateShareWatermarkState,
   };
 }
 

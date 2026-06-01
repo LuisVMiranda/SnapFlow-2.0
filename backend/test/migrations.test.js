@@ -136,3 +136,16 @@ test('photo editing preset migration stores source, snapshots and undo metadata'
   assert.match(sql, /photo_preset_undo_snapshot jsonb/i);
   assert.match(sql, /'photoEditingPresets'/i);
 });
+
+test('gallery watermark migration stores reusable assets and per-gallery metadata', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '016_gallery_watermark_assets.sql'), 'utf8');
+
+  assert.match(sql, /create table if not exists watermark_assets/i);
+  assert.match(sql, /storage_path text not null unique/i);
+  assert.match(sql, /alter table share_sessions/i);
+  assert.match(sql, /watermark_asset_id text references watermark_assets\(id\) on delete restrict/i);
+  assert.match(sql, /watermark_settings jsonb not null default '\{\}'::jsonb/i);
+  assert.match(sql, /watermark_updated_at timestamptz/i);
+  assert.match(sql, /alter table photos/i);
+  assert.match(sql, /watermark_applied_at timestamptz/i);
+});

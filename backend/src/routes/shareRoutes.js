@@ -71,12 +71,15 @@ async function resolveShareOrder({ packages, repos, req }) {
   return { count, photoIds, share, ...totals };
 }
 
-function createShareRouter({ packages, payment, repos, watermark }) {
+function createShareRouter({ galleryWatermarks, media, packages, payment, repos, watermark }) {
   const router = express.Router();
 
-  async function publicPayload(share) {
+  async function publicPayload(share, options = {}) {
     const payload = publicSharePayload(share);
-    if (watermark && typeof watermark.getSettings === 'function') {
+    if (galleryWatermarks && typeof galleryWatermarks.effectiveForShare === 'function') {
+      const effective = await galleryWatermarks.effectiveForShare(share);
+      payload.watermarkSettings = galleryWatermarks.clientWatermarkPayload(effective, options.customerAccessToken || '');
+    } else if (watermark && typeof watermark.getSettings === 'function') {
       payload.watermarkSettings = await watermark.getSettings();
     }
     return payload;
@@ -88,7 +91,17 @@ function createShareRouter({ packages, payment, repos, watermark }) {
       const share = await repos.getShareSession(req.params.token);
       if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
       await recordConversion(repos, { type: 'share_opened', shareToken: share.token, photoCount: share.photoCount });
-      res.json(await publicPayload(share));
+      const customerAccessToken = accessTokenFromRequest(req);
+      let validCustomerAccessToken = '';
+      if (customerAccessToken) {
+        try {
+          validateCustomerAccess(req, share.token);
+          validCustomerAccessToken = customerAccessToken;
+        } catch {
+          validCustomerAccessToken = '';
+        }
+      }
+      res.json(await publicPayload(share, { customerAccessToken: validCustomerAccessToken }));
     })
   );
 
@@ -107,12 +120,30 @@ function createShareRouter({ packages, payment, repos, watermark }) {
       const customerAccessToken = issueCustomerAccessToken(share.token);
       const cartPhotoIds = typeof repos.getShareCart === 'function' ? await repos.getShareCart(share.token) : [];
       res.json({
-        ...(await publicPayload(share)),
+        ...(await publicPayload(share, { customerAccessToken })),
         customerAccessToken,
         cartPhotoIds,
         photos: items.map((photo) => sharePhotoPayload(photo, customerAccessToken)),
         photosPage: page,
       });
+    })
+  );
+
+  router.get(
+    '/share-session/:token/watermark/:assetId',
+    asyncHandler(async (req, res) => {
+      const share = await repos.getShareSession(req.params.token);
+      if (!share) throw new HttpError(404, 'Link não encontrado. Peça ao fotógrafo para enviar um link atualizado.', 'share_not_found');
+      if (isExpired(share)) throw new HttpError(410, 'Link expirado ou revogado. Peça ao fotógrafo para recriar ou estender o acesso à galeria.', 'share_expired');
+      validateCustomerAccess(req, share.token);
+      if (share.watermarkAssetId !== req.params.assetId) {
+        throw new HttpError(404, "Marca d'água não encontrada para esta galeria.", 'watermark_asset_not_found');
+      }
+      const asset = typeof repos.getWatermarkAsset === 'function'
+        ? await repos.getWatermarkAsset(req.params.assetId)
+        : null;
+      if (!asset) throw new HttpError(404, "Marca d'água não encontrada.", 'watermark_asset_not_found');
+      await media.sendWatermarkAsset(res, asset);
     })
   );
 

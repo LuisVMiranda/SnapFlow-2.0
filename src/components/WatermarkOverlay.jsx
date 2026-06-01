@@ -26,19 +26,22 @@ export function WatermarkOverlay({ settings = DEFAULT_WATERMARK_SETTINGS }) {
   const normalized = normalizeWatermarkSettings(settings);
   const positions = useMemo(() => overlayPositions(normalized.instances), [normalized.instances]);
   const sizeStyle = overlaySize(normalized);
+  const isImageWatermark = settings?.kind === 'image' && settings.assetUrl;
 
   return (
     <div className="watermark-overlay" aria-hidden="true">
       {positions.map((position, index) => (
         <span
-          className="preview-watermark"
+          className={`preview-watermark ${isImageWatermark ? 'preview-watermark-image' : ''}`}
           key={`${position.left}-${position.top}-${index}`}
           style={{
             ...position,
             ...sizeStyle,
           }}
         >
-          SnapFlow
+          {isImageWatermark ? (
+            <img src={settings.assetUrl} alt="" />
+          ) : 'SnapFlow'}
         </span>
       ))}
     </div>

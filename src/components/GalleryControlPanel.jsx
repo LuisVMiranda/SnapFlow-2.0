@@ -20,6 +20,7 @@ export function GalleryControlPanel({
   startNewSession,
   total,
   type,
+  watermarkAssets,
   withAdminMediaToken,
 }) {
   const activePackage = pricingOptions[type] || pricingOptions[Object.keys(pricingOptions)[0]];
@@ -77,6 +78,7 @@ export function GalleryControlPanel({
         photoPresets={photoPresets}
         pricingOptions={pricingOptions}
         setNotice={setNotice}
+        watermarkAssets={watermarkAssets}
         withAdminMediaToken={withAdminMediaToken}
       />
     </section>

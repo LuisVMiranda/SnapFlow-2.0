@@ -57,6 +57,116 @@
   gap: 8px;
 }
 
+.watermark-asset-library {
+  display: grid;
+  gap: 14px;
+}
+
+.watermark-asset-upload {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+}
+
+.watermark-asset-upload label {
+  color: #b7c0cc;
+  display: grid;
+  font-size: 12px;
+  gap: 7px;
+}
+
+.watermark-asset-upload span {
+  color: #fff;
+  font-weight: 700;
+}
+
+.watermark-asset-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.watermark-asset-card {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 86px minmax(0, 1fr);
+  padding: 10px;
+}
+
+.watermark-asset-preview {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(30, 144, 255, 0.08)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 12px);
+  border-radius: 6px;
+  display: flex;
+  height: 68px;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.watermark-asset-preview img {
+  max-height: 62px;
+  max-width: 78px;
+  object-fit: contain;
+}
+
+.watermark-asset-meta {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.watermark-asset-meta small {
+  color: #a8b6c7;
+  font-size: 12px;
+}
+
+.watermark-asset-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gallery-watermark-controls {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gallery-watermark-preview {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.gallery-watermark-preview img {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(30, 144, 255, 0.08)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 12px);
+  border-radius: 6px;
+  height: 54px;
+  object-fit: contain;
+  padding: 6px;
+  width: 86px;
+}
+
+.gallery-watermark-preview small {
+  color: #dcecff;
+  font-weight: 700;
+}
+
+.gallery-watermark-tools .gallery-preset-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .watermark-preview-frame {
   background:
     linear-gradient(135deg, rgba(30, 144, 255, 0.18), rgba(0, 200, 81, 0.12)),
@@ -94,7 +204,10 @@
   }
 
   .watermark-settings-layout,
-  .watermark-controls {
+  .watermark-controls,
+  .watermark-asset-upload,
+  .gallery-watermark-controls,
+  .gallery-watermark-tools .gallery-preset-actions {
     grid-template-columns: 1fr;
   }
 

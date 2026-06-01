@@ -6,6 +6,12 @@ const { randomToken } = require('../tokens');
 const { HttpError } = require('../errors');
 const { applyPhotoEditingStack, jpegQualityForPresetStack } = require('./photoEditingPresetService');
 const { DEFAULT_WATERMARK_SETTINGS, normalizeWatermarkSettings } = require('./watermarkSettingsService');
+const { buildImageWatermarkSvg, buildWatermarkSvg, watermarkPositions } = require('./mediaWatermarkService');
+const {
+  WATERMARK_ASSET_MAX_BYTES,
+  WATERMARK_ASSET_MIME_TYPES,
+  validateWatermarkAssetFile,
+} = require('./mediaWatermarkAssetValidation');
 
 const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const AUTO_ENHANCE_PRESETS = {
@@ -61,42 +67,6 @@ function safeRelativePath(value) {
     throw new HttpError(400, 'Caminho de arquivo inválido. Use apenas arquivos dentro da pasta privada de armazenamento do SnapFlow.', 'invalid_file_path');
   }
   return normalized;
-}
-
-function watermarkPositions(width, height, instances) {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(instances * (width / Math.max(1, height)))));
-  const rows = Math.max(1, Math.ceil(instances / columns));
-  return Array.from({ length: instances }, (_, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    return {
-      x: Math.round(((column + 0.5) * width) / columns),
-      y: Math.round(((row + 0.5) * height) / rows),
-    };
-  });
-}
-
-function buildWatermarkSvg(width = 960, height = 640, settings = DEFAULT_WATERMARK_SETTINGS) {
-  const normalized = normalizeWatermarkSettings(settings);
-  const fontSize = Math.max(18, Math.round(Math.min(normalized.height * 0.48, normalized.width / 4.3, 72)));
-  const strokeOpacity = Math.min(0.95, Number((normalized.opacity + 0.2).toFixed(2)));
-  const positions = watermarkPositions(width, height, normalized.instances);
-  const labels = positions.map(({ x, y }) => `
-        <text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle"
-          font-size="${fontSize}" fill="rgba(255,255,255,${normalized.opacity})" stroke="rgba(0,0,0,${strokeOpacity})"
-          stroke-width="2" transform="rotate(-35 ${x} ${y})">
-          SnapFlow
-        </text>`).join('');
-
-  return Buffer.from(`
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <style>
-          text { font-family: Arial, sans-serif; font-weight: 700; }
-        </style>
-        <rect width="100%" height="100%" fill="transparent"/>
-        ${labels}
-      </svg>
-    `);
 }
 
 function autoEnhancePreset(level = 'balanced') {
@@ -174,6 +144,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     temp: path.join(config.storageRoot, 'tmp'),
     undo: path.join(config.storageRoot, 'undo'),
     archive: path.join(config.storageRoot, 'archive'),
+    watermarkAssets: path.join(config.storageRoot, 'watermark-assets'),
   };
 
   async function ensureStorage() {
@@ -218,6 +189,14 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return normalizeWatermarkSettings(await watermarkSettings.getSettings());
   }
 
+  async function watermarkInputForPreview(width, height, watermark) {
+    if (watermark && watermark.kind === 'image' && watermark.assetPath) {
+      const assetBuffer = await fs.readFile(absolutePath(watermark.assetPath));
+      return buildImageWatermarkSvg(width, height, assetBuffer, watermark.settings);
+    }
+    return buildWatermarkSvg(width, height, watermark?.settings || watermark || await currentWatermarkSettings());
+  }
+
   function presetUndoRel(kind, photoId) {
     return `undo/${kind}/${photoId}-${randomToken(8)}.jpg`;
   }
@@ -244,7 +223,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return presetStack.map((preset) => preset.id).filter(Boolean);
   }
 
-  async function buildProcessedVariantsFromSource(photo, presetStack = []) {
+  async function buildProcessedVariantsFromSource(photo, presetStack = [], options = {}) {
     const sourceRel = photo.sourcePath || photo.originalPath;
     if (!sourceRel) {
       throw new HttpError(400, 'Esta foto não possui arquivo de origem para reprocessamento. Reenvie a imagem na galeria e tente novamente.', 'photo_source_missing');
@@ -258,7 +237,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     let basePipeline = config.autoEnhanceEnabled && sourceIsPristine ? applyAutoEnhance(rotated.clone(), enhancePreset) : rotated.clone();
     if (presetStack.length) basePipeline = applyPhotoEditingStack(basePipeline, presetStack);
 
-    const watermark = await currentWatermarkSettings();
+    const watermark = options.watermark || await currentWatermarkSettings();
     const qualityFallback = config.autoEnhanceEnabled && sourceIsPristine ? enhancePreset.jpegQuality : 94;
     const originalQuality = jpegQualityForPresetStack(presetStack, qualityFallback);
     const tempSuffix = `${photo.id}-${randomToken(8)}`;
@@ -277,8 +256,8 @@ function createMediaService(config, { watermarkSettings } = {}) {
       basePipeline.clone()
         .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
         .toBuffer({ resolveWithObject: true })
-        .then((preview) => sharp(preview.data)
-          .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+        .then(async (preview) => sharp(preview.data)
+          .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
           .jpeg({ quality: 72, mozjpeg: true })
           .toFile(absolutePath(nextPreviewRel))),
     ]);
@@ -310,7 +289,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
         const luminance = Number.isFinite(enhancePreset.luminance) ? ` luminance=${Math.round(enhancePreset.luminance)}` : '';
         console.log(`[AUTO_ENHANCE] Processing image ${file.originalname || id} with ${enhancePreset.mode || enhanceLevel} preset...${luminance}`);
       }
-      const watermark = await currentWatermarkSettings();
+      const watermark = options.watermark || await currentWatermarkSettings();
       const originalQuality = jpegQualityForPresetStack(presetStack, config.autoEnhanceEnabled ? enhancePreset.jpegQuality : 94);
 
       await Promise.all([
@@ -327,8 +306,8 @@ function createMediaService(config, { watermarkSettings } = {}) {
         basePipeline.clone()
           .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
           .toBuffer({ resolveWithObject: true })
-          .then((preview) => sharp(preview.data)
-            .composite([{ input: buildWatermarkSvg(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+          .then(async (preview) => sharp(preview.data)
+            .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
             .jpeg({ quality: 72, mozjpeg: true })
             .toFile(previewAbs)),
       ]);
@@ -368,7 +347,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     return mapWithConcurrency(uploadFiles, config.uploadProcessingConcurrency || 3, (file) => processUploadedFile(file, retentionExpiresAt, options));
   }
 
-  async function reprocessPhotoWithPresets(photo, presetStack = []) {
+  async function reprocessPhotoWithPresets(photo, presetStack = [], options = {}) {
     await ensureStorage();
     const undoOriginalPath = presetUndoRel('originals', photo.id);
     const undoThumbPath = presetUndoRel('thumbs', photo.id);
@@ -381,7 +360,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
         copyRelativeFile(photo.previewPath, undoPreviewPath),
       ]);
 
-      const variants = await buildProcessedVariantsFromSource(photo, presetStack);
+      const variants = await buildProcessedVariantsFromSource(photo, presetStack, options);
       tempPaths.push(variants.nextOriginalRel, variants.nextThumbRel, variants.nextPreviewRel);
       await Promise.all([
         replaceRelativeFile(variants.nextOriginalRel, photo.originalPath),
@@ -451,6 +430,73 @@ function createMediaService(config, { watermarkSettings } = {}) {
     }
   }
 
+  async function processWatermarkAssetUpload(file) {
+    await ensureStorage();
+    validateWatermarkAssetFile(file);
+    const id = `watermark_asset_${randomToken(12)}`;
+    const storagePath = `watermark-assets/${id}.png`;
+    const targetAbs = absolutePath(storagePath);
+    try {
+      await sharp(file.path, { sequentialRead: true })
+        .rotate()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toFile(targetAbs);
+      const metadata = await sharp(targetAbs).metadata();
+      const stat = await fs.stat(targetAbs);
+      return {
+        id,
+        originalFilename: file.originalname || '',
+        storagePath,
+        mimeType: 'image/png',
+        width: Number(metadata.width || 0),
+        height: Number(metadata.height || 0),
+        sizeBytes: stat.size,
+        checksum: await checksumFile(targetAbs),
+      };
+    } catch (error) {
+      await fs.unlink(targetAbs).catch(() => {});
+      throw new HttpError(
+        400,
+        `Não foi possível processar a marca d'água "${file.originalname || 'enviada'}". Envie PNG, JPG ou WebP válido.`,
+        'watermark_asset_processing_failed',
+        { fileName: file.originalname, reason: error.message }
+      );
+    } finally {
+      await fs.unlink(file.path).catch(() => {});
+    }
+  }
+
+  async function removeWatermarkAsset(asset) {
+    if (!asset?.storagePath) return;
+    await unlinkRelativeFile(asset.storagePath);
+  }
+
+  async function reprocessPhotoWatermark(photo, watermark) {
+    await ensureStorage();
+    if (!photo.originalPath) {
+      throw new HttpError(400, 'Esta foto não possui arquivo base para reaplicar a marca d\'água.', 'photo_source_missing');
+    }
+    const tempPreviewRel = `tmp/${photo.id}-${randomToken(8)}-watermark-preview.jpg`;
+    try {
+      await sharp(absolutePath(photo.originalPath), { sequentialRead: true })
+        .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+        .toBuffer({ resolveWithObject: true })
+        .then(async (preview) => sharp(preview.data)
+          .composite([{ input: await watermarkInputForPreview(preview.info.width, preview.info.height, watermark), gravity: 'center' }])
+          .jpeg({ quality: 72, mozjpeg: true })
+          .toFile(absolutePath(tempPreviewRel)));
+      await replaceRelativeFile(tempPreviewRel, photo.previewPath);
+      return {
+        previewPath: photo.previewPath,
+        watermarkAppliedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      await unlinkRelativeFile(tempPreviewRel);
+      throw new HttpError(400, `Não foi possível reaplicar a marca d'água na foto "${photo.id}".`, 'photo_watermark_apply_failed', { photoId: photo.id, reason: error.message });
+    }
+  }
+
   async function sendFile(res, photo, variant) {
     const pathByVariant = {
       original: photo.originalPath,
@@ -464,6 +510,16 @@ function createMediaService(config, { watermarkSettings } = {}) {
       'X-Content-Type-Options': 'nosniff',
     });
     res.sendFile(absolutePath(target));
+  }
+
+  async function sendWatermarkAsset(res, asset) {
+    if (!asset?.storagePath) throw new HttpError(404, "Marca d'água não encontrada.", 'watermark_asset_not_found');
+    res.set({
+      'Cache-Control': 'private, max-age=300',
+      'Content-Type': asset.mimeType || 'image/png',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.sendFile(absolutePath(asset.storagePath));
   }
 
   async function removeOrArchive(photo, archive = false) {
@@ -506,11 +562,17 @@ function createMediaService(config, { watermarkSettings } = {}) {
     maxUploadBytes: config.maxUploadMb * 1024 * 1024,
     maxFiles: config.maxFilesPerUpload,
     allowedMimeTypes: ALLOWED_MIME_TYPES,
+    allowedWatermarkMimeTypes: WATERMARK_ASSET_MIME_TYPES,
+    maxWatermarkAssetBytes: WATERMARK_ASSET_MAX_BYTES,
     absolutePath,
+    processWatermarkAssetUpload,
     processUploadedFiles,
+    reprocessPhotoWatermark,
     reprocessPhotoWithPresets,
     restorePhotoPresetUndo,
     sendFile,
+    sendWatermarkAsset,
+    removeWatermarkAsset,
     removeOrArchive,
   };
 }
@@ -519,9 +581,11 @@ module.exports = {
   createMediaService,
   ALLOWED_MIME_TYPES,
   AUTO_ENHANCE_PRESETS,
+  WATERMARK_ASSET_MIME_TYPES,
   adaptiveAutoEnhancePreset,
   applyAutoEnhance,
   autoEnhancePreset,
+  buildImageWatermarkSvg,
   buildWatermarkSvg,
   mapWithConcurrency,
   watermarkPositions,

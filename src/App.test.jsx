@@ -19,6 +19,16 @@ vi.mock('./hooks/usePhotoPresets', () => ({
   }),
 }));
 
+vi.mock('./hooks/useWatermarkAssets', () => ({
+  useWatermarkAssets: () => ({
+    deleteWatermarkAsset: () => {},
+    updateWatermarkAsset: () => {},
+    uploadWatermarkAsset: () => {},
+    watermarkAssets: [],
+    watermarkAssetStatus: 'idle',
+  }),
+}));
+
 const noop = () => {};
 
 function makeController(overrides = {}) {
