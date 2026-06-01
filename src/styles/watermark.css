@@ -206,10 +206,10 @@
   display: grid;
   gap: 14px;
   max-height: min(92vh, 860px);
-  max-width: 760px;
+  max-width: 860px;
   overflow: auto;
   padding: 18px;
-  width: min(100%, 760px);
+  width: min(100%, 860px);
 }
 
 .overlay-preview-modal .modal-header {
@@ -230,6 +230,36 @@
   width: 36px;
 }
 
+.overlay-orientation-tabs {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.overlay-orientation-tabs button[data-active='true'] {
+  background: rgba(0, 200, 81, 0.2);
+  border-color: rgba(0, 200, 81, 0.5);
+  color: #d8ffe7;
+}
+
+.overlay-preview-grid {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr);
+}
+
+.overlay-preview-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overlay-preview-panel small {
+  color: #dcecff;
+  font-weight: 700;
+}
+
 .overlay-preview-frame {
   align-items: center;
   background: rgba(255, 255, 255, 0.04);
@@ -237,10 +267,24 @@
   border-radius: 8px;
   cursor: grab;
   display: flex;
-  min-height: 340px;
+  justify-content: center;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   touch-action: none;
+}
+
+.overlay-preview-frame[data-active='true'] {
+  border-color: rgba(0, 200, 81, 0.55);
+  box-shadow: 0 0 0 2px rgba(0, 200, 81, 0.14);
+}
+
+.overlay-preview-frame-portrait {
+  aspect-ratio: 3 / 4;
+}
+
+.overlay-preview-frame-landscape {
+  aspect-ratio: 4 / 3;
 }
 
 .overlay-preview-frame:active {
@@ -249,9 +293,8 @@
 
 .overlay-preview-photo {
   display: block;
-  height: auto;
-  max-height: 68vh;
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   width: 100%;
 }
 
@@ -286,6 +329,10 @@
 }
 
 @media (max-width: 640px) {
+  .overlay-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .watermark-settings-header {
     align-items: flex-start;
     flex-direction: column;

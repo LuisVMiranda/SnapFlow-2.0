@@ -27,4 +27,22 @@ describe('GalleryOverlayLayer', () => {
     const { container } = render(<GalleryOverlayLayer settings={{ enabled: false }} />);
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('uses orientation-specific placement when available', () => {
+    render(
+      <GalleryOverlayLayer
+        orientation="portrait"
+        settings={{
+          enabled: true,
+          kind: 'image',
+          assetUrl: '/api/share-session/token/overlay/asset?access_token=ok',
+          portrait: { x: 0.1, y: 0.9, widthRatio: 0.5, opacity: 0.7 },
+          landscape: { x: 0.9, y: 0.1, widthRatio: 0.2, opacity: 0.4 },
+        }}
+      />
+    );
+
+    const image = document.querySelector('.gallery-client-overlay img');
+    expect(image).toHaveStyle({ left: '10%', top: '90%', width: '50%', opacity: '0.7' });
+  });
 });

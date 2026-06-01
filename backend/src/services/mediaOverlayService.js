@@ -1,5 +1,5 @@
 const { HttpError } = require('../errors');
-const { normalizeOverlaySettings } = require('./overlaySettingsService');
+const { overlayPlacementForDimensions } = require('./overlaySettingsService');
 
 const OVERLAY_ASSET_MAX_BYTES = 5 * 1024 * 1024;
 const OVERLAY_ASSET_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
@@ -36,14 +36,15 @@ function overlayDimensions(imageWidth, asset, settings) {
 }
 
 function buildOverlaySvg(width, height, assetBuffer, asset = {}, rawSettings = {}) {
-  const settings = normalizeOverlaySettings(rawSettings);
+  const settings = overlayPlacementForDimensions(rawSettings, width, height);
   const size = overlayDimensions(width, asset, settings);
   const left = Math.round((width * settings.x) - (size.width / 2));
   const top = Math.round((height * settings.y) - (size.height / 2));
   const encoded = assetBuffer.toString('base64');
+  const mimeType = asset?.mimeType || 'image/png';
   return Buffer.from(`
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <image href="data:image/png;base64,${encoded}" x="${left}" y="${top}" width="${size.width}" height="${size.height}" opacity="${settings.opacity}" preserveAspectRatio="xMidYMid meet"/>
+      <image href="data:${mimeType};base64,${encoded}" x="${left}" y="${top}" width="${size.width}" height="${size.height}" opacity="${settings.opacity}" preserveAspectRatio="xMidYMid meet"/>
     </svg>
   `);
 }

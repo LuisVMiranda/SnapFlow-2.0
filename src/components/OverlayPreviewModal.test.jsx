@@ -31,7 +31,14 @@ describe('OverlayPreviewModal', () => {
     expect(onSave).toHaveBeenCalledWith({
       assetId: 'overlay_1',
       enabled: true,
-      settings: { x: 0.25, y: 0.75, widthRatio: 0.6, opacity: 0.8 },
+      settings: expect.objectContaining({
+        x: 0.5,
+        y: 0.5,
+        widthRatio: 0.3,
+        opacity: 0.5,
+        portrait: { x: 0.25, y: 0.75, widthRatio: 0.6, opacity: 0.8 },
+        landscape: { x: 0.5, y: 0.5, widthRatio: 0.3, opacity: 0.5 },
+      }),
     });
   });
 
@@ -65,7 +72,10 @@ describe('OverlayPreviewModal', () => {
     expect(onSave).toHaveBeenCalledWith({
       assetId: 'overlay_1',
       enabled: true,
-      settings: { x: 0.5, y: 0.5, widthRatio: 0.9, opacity: 0.4 },
+      settings: expect.objectContaining({
+        portrait: { x: 0.5, y: 0.5, widthRatio: 0.9, opacity: 0.4 },
+        landscape: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+      }),
     });
   });
 
@@ -95,7 +105,45 @@ describe('OverlayPreviewModal', () => {
     expect(onSave).toHaveBeenCalledWith({
       assetId: 'overlay_1',
       enabled: true,
-      settings: { x: 0.9, y: 0.9, widthRatio: 0.35, opacity: 0.75 },
+      settings: expect.objectContaining({
+        portrait: { x: 0.9, y: 0.9, widthRatio: 0.35, opacity: 0.75 },
+        landscape: { x: 0.1, y: 0.1, widthRatio: 0.35, opacity: 0.75 },
+      }),
+    });
+  });
+
+  it('saves independent horizontal and vertical placements', () => {
+    const onSave = vi.fn();
+    render(
+      <OverlayPreviewModal
+        assets={assets}
+        initialAssetId="overlay_1"
+        initialSettings={{
+          portrait: { x: 0.1, y: 0.1, widthRatio: 0.35, opacity: 0.75 },
+          landscape: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+        }}
+        isOpen
+        onClose={vi.fn()}
+        onSave={onSave}
+        previewUrl="/photo.jpg"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: /Horizontal/i }));
+    const landscapeFrame = document.querySelector('[data-orientation="landscape"]');
+    Object.defineProperty(landscapeFrame, 'getBoundingClientRect', {
+      value: () => ({ left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100 }),
+    });
+    fireEvent.pointerDown(landscapeFrame, { clientX: 180, clientY: 20, pointerId: 1 });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar overlay/i }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      assetId: 'overlay_1',
+      enabled: true,
+      settings: expect.objectContaining({
+        portrait: { x: 0.1, y: 0.1, widthRatio: 0.35, opacity: 0.75 },
+        landscape: { x: 0.9, y: 0.2, widthRatio: 0.35, opacity: 0.75 },
+      }),
     });
   });
 });

@@ -4,18 +4,39 @@ const fc = require('fast-check');
 const {
   hasExplicitOverlaySettings,
   normalizeOverlaySettings,
+  overlayPlacementForDimensions,
 } = require('../src/services/overlaySettingsService');
 
 test('overlay settings normalize finite safe values', () => {
   const settings = normalizeOverlaySettings({ x: -10, y: 99, widthRatio: Infinity, opacity: 0 });
 
-  assert.deepEqual(settings, { x: 0, y: 1, widthRatio: 0.35, opacity: 0.05 });
+  assert.equal(settings.x, 0);
+  assert.equal(settings.y, 1);
+  assert.equal(settings.widthRatio, 0.35);
+  assert.equal(settings.opacity, 0.05);
+  assert.deepEqual(settings.portrait, { x: 0, y: 1, widthRatio: 0.35, opacity: 0.05 });
+  assert.deepEqual(settings.landscape, { x: 0, y: 1, widthRatio: 0.35, opacity: 0.05 });
 });
 
 test('overlay settings parser detects explicit values', () => {
   assert.equal(hasExplicitOverlaySettings({ opacity: 0.5 }), true);
+  assert.equal(hasExplicitOverlaySettings({ portrait: { x: 0.2 } }), true);
   assert.equal(hasExplicitOverlaySettings({}), false);
   assert.equal(hasExplicitOverlaySettings('{bad json'), false);
+});
+
+test('overlay settings resolve portrait and landscape placements by dimensions', () => {
+  const settings = normalizeOverlaySettings({
+    x: 0.5,
+    y: 0.5,
+    widthRatio: 0.35,
+    opacity: 0.75,
+    portrait: { x: 0.2, y: 0.8, widthRatio: 0.45, opacity: 0.9 },
+    landscape: { x: 0.8, y: 0.2, widthRatio: 0.25, opacity: 0.6 },
+  });
+
+  assert.deepEqual(overlayPlacementForDimensions(settings, 800, 1200), settings.portrait);
+  assert.deepEqual(overlayPlacementForDimensions(settings, 1200, 800), settings.landscape);
 });
 
 test('random overlay settings are always finite and clamped', () => {

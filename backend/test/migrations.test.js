@@ -149,3 +149,13 @@ test('gallery watermark migration stores reusable assets and per-gallery metadat
   assert.match(sql, /alter table photos/i);
   assert.match(sql, /watermark_applied_at timestamptz/i);
 });
+
+test('gallery expiration migration caps overlong active gallery links', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '018_gallery_expiration_orientation_profiles.sql'), 'utf8');
+
+  assert.match(sql, /update share_sessions/i);
+  assert.match(sql, /expires_at = now\(\) \+ interval '30 minutes'/i);
+  assert.match(sql, /expires_at > now\(\) \+ interval '180 minutes'/i);
+  assert.match(sql, /deleted_at is null/i);
+  assert.match(sql, /revoked_at is null/i);
+});

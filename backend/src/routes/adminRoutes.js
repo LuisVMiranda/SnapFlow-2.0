@@ -7,6 +7,7 @@ const { addDays, generateAccessCode, hashValue } = require('../tokens');
 const { adminPhotoPagePayload, adminPhotoPayload, adminShareDetails } = require('./adminSharePayloads');
 const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
 const { toPhotoIds } = require('./helpers');
+const { normalizeShareExpiresMinutes, shareExpiresAtFromNow } = require('../services/shareExpiration');
 
 function normalizeAccessCode(value) {
   return String(value || '')
@@ -168,10 +169,11 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       if (!shareToken && photoIds.length) {
         const now = new Date();
         const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
+        const { expiresAt } = shareExpiresAtFromNow();
         const saleGallery = await createOrRestoreShareSession({
           accessCode: generateAccessCode(4),
           baseUrl: await resolvePublicBaseUrl(req, config, credentials),
-          expiresAt: retentionExpiresAt,
+          expiresAt,
           galleryDescription: '',
           galleryName: clientName ? `Venda - ${clientName}` : 'Venda direta',
           phone,
@@ -266,7 +268,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const galleryName = normalizeGalleryName(req.body.galleryName);
       const galleryDescription = normalizeGalleryDescription(req.body.galleryDescription);
 
-      const safeMinutes = Math.min(180, Math.max(5, Number(req.body.expiresMinutes) || 30));
+      const safeMinutes = normalizeShareExpiresMinutes(req.body.expiresMinutes);
       const now = new Date();
       const accessCode = generateAccessCode(4);
       const expiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
@@ -368,7 +370,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const createdAt = new Date(original.createdAt).getTime();
       const expiresAt = new Date(original.expiresAt).getTime();
       const originalMinutes = Math.round((expiresAt - createdAt) / 60_000);
-      const safeMinutes = Math.min(180, Math.max(5, Number.isFinite(originalMinutes) ? originalMinutes : 30));
+      const safeMinutes = normalizeShareExpiresMinutes(Number.isFinite(originalMinutes) ? originalMinutes : undefined);
       const now = new Date();
       const accessCode = original.accessCode || generateAccessCode(4);
       const newExpiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
@@ -501,7 +503,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
 
       const minutes = Number(body.expiresMinutes);
       const expiresAt = Number.isFinite(minutes) && minutes > 0
-        ? new Date(Date.now() + Math.min(180, Math.max(5, minutes)) * 60 * 1000)
+        ? new Date(Date.now() + normalizeShareExpiresMinutes(minutes) * 60 * 1000)
         : null;
 
       const validatedPhone = body.phone === undefined ? null : validateClientPhone(body.phone);

@@ -318,7 +318,14 @@ describe('SummaryScreen', () => {
 
     expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
       assetId: 'overlay_1',
-      settings: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+      settings: expect.objectContaining({
+        x: 0.5,
+        y: 0.5,
+        widthRatio: 0.35,
+        opacity: 0.75,
+        portrait: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+        landscape: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 0.75 },
+      }),
     });
   });
 });

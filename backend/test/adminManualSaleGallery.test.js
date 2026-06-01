@@ -17,6 +17,8 @@ function createManualSaleGalleryApp() {
         phone: payload.phone,
         photoCount: payload.photoIds.length,
         total: payload.total,
+        expiresAt: payload.expiresAt,
+        retentionExpiresAt: payload.retentionExpiresAt,
       };
       photos = photos.map((photo) => (
         payload.photoIds.includes(photo.id) ? { ...photo, shareToken: payload.token } : photo
@@ -62,6 +64,7 @@ function createManualSaleGalleryApp() {
 
 test('direct admin cash sale creates a manageable gallery before delivery', async () => {
   const { app, state } = createManualSaleGalleryApp();
+  const startedAt = Date.now();
 
   const response = await request(app)
     .post('/api/admin/manual-payment')
@@ -82,6 +85,9 @@ test('direct admin cash sale creates a manageable gallery before delivery', asyn
   assert.ok(response.body.shareToken);
   assert.equal(state().share.token, response.body.shareToken);
   assert.equal(state().share.galleryName, 'Venda - Ana Cliente');
+  const expiresDeltaMinutes = Math.round((new Date(state().share.expiresAt).getTime() - startedAt) / 60_000);
+  assert.equal(expiresDeltaMinutes, 30);
+  assert.ok(new Date(state().share.retentionExpiresAt).getTime() - startedAt > 20 * 24 * 60 * 60 * 1000);
   assert.equal(state().session.shareToken, response.body.shareToken);
   assert.equal(state().photos[0].shareToken, response.body.shareToken);
   assert.equal(state().photos[0].sessionId, 'manual_1');

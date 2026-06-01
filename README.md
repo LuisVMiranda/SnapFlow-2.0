@@ -26,7 +26,7 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 - Recriação/revalidação intencional de galeria sem duplicar links desnecessários.
 - Edição de galeria pelo admin: visualizar fotos, adicionar, remover, alterar telefone, cliente, código, pacote, total e tempo.
 - Biblioteca de marcas d'água reutilizáveis, com aplicação por galeria e fallback Plan B SnapFlow.
-- Biblioteca de overlays reutilizáveis, com ajuste por galeria de imagem, posição, escala, opacidade e estado ativo/inativo.
+- Biblioteca de overlays reutilizáveis, com ajuste por galeria de imagem, posição, escala, opacidade, orientação vertical/horizontal e estado ativo/inativo.
 - Revogar, estender, copiar e abrir links compartilhados.
 - Proteções no modo cliente para reduzir cópia indevida e acesso fora da galeria.
 - Dashboard de vendas com períodos diário, semanal, mensal e anual.
@@ -428,7 +428,7 @@ O dashboard registra eventos de conversão dessas galerias em `conversion_events
 
 Marca d'água por galeria: em `Configurações`, o administrador envia imagens de marca uma vez e reutiliza em galerias futuras. Em `Ver/Editar`, cada galeria pode receber uma marca própria com largura, altura, opacidade e repetição; sem imagem personalizada, as prévias usam automaticamente o Plan B SnapFlow. A personalização protege prévias e visualização pública, enquanto os originais pagos continuam limpos.
 
-Overlay por galeria: em `Configurações`, o administrador envia overlays com identificador próprio em uma biblioteca separada das marcas d'água. Em `Ver/Editar`, cada galeria pode adicionar, modificar, ativar, desativar ou remover o overlay; o modal usa a primeira prévia disponível para ajustar posição, tamanho e opacidade antes de aplicar em todas as fotos. O overlay é camada visual de composição, não substitui a marca d'água; quando ambos existem, a ordem é edição da foto, overlay e depois marca d'água. As prévias/display são reprocessadas, mas os originais pagos continuam sem overlay.
+Overlay por galeria: em `Configurações`, o administrador envia overlays com identificador próprio em uma biblioteca separada das marcas d'água. Em `Ver/Editar`, cada galeria pode adicionar, modificar, ativar, desativar ou remover o overlay; o modal mostra prévias vertical e horizontal para ajustar posição, tamanho e opacidade antes de aplicar em todas as fotos. O overlay é camada visual de composição, não substitui a marca d'água; quando ambos existem, a ordem é edição da foto, overlay e depois marca d'água. As prévias/display são reprocessadas e os originais pagos entregues ao cliente recebem o overlay ativo.
 
 No modo admin, `Ver/Editar` permite:
 

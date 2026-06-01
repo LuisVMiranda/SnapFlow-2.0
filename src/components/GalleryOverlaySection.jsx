@@ -33,7 +33,7 @@ export function GalleryOverlaySection({
       <div>
         <strong>Overlay da galeria</strong>
         <small className="summary-help" style={{ display: 'block' }}>
-          Aplique uma imagem por cima das previas desta galeria. Originais pagos continuam limpos.
+          Aplique uma imagem por cima das previas desta galeria. Originais pagos recebem o overlay ativo.
         </small>
       </div>
       <small className={activeAsset && activeEnabled ? 'summary-help success' : 'summary-help'}>{statusLabel}</small>

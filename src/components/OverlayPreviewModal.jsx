@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { normalizeOverlaySettings } from '../hooks/useOverlaySettings';
+import {
+  OVERLAY_ORIENTATIONS,
+  normalizeOverlaySettings,
+  overlayPlacementForOrientation,
+} from '../hooks/useOverlaySettings';
+
+const ORIENTATION_LABELS = {
+  portrait: 'Vertical',
+  landscape: 'Horizontal',
+};
 
 function clampPoint(value) {
   return Math.min(1, Math.max(0, value));
@@ -15,13 +24,15 @@ export function OverlayPreviewModal({
   onSave,
   previewUrl = '',
 }) {
-  const frameRef = useRef(null);
+  const frameRefs = useRef({});
   const didInitializeRef = useRef(false);
   const isDraggingRef = useRef(false);
+  const [activeOrientation, setActiveOrientation] = useState('portrait');
   const [assetId, setAssetId] = useState(initialAssetId);
   const [settings, setSettings] = useState(() => normalizeOverlaySettings(initialSettings));
   const firstAssetId = assets[0]?.id || '';
   const selectedAsset = useMemo(() => assets.find((asset) => asset.id === assetId), [assets, assetId]);
+  const activePlacement = overlayPlacementForOrientation(settings, activeOrientation);
 
   useEffect(() => {
     if (!isOpen) {
@@ -31,6 +42,7 @@ export function OverlayPreviewModal({
     if (didInitializeRef.current) return;
     setAssetId(initialAssetId || firstAssetId);
     setSettings(normalizeOverlaySettings(initialSettings));
+    setActiveOrientation('portrait');
     didInitializeRef.current = true;
   }, [firstAssetId, initialAssetId, initialSettings, isOpen]);
 
@@ -41,14 +53,28 @@ export function OverlayPreviewModal({
 
   if (!isOpen) return null;
 
-  const updateFromPointer = (event) => {
-    const rect = frameRef.current?.getBoundingClientRect();
+  const updatePlacement = (orientation, patch) => {
+    setSettings((current) => {
+      const normalized = normalizeOverlaySettings(current);
+      const currentPlacement = overlayPlacementForOrientation(normalized, orientation);
+      return normalizeOverlaySettings({
+        ...normalized,
+        [orientation]: {
+          ...currentPlacement,
+          ...patch,
+        },
+      });
+    });
+  };
+
+  const updateFromPointer = (event, orientation) => {
+    const rect = frameRefs.current[orientation]?.getBoundingClientRect();
     if (!rect) return;
-    setSettings((current) => normalizeOverlaySettings({
-      ...current,
+    setActiveOrientation(orientation);
+    updatePlacement(orientation, {
       x: clampPoint((event.clientX - rect.left) / rect.width),
       y: clampPoint((event.clientY - rect.top) / rect.height),
-    }));
+    });
   };
 
   const stopDrag = (event) => {
@@ -81,36 +107,66 @@ export function OverlayPreviewModal({
           </select>
         </label>
 
-        <div
-          className="overlay-preview-frame"
-          ref={frameRef}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            isDraggingRef.current = true;
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            updateFromPointer(event);
-          }}
-          onPointerMove={(event) => {
-            if (isDraggingRef.current) updateFromPointer(event);
-          }}
-          onPointerCancel={stopDrag}
-          onPointerUp={stopDrag}
-        >
-          {previewUrl ? <img alt="" className="overlay-preview-photo" draggable={false} src={previewUrl} /> : <div className="share-gallery-empty">Adicione uma foto antes de configurar overlay.</div>}
-          {selectedAsset ? (
-            <img
-              alt=""
-              className="overlay-preview-layer"
-              draggable={false}
-              src={selectedAsset.url}
-              style={{
-                left: `${settings.x * 100}%`,
-                opacity: settings.opacity,
-                top: `${settings.y * 100}%`,
-                width: `${settings.widthRatio * 100}%`,
-              }}
-            />
-          ) : null}
+        <div className="overlay-orientation-tabs" role="tablist" aria-label="Orientacao do overlay">
+          {OVERLAY_ORIENTATIONS.map((orientation) => (
+            <button
+              aria-selected={activeOrientation === orientation}
+              className="share-quick-btn"
+              data-active={activeOrientation === orientation}
+              key={orientation}
+              onClick={() => setActiveOrientation(orientation)}
+              role="tab"
+              type="button"
+            >
+              {ORIENTATION_LABELS[orientation]}
+            </button>
+          ))}
+        </div>
+
+        <div className="overlay-preview-grid">
+          {OVERLAY_ORIENTATIONS.map((orientation) => {
+            const placement = overlayPlacementForOrientation(settings, orientation);
+            return (
+              <div className="overlay-preview-panel" key={orientation}>
+                <small>{ORIENTATION_LABELS[orientation]}</small>
+                <div
+                  className={`overlay-preview-frame overlay-preview-frame-${orientation}`}
+                  data-active={activeOrientation === orientation}
+                  data-orientation={orientation}
+                  ref={(node) => {
+                    if (node) frameRefs.current[orientation] = node;
+                  }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    isDraggingRef.current = true;
+                    event.currentTarget.setPointerCapture?.(event.pointerId);
+                    updateFromPointer(event, orientation);
+                  }}
+                  onPointerMove={(event) => {
+                    if (isDraggingRef.current) updateFromPointer(event, orientation);
+                  }}
+                  onPointerCancel={stopDrag}
+                  onPointerUp={stopDrag}
+                >
+                  {previewUrl ? <img alt="" className="overlay-preview-photo" draggable={false} src={previewUrl} /> : <div className="share-gallery-empty">Adicione uma foto antes de configurar overlay.</div>}
+                  {selectedAsset ? (
+                    <img
+                      alt=""
+                      className="overlay-preview-layer"
+                      draggable={false}
+                      src={selectedAsset.url}
+                      style={{
+                        left: `${placement.x * 100}%`,
+                        opacity: placement.opacity,
+                        top: `${placement.y * 100}%`,
+                        width: `${placement.widthRatio * 100}%`,
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="watermark-controls gallery-watermark-controls">
@@ -120,12 +176,12 @@ export function OverlayPreviewModal({
               className="watermark-range"
               max="1"
               min="0.05"
-              onChange={(event) => setSettings((current) => normalizeOverlaySettings({ ...current, opacity: event.target.value }))}
+              onChange={(event) => updatePlacement(activeOrientation, { opacity: event.target.value })}
               step="0.05"
               type="range"
-              value={settings.opacity}
+              value={activePlacement.opacity}
             />
-            <small>{Math.round(settings.opacity * 100)}%</small>
+            <small>{Math.round(activePlacement.opacity * 100)}%</small>
           </label>
           <label>
             <span>Tamanho</span>
@@ -133,12 +189,12 @@ export function OverlayPreviewModal({
               className="watermark-range"
               max="1.5"
               min="0.05"
-              onChange={(event) => setSettings((current) => normalizeOverlaySettings({ ...current, widthRatio: event.target.value }))}
+              onChange={(event) => updatePlacement(activeOrientation, { widthRatio: event.target.value })}
               step="0.05"
               type="range"
-              value={settings.widthRatio}
+              value={activePlacement.widthRatio}
             />
-            <small>{Math.round(settings.widthRatio * 100)}%</small>
+            <small>{Math.round(activePlacement.widthRatio * 100)}%</small>
           </label>
         </div>
 

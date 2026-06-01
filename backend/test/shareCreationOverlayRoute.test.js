@@ -130,6 +130,11 @@ test('admin can apply an existing overlay during gallery creation', async () => 
   assert.equal(response.body.overlayEnabled, true);
   assert.equal(state().share.overlayAssetId, 'overlay_1');
   assert.equal(state().share.overlayEnabled, true);
-  assert.deepEqual(state().share.overlaySettings, { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 });
+  assert.equal(state().share.overlaySettings.x, 0.2);
+  assert.equal(state().share.overlaySettings.y, 0.8);
+  assert.equal(state().share.overlaySettings.widthRatio, 0.4);
+  assert.equal(state().share.overlaySettings.opacity, 0.7);
+  assert.deepEqual(state().share.overlaySettings.portrait, { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 });
+  assert.deepEqual(state().share.overlaySettings.landscape, { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 });
   assert.equal(state().photos[0].overlayAppliedAt, '2026-01-01T00:01:00.000Z');
 });

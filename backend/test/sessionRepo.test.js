@@ -31,6 +31,7 @@ test('direct sale gallery repair links detached sale photos to a manageable shar
     query: async () => ({ rows: [] }),
     withTransaction: async (pool, fn) => fn(client),
   });
+  const startedAt = Date.now();
 
   const repaired = await repo.ensureDirectSaleGalleries({
     defaultGalleryRetentionDays: 30,
@@ -43,7 +44,10 @@ test('direct sale gallery repair links detached sale photos to a manageable shar
   assert.match(calls[1].sql, /insert into share_sessions/i);
   assert.equal(calls[1].params[1], 'Venda - Ana Cliente');
   assert.equal(calls[1].params[3].length, 4);
-  assert.match(calls[1].params[13], /^http:\/\/localhost:5173\/s\//);
+  const expiresDeltaMinutes = Math.round((new Date(calls[1].params[12]).getTime() - startedAt) / 60_000);
+  assert.equal(expiresDeltaMinutes, 30);
+  assert.ok(new Date(calls[1].params[13]).getTime() - startedAt > 20 * 24 * 60 * 60 * 1000);
+  assert.match(calls[1].params[14], /^http:\/\/localhost:5173\/s\//);
   assert.match(calls[2].sql, /update photos/i);
   assert.equal(calls[4].params[0], 'manual_1');
   assert.equal(calls[4].params[1], repaired[0].shareToken);

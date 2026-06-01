@@ -1,5 +1,6 @@
 const { fromCents, rowToSession, rowToShare, toCents } = require('./mappers');
 const { addDays, generateAccessCode, hashValue, randomToken } = require('../tokens');
+const { shareExpiresAtFromNow } = require('../services/shareExpiration');
 
 function createSessionRepo({ pool, query, withTransaction }) {
   async function createSession(session, photoIds = []) {
@@ -350,13 +351,14 @@ function createSessionRepo({ pool, query, withTransaction }) {
       for (const row of result.rows) {
         const token = randomToken(12);
         const accessCode = generateAccessCode(4);
-        const expiresAt = addDays(new Date(), retentionDays);
+        const retentionExpiresAt = addDays(new Date(), retentionDays);
+        const { expiresAt } = shareExpiresAtFromNow();
         const link = baseUrl ? new URL(`/s/${token}`, baseUrl).toString() : null;
         const galleryName = row.client_name ? `Venda - ${row.client_name}` : 'Venda direta';
         await client.query(
           `insert into share_sessions
             (token, gallery_id, gallery_name, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link)
-           values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13,$14)`,
+           values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
           [
             token,
             galleryName,
@@ -371,6 +373,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
             Number(row.discount_cents || 0),
             Number(row.amount_cents || 0),
             expiresAt,
+            retentionExpiresAt,
             link,
           ]
         );
@@ -382,7 +385,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
              and share_token is null
              and deleted_at is null
            returning id`,
-          [token, expiresAt, row.id]
+          [token, retentionExpiresAt, row.id]
         );
         await client.query(
           `update share_sessions
