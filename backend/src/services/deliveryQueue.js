@@ -1,4 +1,4 @@
-function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
+function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galleryOverlays }) {
   let timer = null;
   let running = false;
 
@@ -7,18 +7,10 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates }) {
   }
 
   async function deliveryOverlayForSession(session) {
-    if (!session?.shareToken || typeof repos.getShareSession !== 'function' || typeof repos.getOverlayAsset !== 'function') return null;
-    const share = await repos.getShareSession(session.shareToken, { includeAccessCode: true });
-    if (!share?.overlayEnabled || !share.overlayAssetId) return null;
-    const asset = await repos.getOverlayAsset(share.overlayAssetId);
-    if (!asset) return null;
-    return {
-      enabled: true,
-      kind: 'image',
-      asset,
-      assetPath: asset.storagePath,
-      settings: share.overlaySettings || {},
-    };
+    if (!session?.shareToken || typeof galleryOverlays?.effectiveForShare !== 'function') return null;
+    const overlay = await galleryOverlays.effectiveForShare(session.shareToken);
+    if (!overlay?.enabled || overlay.kind !== 'image' || !overlay.assetPath) return null;
+    return overlay;
   }
 
   async function processOnce() {

@@ -16,6 +16,7 @@ const { createRetentionService } = require('./src/services/retentionService');
 const { createWhatsAppTemplatesService } = require('./src/services/whatsappTemplatesService');
 const { createWatermarkSettingsService } = require('./src/services/watermarkSettingsService');
 const { createGalleryWatermarkService } = require('./src/services/galleryWatermarkService');
+const { createGalleryOverlayService } = require('./src/services/galleryOverlayService');
 const { createWatermarkAssetService } = require('./src/services/watermarkAssetService');
 const { createPhotoEditingPresetService } = require('./src/services/photoEditingPresetService');
 const { createGalleryPresetService } = require('./src/services/galleryPresetService');
@@ -28,16 +29,17 @@ async function main() {
   const media = createMediaService(config, { watermarkSettings: watermark });
   const watermarkAssets = createWatermarkAssetService({ media, repos });
   const galleryWatermarks = createGalleryWatermarkService({ media, repos, watermarkSettings: watermark });
+  const galleryOverlays = createGalleryOverlayService({ media, repos, watermarkSettings: watermark });
   const credentials = createCredentialsService({ config, repos });
   const whatsappTemplates = createWhatsAppTemplatesService({ repos });
   const photoPresets = createPhotoEditingPresetService({ repos });
-  const galleryPresets = createGalleryPresetService({ repos, media, photoPresets, galleryWatermarks });
+  const galleryPresets = createGalleryPresetService({ repos, media, photoPresets, galleryWatermarks, galleryOverlays });
   const whatsapp = createWhatsAppClient();
-  const deliveryQueue = createDeliveryQueue({ repos, media, whatsapp, whatsappTemplates });
+  const deliveryQueue = createDeliveryQueue({ repos, media, whatsapp, whatsappTemplates, galleryOverlays });
   const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryWatermarks, watermarkAssets });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryOverlays, galleryWatermarks, watermarkAssets });
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);
