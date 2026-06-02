@@ -110,6 +110,15 @@ export function SummaryScreen({
       : { assetId: '' };
   };
 
+  const submitManualPayment = () => {
+    const overlay = selectedOverlayPayload();
+    if (overlay.assetId) {
+      handleManualPayment('manual', overlay);
+      return;
+    }
+    handleManualPayment('manual');
+  };
+
   const createSharedLinkWithPresetConfirmation = () => {
     if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
       return;
@@ -388,7 +397,7 @@ export function SummaryScreen({
         <button
           className="btn-manual btn-manual-cash"
           disabled={isGeneratingPix || !canSubmitPhone || !emailValidation.valid || !canUseDiscount}
-          onClick={() => runWithDiscountConfirmation(() => handleManualPayment('manual'))}
+          onClick={() => runWithDiscountConfirmation(submitManualPayment)}
         >
           {shareToken ? 'Solicitar pagto em dinheiro/cartão' : 'Pagamento dinheiro/cartão'}
         </button>

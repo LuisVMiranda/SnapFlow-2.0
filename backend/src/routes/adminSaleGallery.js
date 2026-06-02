@@ -2,26 +2,26 @@ const { shareExpiresAtFromNow } = require('../services/shareExpiration');
 const { addDays, generateAccessCode } = require('../tokens');
 const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
 
-async function createSaleGallery({ config, credentials, clientEmail, clientName, phone, photoIds, repos, req, totals }) {
+async function createSaleGallery({ config, credentials, repos }, sale) {
   const now = new Date();
   const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
   const { expiresAt } = shareExpiresAtFromNow();
   return createOrRestoreShareSession({
     accessCode: generateAccessCode(4),
-    baseUrl: await resolvePublicBaseUrl(req, config, credentials),
+    baseUrl: await resolvePublicBaseUrl(sale.req, config, credentials),
     expiresAt,
     galleryDescription: '',
-    galleryName: clientName ? `Venda - ${clientName}` : 'Venda direta',
-    phone,
-    photoIds,
+    galleryName: sale.clientName ? `Venda - ${sale.clientName}` : 'Venda direta',
+    phone: sale.phone,
+    photoIds: sale.photoIds,
     repos,
     requestBody: {
-      ...req.body,
-      clientName,
-      clientEmail,
-      subtotal: totals.subtotal,
-      discountAmount: totals.configuredDiscountAmount,
-      total: totals.total,
+      ...sale.req.body,
+      clientName: sale.clientName,
+      clientEmail: sale.clientEmail,
+      subtotal: sale.totals.subtotal,
+      discountAmount: sale.totals.configuredDiscountAmount,
+      total: sale.totals.total,
     },
     retentionExpiresAt,
   });

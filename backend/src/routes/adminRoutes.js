@@ -139,7 +139,10 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const totals = await resolveSaleAmounts(req.body, packages);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
-        const saleGallery = await createSaleGallery({ config, credentials, clientEmail, clientName, phone, photoIds, repos, req, totals });
+        const saleGallery = await createSaleGallery(
+          { config, credentials, repos },
+          { clientEmail, clientName, phone, photoIds, req, totals }
+        );
         shareToken = saleGallery.share?.token || '';
       }
       await assignInitialOverlay({ galleryOverlays, shareToken, body: req.body });
@@ -179,9 +182,13 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const totals = await resolveSaleAmounts(req.body, packages);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
-        const saleGallery = await createSaleGallery({ config, credentials, clientEmail, clientName, phone, photoIds, repos, req, totals });
+        const saleGallery = await createSaleGallery(
+          { config, credentials, repos },
+          { clientEmail, clientName, phone, photoIds, req, totals }
+        );
         shareToken = saleGallery.share?.token || '';
       }
+      await assignInitialOverlay({ galleryOverlays, shareToken, body: req.body });
       const session = await repos.createSession(
         {
           id: req.body.sessionId,
@@ -202,6 +209,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       if (typeof repos.recordConversionEvent === 'function') {
         await repos.recordConversionEvent({
           type: 'manual_payment_requested',
+          shareToken: shareToken || null,
           sessionId: session.id,
           photoCount: session.photoCount,
           amount: session.amount,

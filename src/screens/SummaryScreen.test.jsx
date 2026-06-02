@@ -173,9 +173,10 @@ describe('SummaryScreen', () => {
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
-  it('sends selected overlay draft when generating admin Pix', async () => {
+  it('sends selected overlay draft when generating direct admin checkout actions', async () => {
     const props = buildProps({
       handleGeneratePix: vi.fn(),
+      handleManualPayment: vi.fn(),
       overlayAssets: [{ id: 'overlay_1', identifier: 'Formatura' }],
       selectedOverlayAssetId: 'overlay_1',
       selectedOverlaySettings: {
@@ -186,14 +187,17 @@ describe('SummaryScreen', () => {
     render(<SummaryScreen {...props} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Gerar QR Code/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Pagamento Dinheiro\/Cart/i }));
 
-    expect(props.handleGeneratePix).toHaveBeenCalledWith({
+    const overlay = {
       assetId: 'overlay_1',
       settings: {
         portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
         landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
       },
-    });
+    };
+    expect(props.handleGeneratePix).toHaveBeenCalledWith(overlay);
+    expect(props.handleManualPayment).toHaveBeenCalledWith('manual', overlay);
   });
 
   it('asks for confirmation before creating a free order', async () => {

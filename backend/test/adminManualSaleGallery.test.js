@@ -131,6 +131,44 @@ test('direct admin cash sale creates a manageable gallery before delivery', asyn
   assert.equal(state().photos[0].sessionId, 'manual_1');
 });
 
+test('direct admin cash sale saves overlay before delivery', async () => {
+  const { app, state } = createManualSaleGalleryApp();
+
+  const response = await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      subtotal: 10,
+      total: 10,
+      sessionId: 'manual_overlay_1',
+      overlayAssetId: 'overlay_1',
+      overlaySettings: {
+        portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
+        landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
+      },
+    });
+
+  assert.equal(response.status, 200);
+  assert.ok(response.body.shareToken);
+  assert.equal(state().session.shareToken, response.body.shareToken);
+  assert.deepEqual(state().overlayAssignment, {
+    token: response.body.shareToken,
+    payload: {
+      assetId: 'overlay_1',
+      enabled: true,
+      settings: {
+        portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
+        landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
+      },
+    },
+  });
+});
+
 test('direct admin Pix sale creates a gallery and saves overlay before delivery', async () => {
   const { app, state } = createManualSaleGalleryApp();
 

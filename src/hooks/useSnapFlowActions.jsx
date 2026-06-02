@@ -251,7 +251,7 @@ export function useSnapFlowActions(config) {
     }
   };
 
-  const handleManualPayment = async (paymentMethod) => {
+  const handleManualPayment = async (paymentMethod, overlay = {}) => {
     setIsGeneratingPix(true);
 
     try {
@@ -285,6 +285,7 @@ export function useSnapFlowActions(config) {
           isShareSession: Boolean(shareToken),
           shareToken,
           accessCode: safeShareSessionInfo.accessCode || '',
+          ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
         }),
       });
 

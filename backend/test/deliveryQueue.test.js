@@ -241,6 +241,103 @@ test('delivery queue burns active gallery overlay into the WhatsApp document byt
   await fs.rm(root, { recursive: true, force: true });
 });
 
+test('delivery queue burns overlays for every payment method path', async () => {
+  const cases = [
+    { name: 'admin_pix', paymentMethod: 'PIX', sessionShareToken: 'share_admin_pix', photoShareToken: 'share_admin_pix' },
+    { name: 'admin_manual', paymentMethod: 'Dinheiro/Cartão', sessionShareToken: 'share_admin_manual', photoShareToken: 'share_admin_manual' },
+    { name: 'client_pix', paymentMethod: 'PIX', sessionShareToken: 'share_client_pix', photoShareToken: 'share_client_pix' },
+    { name: 'client_manual', paymentMethod: 'Dinheiro/Cartão', sessionShareToken: 'share_client_manual', photoShareToken: 'share_client_manual' },
+    { name: 'legacy_photo_token', paymentMethod: 'PIX', sessionShareToken: null, photoShareToken: 'share_from_photo' },
+  ];
+
+  for (const deliveryCase of cases) {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), `snapflow-${deliveryCase.name}-`));
+    const absolutePath = (relativePath) => path.join(root, relativePath);
+    await fs.mkdir(absolutePath('originals'), { recursive: true });
+    await fs.mkdir(absolutePath('overlay-assets'), { recursive: true });
+    await fs.mkdir(absolutePath('tmp'), { recursive: true });
+    await sharp({ create: { width: 120, height: 160, channels: 3, background: '#ffffff' } })
+      .jpeg()
+      .toFile(absolutePath('originals/portrait.jpg'));
+    await sharp({ create: { width: 160, height: 120, channels: 3, background: '#ffffff' } })
+      .jpeg()
+      .toFile(absolutePath('originals/landscape.jpg'));
+    await sharp({ create: { width: 24, height: 24, channels: 4, background: '#ff0000' } })
+      .png()
+      .toFile(absolutePath('overlay-assets/asset.png'));
+
+    let claimed = false;
+    let overlayToken = '';
+    const deliveredPaths = [];
+    const repos = {
+      async claimDeliveryJob() {
+        if (claimed) return null;
+        claimed = true;
+        return { id: 30, session_id: deliveryCase.name };
+      },
+      async getSession() {
+        return {
+          id: deliveryCase.name,
+          status: 'approved',
+          phone: '11999999999',
+          paymentMethod: deliveryCase.paymentMethod,
+          shareToken: deliveryCase.sessionShareToken,
+        };
+      },
+      async listPhotosForSession() {
+        return [
+          { id: `${deliveryCase.name}_portrait`, originalPath: 'originals/portrait.jpg', shareToken: deliveryCase.photoShareToken },
+          { id: `${deliveryCase.name}_landscape`, originalPath: 'originals/landscape.jpg', shareToken: deliveryCase.photoShareToken },
+        ];
+      },
+      async updateDeliveryStatus() {},
+      async completeDeliveryJob() {},
+      async failDeliveryJob() {},
+    };
+    const galleryOverlays = {
+      async effectiveForShare(token) {
+        overlayToken = token;
+        return {
+          enabled: true,
+          kind: 'image',
+          assetPath: 'overlay-assets/asset.png',
+          asset: { width: 24, height: 24, mimeType: 'image/png' },
+          settings: {
+            portrait: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 1 },
+            landscape: { x: 0.5, y: 0.5, widthRatio: 0.35, opacity: 1 },
+          },
+        };
+      },
+    };
+    const media = {
+      storageRoot: root,
+      prepareDeliveryPhotos: (photos, overlay) => prepareDeliveryPhotos(photos, overlay, absolutePath),
+    };
+    const whatsapp = {
+      async sendPhotos(phone, photos, storageRoot) {
+        assert.equal(phone, '11999999999');
+        assert.equal(storageRoot, root);
+        deliveredPaths.push(...photos.map((photo) => photo.originalPath));
+        assert.notEqual(photos[0].originalPath, 'originals/portrait.jpg');
+        assert.notEqual(photos[1].originalPath, 'originals/landscape.jpg');
+        const portraitPixel = await rgbAt(path.join(storageRoot, photos[0].originalPath), 60, 80);
+        const landscapePixel = await rgbAt(path.join(storageRoot, photos[1].originalPath), 80, 60);
+        assert.ok(portraitPixel[0] > 220, deliveryCase.name);
+        assert.ok(landscapePixel[0] > 220, deliveryCase.name);
+      },
+    };
+
+    const queue = createDeliveryQueue({ media, repos, whatsapp, whatsappTemplates: null, galleryOverlays });
+    await queue.processOnce();
+
+    assert.equal(overlayToken, deliveryCase.sessionShareToken || deliveryCase.photoShareToken);
+    for (const deliveredPath of deliveredPaths) {
+      await assert.rejects(fs.stat(absolutePath(deliveredPath)), /ENOENT/);
+    }
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('delivery queue resolves overlay from selected photos when session share token is missing', async () => {
   let claimed = false;
   let overlayToken = '';
