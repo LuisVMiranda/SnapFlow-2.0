@@ -6,8 +6,9 @@ const { validateClientPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue } = require('../tokens');
 const { adminPhotoPagePayload, adminPhotoPayload, adminShareDetails } = require('./adminSharePayloads');
 const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
+const { assignInitialOverlay, createSaleGallery } = require('./adminSaleGallery');
 const { toPhotoIds } = require('./helpers');
-const { normalizeShareExpiresMinutes, shareExpiresAtFromNow } = require('../services/shareExpiration');
+const { normalizeShareExpiresMinutes } = require('../services/shareExpiration');
 
 function normalizeAccessCode(value) {
   return String(value || '')
@@ -133,25 +134,36 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const photoIds = toPhotoIds(req.body.photoIds || req.body.photos);
       const phone = validateClientPhone(req.body.phone);
       if (!phone.valid) throw new HttpError(400, phone.message, phone.code);
+      const clientName = normalizeClientName(req.body.clientName);
+      const clientEmail = normalizeClientEmail(req.body.clientEmail);
+      const totals = await resolveSaleAmounts(req.body, packages);
+      let shareToken = String(req.body.shareToken || '').trim();
+      if (!shareToken && photoIds.length) {
+        const saleGallery = await createSaleGallery({ config, credentials, clientEmail, clientName, phone, photoIds, repos, req, totals });
+        shareToken = saleGallery.share?.token || '';
+      }
+      await assignInitialOverlay({ galleryOverlays, shareToken, body: req.body });
       const pix = await payment.createPixPayment({
-        ...(await resolveSaleAmounts(req.body, packages)),
+        ...totals,
         count: req.body.count,
         sessionId: req.body.sessionId,
         phone: phone.stored,
-        clientName: normalizeClientName(req.body.clientName),
-        clientEmail: normalizeClientEmail(req.body.clientEmail),
+        clientName,
+        clientEmail,
         packageType: req.body.packageType,
         photoIds,
+        shareToken: shareToken || null,
       });
       if (typeof repos.recordConversionEvent === 'function') {
         await repos.recordConversionEvent({
           type: 'pix_generated',
+          shareToken: shareToken || null,
           sessionId: req.body.sessionId,
           photoCount: req.body.count,
           amount: req.body.total,
         }).catch((error) => console.warn(`Falha ao registrar conversao de Pix admin: ${error.message}`));
       }
-      res.json(pix);
+      res.json({ ...pix, shareToken: shareToken || null });
     })
   );
 
@@ -167,28 +179,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const totals = await resolveSaleAmounts(req.body, packages);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
-        const now = new Date();
-        const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
-        const { expiresAt } = shareExpiresAtFromNow();
-        const saleGallery = await createOrRestoreShareSession({
-          accessCode: generateAccessCode(4),
-          baseUrl: await resolvePublicBaseUrl(req, config, credentials),
-          expiresAt,
-          galleryDescription: '',
-          galleryName: clientName ? `Venda - ${clientName}` : 'Venda direta',
-          phone,
-          photoIds,
-          repos,
-          requestBody: {
-            ...req.body,
-            clientName,
-            clientEmail,
-            subtotal: totals.subtotal,
-            discountAmount: totals.configuredDiscountAmount,
-            total: totals.total,
-          },
-          retentionExpiresAt,
-        });
+        const saleGallery = await createSaleGallery({ config, credentials, clientEmail, clientName, phone, photoIds, repos, req, totals });
         shareToken = saleGallery.share?.token || '';
       }
       const session = await repos.createSession(

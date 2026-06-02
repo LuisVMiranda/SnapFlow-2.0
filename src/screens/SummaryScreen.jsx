@@ -103,15 +103,18 @@ export function SummaryScreen({
     action();
   };
 
+  const selectedOverlayPayload = () => {
+    const hasOverlaySettings = selectedOverlaySettings && Object.keys(selectedOverlaySettings).length > 0;
+    return selectedOverlayAssetId
+      ? { assetId: selectedOverlayAssetId, ...(hasOverlaySettings ? { settings: selectedOverlaySettings } : {}) }
+      : { assetId: '' };
+  };
+
   const createSharedLinkWithPresetConfirmation = () => {
     if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
       return;
     }
-    const hasOverlaySettings = selectedOverlaySettings && Object.keys(selectedOverlaySettings).length > 0;
-    const overlayPayload = selectedOverlayAssetId
-      ? { assetId: selectedOverlayAssetId, ...(hasOverlaySettings ? { settings: selectedOverlaySettings } : {}) }
-      : { assetId: '' };
-    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, overlayPayload));
+    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, selectedOverlayPayload()));
   };
 
   const saveInitialOverlay = (next) => {
@@ -378,7 +381,7 @@ export function SummaryScreen({
         <button
           className="btn-primary"
           disabled={isGeneratingPix || !canGeneratePix}
-          onClick={() => runWithDiscountConfirmation(handleGeneratePix)}
+          onClick={() => runWithDiscountConfirmation(() => handleGeneratePix(selectedOverlayPayload()))}
         >
           {isGeneratingPix ? 'Conectando ao banco...' : 'Gerar QR Code'}
         </button>

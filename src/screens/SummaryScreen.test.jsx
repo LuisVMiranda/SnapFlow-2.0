@@ -173,6 +173,29 @@ describe('SummaryScreen', () => {
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
   });
 
+  it('sends selected overlay draft when generating admin Pix', async () => {
+    const props = buildProps({
+      handleGeneratePix: vi.fn(),
+      overlayAssets: [{ id: 'overlay_1', identifier: 'Formatura' }],
+      selectedOverlayAssetId: 'overlay_1',
+      selectedOverlaySettings: {
+        portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
+        landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
+      },
+    });
+    render(<SummaryScreen {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Gerar QR Code/i }));
+
+    expect(props.handleGeneratePix).toHaveBeenCalledWith({
+      assetId: 'overlay_1',
+      settings: {
+        portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
+        landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
+      },
+    });
+  });
+
   it('asks for confirmation before creating a free order', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const props = buildProps({

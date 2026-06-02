@@ -191,7 +191,7 @@ export function useSnapFlowActions(config) {
     }
   };
 
-  const handleGeneratePix = async () => {
+  const handleGeneratePix = async (overlay = {}) => {
     setIsGeneratingPix(true);
 
     try {
@@ -209,6 +209,7 @@ export function useSnapFlowActions(config) {
         clientEmail,
         photoIds: selectedPhotoItems.map((photo) => photo.id),
         packageType: type,
+        ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
       };
       const endpoint = shareToken
         ? API_BASE_URL + '/api/share-session/' + shareToken + '/pix'

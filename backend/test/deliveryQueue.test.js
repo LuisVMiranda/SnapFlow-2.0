@@ -241,6 +241,57 @@ test('delivery queue burns active gallery overlay into the WhatsApp document byt
   await fs.rm(root, { recursive: true, force: true });
 });
 
+test('delivery queue resolves overlay from selected photos when session share token is missing', async () => {
+  let claimed = false;
+  let overlayToken = '';
+  let receivedOverlay = null;
+  const repos = {
+    async claimDeliveryJob() {
+      if (claimed) return null;
+      claimed = true;
+      return { id: 14, session_id: 'sess_photo_share_overlay' };
+    },
+    async getSession() {
+      return { id: 'sess_photo_share_overlay', status: 'approved', phone: '11999999999', shareToken: null };
+    },
+    async listPhotosForSession() {
+      return [{ id: 'photo_1', originalPath: 'originals/photo_1.jpg', shareToken: 'share_from_photo' }];
+    },
+    async updateDeliveryStatus() {},
+    async completeDeliveryJob() {},
+    async failDeliveryJob() {},
+  };
+  const galleryOverlays = {
+    async effectiveForShare(token) {
+      overlayToken = token;
+      return {
+        enabled: true,
+        kind: 'image',
+        assetPath: 'overlay-assets/asset.png',
+        asset: { id: 'overlay_1' },
+        settings: { x: 0.5, y: 0.5, widthRatio: 0.4, opacity: 1 },
+      };
+    },
+  };
+  const media = {
+    storageRoot: 'C:/snap/storage',
+    async prepareDeliveryPhotos(photos, overlay) {
+      receivedOverlay = overlay;
+      return { photos, cleanup: async () => {} };
+    },
+  };
+  const whatsapp = {
+    async sendPhotos() {},
+  };
+
+  const queue = createDeliveryQueue({ media, repos, whatsapp, whatsappTemplates: null, galleryOverlays });
+
+  await queue.processOnce();
+
+  assert.equal(overlayToken, 'share_from_photo');
+  assert.equal(receivedOverlay.assetPath, 'overlay-assets/asset.png');
+});
+
 test('delivery queue sends original photos when gallery overlay is inactive', async () => {
   let claimed = false;
   let receivedOverlay = 'unseen';

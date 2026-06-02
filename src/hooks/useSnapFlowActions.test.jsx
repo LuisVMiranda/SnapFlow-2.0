@@ -96,6 +96,31 @@ describe('useSnapFlowActions shared null states', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('includes overlay draft in admin Pix requests', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ qr_code_base64: 'pix-base64', qr_code: 'pix-code' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const actions = useSnapFlowActions(makeActionsConfig({ shareToken: '' }));
+    await actions.handleGeneratePix({
+      assetId: 'overlay_1',
+      settings: {
+        portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
+        landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
+      },
+    });
+
+    const [, request] = fetchMock.mock.calls[0];
+    const body = JSON.parse(request.body);
+    expect(body.overlayAssetId).toBe('overlay_1');
+    expect(body.overlaySettings.portrait).toEqual({ x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 });
+    expect(body.overlaySettings.landscape).toEqual({ x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 });
+  });
+
   it('keeps the package from the shared gallery instead of falling back before packages load', async () => {
     const setType = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue(
