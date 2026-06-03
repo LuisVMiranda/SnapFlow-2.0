@@ -1,5 +1,9 @@
 const { HttpError } = require('../errors');
 const { randomToken } = require('../tokens');
+const {
+  hasExplicitOverlayPlacement,
+  normalizeStoryOverlayProfile,
+} = require('./overlaySettingsService');
 
 function normalizeOverlayIdentifier(value, fallback = 'Overlay') {
   const normalized = String(value || fallback)
@@ -30,6 +34,11 @@ function overlayAssetPayload(asset) {
     height: asset.height,
     sizeBytes: asset.sizeBytes,
     checksum: asset.checksum,
+    storyConfigured: hasExplicitOverlayPlacement(asset.storySettings),
+    storySettings: hasExplicitOverlayPlacement(asset.storySettings)
+      ? normalizeStoryOverlayProfile(asset.storySettings, asset)
+      : {},
+    storySettingsUpdatedAt: asset.storySettingsUpdatedAt || null,
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
     url: `/api/admin/overlay-assets/${asset.id}/file`,
@@ -83,6 +92,9 @@ function createOverlayAssetService({ media, repos }) {
     try {
       const updated = await repos.updateOverlayAsset(id, {
         identifier: normalizeOverlayIdentifier(updates.identifier, existing.identifier),
+        ...(updates.storySettings === undefined
+          ? {}
+          : { storySettings: normalizeStoryOverlayProfile(updates.storySettings, existing) }),
       });
       return overlayAssetPayload(updated);
     } catch (error) {

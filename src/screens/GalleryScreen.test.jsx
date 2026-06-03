@@ -124,4 +124,22 @@ describe('GalleryScreen paginated shared galleries', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/Faltam 2 fotos/);
     expect(screen.getByRole('status')).toHaveTextContent(/para ativar R\$\s*8,00 por foto/);
   });
+
+  it('does not render a second client overlay outside server-processed previews', () => {
+    const { container } = render(
+      <GalleryScreen
+        {...baseProps}
+        overlaySettings={{
+          enabled: true,
+          kind: 'image',
+          assetUrl: '/overlay.png',
+          portrait: { x: 0.5, y: 0.5, widthRatio: 0.4, opacity: 1 },
+        }}
+        photoPageCounts={{ loadedCount: 2, selectedCount: 1, selectedLoadedCount: 1, totalCount: 5 }}
+        photosPage={{ hasMore: false, nextCursor: null, totalCount: 5 }}
+      />
+    );
+
+    expect(container.querySelector('.gallery-client-overlay')).toBeNull();
+  });
 });

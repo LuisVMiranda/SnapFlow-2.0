@@ -21,6 +21,14 @@ if exist "%~dp0.env" (
 )
 if "%SNAPFLOW_DEV_HOST%"=="" set "SNAPFLOW_DEV_HOST=127.0.0.1"
 if "%SNAPFLOW_DEV_PORT%"=="" set "SNAPFLOW_DEV_PORT=5173"
+call "%~dp0INICIAR_BANCO.bat" --skip-prepare
+if errorlevel 1 (
+  echo.
+  echo Não foi possível iniciar o banco de dados ou aplicar as migrações.
+  echo Corrija a mensagem acima e rode este arquivo novamente.
+  pause
+  exit /b 1
+)
 echo Iniciando servidor e painel...
 start "APP FOTOGRAFIA - SERVIDOR" cmd /k "cd /d ""%~dp0backend"" && cmd /c npm.cmd start"
 timeout /t 2 /nobreak >nul

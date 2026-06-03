@@ -10,9 +10,9 @@
     "test": "vitest run",
     "test:frontend": "vitest run",
     "preview": "vite preview",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres",
+    "db:up": "node scripts/run-docker-compose.mjs up -d postgres",
+    "db:down": "node scripts/run-docker-compose.mjs down",
+    "db:logs": "node scripts/run-docker-compose.mjs logs -f postgres",
     "db:migrate": "npm --prefix backend run migrate",
     "db:import-json": "npm --prefix backend run import:json"
   },

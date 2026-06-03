@@ -1,5 +1,19 @@
 export const API_BASE_URL = '';
 
+export function buildApiUrl(path, params = {}) {
+  const searchParams = params instanceof URLSearchParams ? params : new URLSearchParams();
+  if (!(params instanceof URLSearchParams)) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.set(key, String(value));
+      }
+    });
+  }
+  const query = searchParams.toString();
+  if (!query) return API_BASE_URL + path;
+  return `${API_BASE_URL}${path}${path.includes('?') ? '&' : '?'}${query}`;
+}
+
 const CODE_HINTS = {
   admin_locked: 'O bloqueio é temporário. Aguarde a liberação automática antes de tentar novamente.',
   admin_required: 'Entre novamente com a credencial administrativa no botão Conta.',

@@ -8,6 +8,7 @@ import { buildStoredPhone, phoneDigits, splitStoredPhone, validateClientPhone } 
 import { mergePresetIds, resolvePresetStack } from '../lib/photoPresets';
 import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
+import { STORY_DELIVERY_SETUP_MESSAGE, overlayAssetHasStoryProfile } from '../lib/storyDelivery';
 
 export function SummaryScreen({
   activeStage,
@@ -35,6 +36,7 @@ export function SummaryScreen({
   selectedOverlayAssetId = '',
   selectedOverlaySettings = {},
   selectedPhotoPresetIds = [],
+  selectedStoryDeliveryEnabled = false,
   setClientName,
   setClientEmail,
   setClientPhone,
@@ -44,6 +46,7 @@ export function SummaryScreen({
   setSelectedOverlayAssetId = () => {},
   setSelectedOverlaySettings = () => {},
   setSelectedPhotoPresetIds = () => {},
+  setSelectedStoryDeliveryEnabled = () => {},
   setScreen,
   setShareDurationMinutes,
   shareAccess,
@@ -110,10 +113,27 @@ export function SummaryScreen({
       : { assetId: '' };
   };
 
+  const selectedGalleryOptions = () => {
+    const storyOptions = !shareToken && selectedStoryDeliveryEnabled === true
+      ? { storyDeliveryEnabled: true }
+      : {};
+    return { ...selectedOverlayPayload(), ...storyOptions };
+  };
+
+  const canSubmitStoryDelivery = () => {
+    if (shareToken || !selectedStoryDeliveryEnabled) return true;
+    if (!selectedOverlayAssetId || !overlayAssetHasStoryProfile(selectedOverlayAsset)) {
+      setNotice(STORY_DELIVERY_SETUP_MESSAGE);
+      return false;
+    }
+    return true;
+  };
+
   const submitManualPayment = () => {
-    const overlay = selectedOverlayPayload();
-    if (overlay.assetId) {
-      handleManualPayment('manual', overlay);
+    if (!canSubmitStoryDelivery()) return;
+    const options = selectedGalleryOptions();
+    if (options.assetId || options.storyDeliveryEnabled) {
+      handleManualPayment('manual', options);
       return;
     }
     handleManualPayment('manual');
@@ -123,7 +143,8 @@ export function SummaryScreen({
     if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
       return;
     }
-    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, selectedOverlayPayload()));
+    if (!canSubmitStoryDelivery()) return;
+    runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, selectedGalleryOptions()));
   };
 
   const saveInitialOverlay = (next) => {
@@ -326,6 +347,25 @@ export function SummaryScreen({
         </div>
       ) : null}
 
+      {!shareToken ? (
+        <div className="summary-card" style={{ marginTop: '16px' }}>
+          <label className="summary-label story-delivery-toggle">
+            <input
+              checked={selectedStoryDeliveryEnabled}
+              type="checkbox"
+              onChange={(event) => setSelectedStoryDeliveryEnabled(event.target.checked)}
+            />
+            Entregar também versão Stories 9:16
+          </label>
+          <small className="summary-help">
+            Envia uma cópia 1080x1920 com fundo desfocado, sem cortar a foto original.
+          </small>
+          {selectedStoryDeliveryEnabled && selectedOverlayAsset && overlayAssetHasStoryProfile(selectedOverlayAsset) ? (
+            <small className="summary-help success">Overlay Stories configurado para {selectedOverlayAsset.identifier}.</small>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="summary-card" style={{ marginTop: '16px' }}>
         <div className="summary-label">Cliente</div>
         <input
@@ -390,7 +430,10 @@ export function SummaryScreen({
         <button
           className="btn-primary"
           disabled={isGeneratingPix || !canGeneratePix}
-          onClick={() => runWithDiscountConfirmation(() => handleGeneratePix(selectedOverlayPayload()))}
+          onClick={() => {
+            if (!canSubmitStoryDelivery()) return;
+            runWithDiscountConfirmation(() => handleGeneratePix(selectedGalleryOptions()));
+          }}
         >
           {isGeneratingPix ? 'Conectando ao banco...' : 'Gerar QR Code'}
         </button>

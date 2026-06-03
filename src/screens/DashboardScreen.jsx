@@ -52,6 +52,7 @@ export function DashboardScreen({
   saveCredentialsBatch,
   savePackageSettings,
   saveRetentionSettings,
+  saveStoryDeliverySettings,
   saveWatermarkSettings,
   saveWhatsAppTemplates,
   sessionId,
@@ -60,6 +61,8 @@ export function DashboardScreen({
   setRetentionSettings,
   setType,
   startNewSession,
+  storyDeliverySettings,
+  storyDeliveryStatus,
   total,
   type,
   updatePhotoPreset,
@@ -117,10 +120,13 @@ export function DashboardScreen({
           runCleanup={runCleanup}
           savePackageSettings={savePackageSettings}
           saveRetentionSettings={saveRetentionSettings}
+          saveStoryDeliverySettings={saveStoryDeliverySettings}
           saveWatermarkSettings={saveWatermarkSettings}
           saveWhatsAppTemplates={saveWhatsAppTemplates}
           setRetentionSettings={setRetentionSettings}
           setType={setType}
+          storyDeliverySettings={storyDeliverySettings}
+          storyDeliveryStatus={storyDeliveryStatus}
           type={type}
           updatePhotoPreset={updatePhotoPreset}
           updateOverlayAsset={updateOverlayAsset}

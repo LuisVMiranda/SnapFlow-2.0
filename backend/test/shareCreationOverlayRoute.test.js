@@ -3,11 +3,12 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const { createApp } = require('../src/app');
 
-function createOverlayCreationApp() {
+function createOverlayCreationApp({ storySettings = {} } = {}) {
   const overlayAsset = {
     id: 'overlay_1',
     identifier: 'Logo evento',
     storagePath: 'overlay-assets/overlay_1.png',
+    storySettings,
   };
   let share = null;
   let photos = [{
@@ -41,6 +42,7 @@ function createOverlayCreationApp() {
         overlayAssetId: '',
         overlayEnabled: false,
         overlaySettings: {},
+        storyDeliveryEnabled: Boolean(payload.storyDeliveryEnabled),
         sales: { soldPhotoCount: 0, soldOrderCount: 0, soldAmount: 0, lastSoldAt: null },
       };
       photos = photos.map((photo) => (
@@ -137,4 +139,82 @@ test('admin can apply an existing overlay during gallery creation', async () => 
   assert.deepEqual(state().share.overlaySettings.portrait, { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 });
   assert.deepEqual(state().share.overlaySettings.landscape, { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 });
   assert.equal(state().photos[0].overlayAppliedAt, '2026-01-01T00:01:00.000Z');
+});
+
+test('admin cannot enable story delivery until the overlay has a story profile', async () => {
+  const { app } = createOverlayCreationApp();
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      subtotal: 10,
+      total: 10,
+      expiresMinutes: 30,
+      overlayAssetId: 'overlay_1',
+      overlaySettings: { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 },
+      storyDeliveryEnabled: true,
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'story_overlay_profile_required');
+  assert.match(response.body.error, /Configure primeiro o overlay para Stories/);
+});
+
+test('admin cannot enable story delivery with a disabled overlay request', async () => {
+  const { app } = createOverlayCreationApp({
+    storySettings: { x: 0.5, y: 0.9, widthRatio: 0.25, opacity: 1 },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      subtotal: 10,
+      total: 10,
+      expiresMinutes: 30,
+      overlayAssetId: 'overlay_1',
+      overlayEnabled: false,
+      storyDeliveryEnabled: true,
+    });
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.code, 'story_overlay_profile_required');
+});
+
+test('admin can enable story delivery during gallery creation with a story overlay profile', async () => {
+  const { app, state } = createOverlayCreationApp({
+    storySettings: { x: 0.5, y: 0.9, widthRatio: 0.25, opacity: 1 },
+  });
+
+  const response = await request(app)
+    .post('/api/admin/share-session')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      photoIds: ['photo_1'],
+      phone: '11999999999',
+      clientName: 'Ana Cliente',
+      packageType: 'eventos',
+      count: 1,
+      subtotal: 10,
+      total: 10,
+      expiresMinutes: 30,
+      overlayAssetId: 'overlay_1',
+      overlaySettings: { x: 0.2, y: 0.8, widthRatio: 0.4, opacity: 0.7 },
+      storyDeliveryEnabled: true,
+    });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.storyDeliveryEnabled, true);
+  assert.equal(state().share.storyDeliveryEnabled, true);
 });

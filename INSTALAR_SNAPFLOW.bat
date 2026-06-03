@@ -442,9 +442,8 @@ if /i not "%SUBIR_BANCO%"=="S" (
   echo Banco não foi iniciado por escolha do usuário.
   exit /b 0
 )
-cmd /c npm.cmd run db:up
+call "%ROOT%\INICIAR_BANCO.bat" --skip-prepare --sem-migracoes
 if errorlevel 1 exit /b 1
-call :aguardar_postgres
 exit /b %ERRORLEVEL%
 
 :aguardar_postgres

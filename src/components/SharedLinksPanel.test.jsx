@@ -197,10 +197,10 @@ describe('SharedLinksPanel', () => {
   it('loads additional admin gallery photos without replacing existing previews', async () => {
     const user = userEvent.setup();
     globalThis.fetch = vi.fn(async (url) => {
-      if (String(url).includes('/photos')) {
+      if (String(url) === '/api/admin/share-sessions/old-token/photos?cursor=cursor-1&limit=40') {
         return new Response(JSON.stringify({
           photos: [{ id: 'photo_2', url: '/api/media/photo_2/preview', thumbUrl: '/api/media/photo_2/thumb' }],
-          photosPage: { hasMore: false, nextCursor: null, totalCount: 2 },
+          photosPage: { hasMore: false, nextCursor: null, totalCount: 2, limit: 40 },
         }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -209,7 +209,7 @@ describe('SharedLinksPanel', () => {
       return new Response(JSON.stringify({
         token: 'old-token',
         photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
-        photosPage: { hasMore: true, nextCursor: 'cursor-1', totalCount: 2 },
+        photosPage: { hasMore: true, nextCursor: 'cursor-1', totalCount: 2, limit: 40 },
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -223,6 +223,10 @@ describe('SharedLinksPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Carregar mais fotos' }));
     expect(await screen.findByAltText('Foto 2')).toBeInTheDocument();
     expect(screen.getByAltText('Foto 1')).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/photos?cursor=cursor-1&limit=40',
+      expect.objectContaining({ headers: baseProps.adminHeaders() })
+    );
   });
 
   it('uploads and removes photos inside the selected gallery only', async () => {
@@ -445,5 +449,33 @@ describe('SharedLinksPanel', () => {
       '/api/admin/share-sessions/old-token/watermark',
       expect.objectContaining({ method: 'DELETE' })
     );
+  });
+
+  it('prompts before enabling Stories when active overlay has no story profile', async () => {
+    const user = userEvent.setup();
+    const setNotice = vi.fn();
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
+      token: 'old-token',
+      overlayAssetId: 'overlay_1',
+      overlayEnabled: true,
+      overlayAsset: { id: 'overlay_1', identifier: 'Logo', url: '/overlay.png', storyConfigured: false },
+      photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    render(
+      <SharedLinksPanel
+        {...baseProps}
+        overlayAssets={[{ id: 'overlay_1', identifier: 'Logo', url: '/overlay.png', storyConfigured: false }]}
+        setNotice={setNotice}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    await user.click(await screen.findByLabelText(/Ativar Stories na galeria/i));
+
+    expect(setNotice).toHaveBeenCalledWith(expect.stringContaining('Configure primeiro o overlay para Stories'));
   });
 });

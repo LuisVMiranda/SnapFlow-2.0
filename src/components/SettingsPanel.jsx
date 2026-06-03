@@ -5,6 +5,7 @@ import { PackageSettingsModal } from './PackageSettingsModal';
 import { OverlayAssetLibraryPanel } from './OverlayAssetLibraryPanel';
 import { PhotoPresetSettingsPanel } from './PhotoPresetSettingsPanel';
 import { RetentionPanel } from './RetentionPanel';
+import { StoryDeliverySettingsPanel } from './StoryDeliverySettingsPanel';
 import { WatermarkAssetLibraryPanel } from './WatermarkAssetLibraryPanel';
 import { WatermarkSettingsPanel } from './WatermarkSettingsPanel';
 import { WhatsAppTemplatesPanel } from './WhatsAppTemplatesPanel';
@@ -25,10 +26,13 @@ export function SettingsPanel({
   runCleanup,
   savePackageSettings,
   saveRetentionSettings,
+  saveStoryDeliverySettings,
   saveWatermarkSettings,
   saveWhatsAppTemplates,
   setRetentionSettings,
   setType,
+  storyDeliverySettings,
+  storyDeliveryStatus,
   retentionSettings,
   type,
   updatePhotoPreset,
@@ -134,6 +138,11 @@ export function SettingsPanel({
           status={overlayAssetStatus}
           updateAsset={updateOverlayAsset}
           uploadAsset={uploadOverlayAsset}
+        />
+        <StoryDeliverySettingsPanel
+          onSave={saveStoryDeliverySettings}
+          settings={storyDeliverySettings}
+          status={storyDeliveryStatus}
         />
       </CollapsibleSection>
 

@@ -200,6 +200,43 @@ describe('SummaryScreen', () => {
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual', overlay);
   });
 
+  it('denies Stories delivery until the selected overlay has a story profile', async () => {
+    const props = buildProps({
+      handleCreateShareSession: vi.fn(),
+      overlayAssets: [{ id: 'overlay_1', identifier: 'Moldura azul' }],
+      selectedOverlayAssetId: 'overlay_1',
+      selectedStoryDeliveryEnabled: true,
+      setNotice: vi.fn(),
+    });
+    render(<SummaryScreen {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
+
+    expect(props.handleCreateShareSession).not.toHaveBeenCalled();
+    expect(props.setNotice).toHaveBeenCalledWith(expect.stringContaining('Configure primeiro o overlay para Stories'));
+  });
+
+  it('sends Stories delivery flag when the selected overlay has a story profile', async () => {
+    const props = buildProps({
+      handleCreateShareSession: vi.fn(),
+      overlayAssets: [{
+        id: 'overlay_1',
+        identifier: 'Moldura azul',
+        storyConfigured: true,
+      }],
+      selectedOverlayAssetId: 'overlay_1',
+      selectedStoryDeliveryEnabled: true,
+    });
+    render(<SummaryScreen {...props} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
+
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
+      assetId: 'overlay_1',
+      storyDeliveryEnabled: true,
+    });
+  });
+
   it('asks for confirmation before creating a free order', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     const props = buildProps({

@@ -45,7 +45,9 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galler
       const deliveryShareToken = shareTokenForDelivery(session, sessionPhotos);
       const deliveryOverlay = await deliveryOverlayForShareToken(deliveryShareToken);
       const prepared = media.prepareDeliveryPhotos
-        ? await media.prepareDeliveryPhotos(sessionPhotos, deliveryOverlay)
+        ? await media.prepareDeliveryPhotos(sessionPhotos, deliveryOverlay, {
+            storyDeliveryEnabled: Boolean(deliveryOverlay?.share?.storyDeliveryEnabled),
+          })
         : { photos: sessionPhotos, cleanup: async () => {} };
       const message = whatsappTemplates
         ? await whatsappTemplates.renderDeliveryThanksMessage({

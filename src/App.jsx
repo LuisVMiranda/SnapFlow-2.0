@@ -86,6 +86,7 @@ export default function App() {
     saveCredentialsBatch,
     savePackageSettings,
     saveRetentionSettings,
+    saveStoryDeliverySettings,
     saveWatermarkSettings,
     saveWhatsAppTemplates,
     screen,
@@ -115,6 +116,8 @@ export default function App() {
     shareToken,
     subtotal,
     startNewSession,
+    storyDeliverySettings,
+    storyDeliveryStatus,
     toggle,
     toggleAllPhotos,
     total,
@@ -162,6 +165,7 @@ export default function App() {
   const [selectedPhotoPresetIds, setSelectedPhotoPresetIds] = useState([]);
   const [selectedOverlayAssetId, setSelectedOverlayAssetId] = useState('');
   const [selectedOverlaySettings, setSelectedOverlaySettings] = useState({});
+  const [selectedStoryDeliveryEnabled, setSelectedStoryDeliveryEnabled] = useState(false);
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
@@ -172,8 +176,9 @@ export default function App() {
       setSelectedPhotoPresetIds([]);
       setSelectedOverlayAssetId('');
       setSelectedOverlaySettings({});
+      setSelectedStoryDeliveryEnabled(Boolean(storyDeliverySettings?.defaultEnabled));
     }
-  }, [screen, shareToken]);
+  }, [screen, shareToken, storyDeliverySettings?.defaultEnabled]);
 
   const adminApprovalSessionId = readAdminApprovalSessionId();
   const approveFromPrompt = async (targetSessionId) => {
@@ -307,6 +312,7 @@ export default function App() {
         saveCredentialsBatch={saveCredentialsBatch}
         savePackageSettings={savePackageSettings}
         saveRetentionSettings={saveRetentionSettings}
+        saveStoryDeliverySettings={saveStoryDeliverySettings}
         saveWatermarkSettings={saveWatermarkSettings}
         saveWhatsAppTemplates={saveWhatsAppTemplates}
         sessionId={sessionId}
@@ -315,6 +321,8 @@ export default function App() {
         setRetentionSettings={setRetentionSettings}
         setType={setType}
         startNewSession={startNewSession}
+        storyDeliverySettings={storyDeliverySettings}
+        storyDeliveryStatus={storyDeliveryStatus}
         total={total}
         type={type}
         updatePhotoPreset={updatePhotoPreset}
@@ -396,6 +404,7 @@ export default function App() {
         selectedOverlayAssetId={selectedOverlayAssetId}
         selectedOverlaySettings={selectedOverlaySettings}
         selectedPhotoPresetIds={selectedPhotoPresetIds}
+        selectedStoryDeliveryEnabled={selectedStoryDeliveryEnabled}
         setClientEmail={setClientEmail}
         setClientName={setClientName}
         setClientPhone={setClientPhone}
@@ -405,6 +414,7 @@ export default function App() {
         setSelectedOverlayAssetId={setSelectedOverlayAssetId}
         setSelectedOverlaySettings={setSelectedOverlaySettings}
         setSelectedPhotoPresetIds={setSelectedPhotoPresetIds}
+        setSelectedStoryDeliveryEnabled={setSelectedStoryDeliveryEnabled}
         setScreen={setScreen}
         setShareDurationMinutes={setShareDurationMinutes}
         shareAccess={shareAccess}

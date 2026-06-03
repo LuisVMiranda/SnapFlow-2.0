@@ -44,10 +44,16 @@ function createOverlayAssetRepo({ query }) {
     const result = await query(
       `update overlay_assets
        set identifier = coalesce($2, identifier),
+           story_settings = coalesce($3, story_settings),
+           story_settings_updated_at = case when $3::jsonb is null then story_settings_updated_at else now() end,
            updated_at = now()
        where id = $1 and deleted_at is null
        returning *`,
-      [id, updates.identifier ?? null]
+      [
+        id,
+        updates.identifier ?? null,
+        updates.storySettings === undefined ? null : JSON.stringify(updates.storySettings || {}),
+      ]
     );
     return rowToOverlayAsset(result.rows[0]);
   }

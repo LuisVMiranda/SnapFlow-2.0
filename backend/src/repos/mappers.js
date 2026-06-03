@@ -108,6 +108,7 @@ function rowToShare(row, options = {}) {
     overlayEnabled: Boolean(row.overlay_enabled),
     overlaySettings: row.overlay_settings || {},
     overlayUpdatedAt: row.overlay_updated_at || null,
+    storyDeliveryEnabled: Boolean(row.story_delivery_enabled),
     sales: {
       soldPhotoCount: Number(row.sold_photo_count || 0),
       soldOrderCount: Number(row.sold_order_count || 0),
@@ -132,6 +133,8 @@ function rowToOverlayAsset(row) {
     height: Number(row.height || 0),
     sizeBytes: Number(row.size_bytes || 0),
     checksum: row.checksum || '',
+    storySettings: row.story_settings || {},
+    storySettingsUpdatedAt: row.story_settings_updated_at || null,
     deletedAt: row.deleted_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

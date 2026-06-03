@@ -1,6 +1,7 @@
 import {
   API_BASE_URL,
   buildApiErrorMessage,
+  buildApiUrl,
   buildNetworkErrorMessage,
   readJsonResponse,
 } from '../lib/apiClient';
@@ -210,6 +211,7 @@ export function useSnapFlowActions(config) {
         photoIds: selectedPhotoItems.map((photo) => photo.id),
         packageType: type,
         ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
+        ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
       };
       const endpoint = shareToken
         ? API_BASE_URL + '/api/share-session/' + shareToken + '/pix'
@@ -286,6 +288,7 @@ export function useSnapFlowActions(config) {
           shareToken,
           accessCode: safeShareSessionInfo.accessCode || '',
           ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
+          ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
         }),
       });
 
@@ -399,11 +402,10 @@ export function useSnapFlowActions(config) {
     setPhotoPageError('');
 
     try {
-      const params = new URLSearchParams();
-      if (photosPage.nextCursor) params.set('cursor', photosPage.nextCursor);
-      if (photosPage.limit) params.set('limit', String(photosPage.limit));
-
-      const response = await fetch(`${API_BASE_URL}/api/share-session/${shareToken}/photos${params.toString()}`, {
+      const response = await fetch(buildApiUrl(`/api/share-session/${shareToken}/photos`, {
+        cursor: photosPage.nextCursor,
+        limit: photosPage.limit,
+      }), {
         headers: {
           Authorization: `Bearer ${safeShareAccess.customerAccessToken}`,
         },
@@ -453,6 +455,7 @@ export function useSnapFlowActions(config) {
           expiresMinutes: shareDurationMinutes,
           photoPresetIds,
           ...(overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
+          ...(overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
         }),
       });
 

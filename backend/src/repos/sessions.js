@@ -250,6 +250,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.overlay_enabled,
                 ss.overlay_settings,
                 ss.overlay_updated_at,
+                ss.story_delivery_enabled,
                 coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
                 coalesce(sales.sold_order_count, 0)::int as sold_order_count,
                 coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,

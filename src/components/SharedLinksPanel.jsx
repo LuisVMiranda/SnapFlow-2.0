@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ShareCountdown } from './ShareCountdown';
 import { ShareGalleryEditor } from './ShareGalleryEditor';
-import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
+import { API_BASE_URL, buildApiErrorMessage, buildApiUrl, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
 import { formatMoney } from '../lib/formatters';
 import { mergePresetIds } from '../lib/photoPresets';
 import { packageLabel } from '../lib/pricing';
@@ -58,10 +58,10 @@ export function SharedLinksPanel({
     if (!current.photosPage.hasMore || loadingDetailsToken === shareSession.token) return;
     setLoadingDetailsToken(shareSession.token);
     try {
-      const params = new URLSearchParams();
-      if (current.photosPage.nextCursor) params.set('cursor', current.photosPage.nextCursor);
-      if (current.photosPage.limit) params.set('limit', String(current.photosPage.limit));
-      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/photos${params.toString()}`, {
+      const response = await fetch(buildApiUrl(`/api/admin/share-sessions/${shareSession.token}/photos`, {
+        cursor: current.photosPage.nextCursor,
+        limit: current.photosPage.limit,
+      }), {
         headers: adminHeaders(),
       });
       const data = await readJsonResponse(response);
@@ -449,6 +449,7 @@ export function SharedLinksPanel({
       discountAmount: discountRaw === '' ? '' : discountAmount,
       galleryName: draft.galleryName,
       galleryDescription: draft.galleryDescription,
+      storyDeliveryEnabled: draft.storyDeliveryEnabled === true,
       packageType: draft.packageType,
       phone: draft.phone,
       subtotal,
@@ -540,6 +541,7 @@ export function SharedLinksPanel({
                 applyGalleryWatermark={applyGalleryWatermark}
                 clearGalleryWatermark={clearGalleryWatermark}
                 saveShare={saveShare}
+                setNotice={setNotice}
                 shareSession={shareSession}
                 toggleDraftPreset={toggleDraftPreset}
                 undoPhotoPresetApplication={undoPhotoPresetApplication}

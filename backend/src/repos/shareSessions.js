@@ -30,8 +30,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, photo_preset_ids, photo_preset_snapshot, photo_preset_applied_at)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, photo_preset_ids, photo_preset_snapshot, photo_preset_applied_at, story_delivery_enabled)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        returning *`,
       [
         share.token,
@@ -54,6 +54,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         share.photoPresetIds || [],
         JSON.stringify(share.photoPresetSnapshot || []),
         share.photoPresetAppliedAt || null,
+        Boolean(share.storyDeliveryEnabled),
       ]
     );
     await attachPhotosToSession(share.photoIds, {
@@ -123,7 +124,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            gallery_name = coalesce($12, gallery_name),
            gallery_description = coalesce($13, gallery_description),
            status = case when $14::boolean then 'active' else status end,
-           revoked_at = case when $14::boolean then null else revoked_at end
+           revoked_at = case when $14::boolean then null else revoked_at end,
+           story_delivery_enabled = coalesce($15, story_delivery_enabled)
        where token = $1 and deleted_at is null
        returning *`,
       [
@@ -141,6 +143,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.galleryName ?? null,
         updates.galleryDescription ?? null,
         hasExpiresAt,
+        updates.storyDeliveryEnabled === undefined ? null : Boolean(updates.storyDeliveryEnabled),
       ]
     );
     return rowToShare(result.rows[0], { includeAccessCode: true });
@@ -274,6 +277,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            access_code_hash = coalesce($13, access_code_hash),
            access_code = coalesce($14, access_code),
            link = coalesce($15, link),
+           story_delivery_enabled = coalesce($16, story_delivery_enabled),
            status = 'active',
            revoked_at = null,
            deleted_at = null,
@@ -300,6 +304,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.accessCodeHash || null,
         updates.accessCode || null,
         updates.link || null,
+        updates.storyDeliveryEnabled === undefined ? null : Boolean(updates.storyDeliveryEnabled),
       ]
     );
     return rowToShare(result.rows[0], { includeAccessCode: true, includeSensitive: true });

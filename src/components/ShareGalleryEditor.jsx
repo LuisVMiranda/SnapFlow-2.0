@@ -6,6 +6,7 @@ import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 import { GalleryOverlaySection } from './GalleryOverlaySection';
 import { PhotoPresetPreview } from './PhotoPresetPreview';
+import { StoryDeliveryToggle } from './StoryDeliveryToggle';
 
 export function ShareGalleryEditor({
   applyGalleryOverlay = () => {},
@@ -25,6 +26,7 @@ export function ShareGalleryEditor({
   pricingOptions,
   removePhotoPresets = () => {},
   saveShare,
+  setNotice = () => {},
   shareSession,
   toggleDraftPreset = () => {},
   undoPhotoPresetApplication = () => {},
@@ -53,6 +55,9 @@ export function ShareGalleryEditor({
   const selectedPresetStack = resolvePresetStack(photoPresets, selectedPresetIds);
   const activePresetStack = galleryDetail.photoPresetSnapshot || shareSession.photoPresetSnapshot || [];
   const activeWatermarkAssetId = galleryDetail.watermarkAssetId || shareSession.watermarkAssetId || '';
+  const activeOverlayAssetId = galleryDetail.overlayAssetId || shareSession.overlayAssetId || '';
+  const activeOverlayAsset = galleryDetail.overlayAsset || overlayAssets.find((asset) => asset.id === activeOverlayAssetId);
+  const activeOverlayEnabled = Boolean(galleryDetail.overlayEnabled ?? shareSession.overlayEnabled);
   const selectedWatermarkAssetId = draft.watermarkAssetId ?? activeWatermarkAssetId;
   const selectedWatermarkAsset = watermarkAssets.find((asset) => asset.id === selectedWatermarkAssetId);
   const activeWatermarkAsset = galleryDetail.watermarkAsset || watermarkAssets.find((asset) => asset.id === activeWatermarkAssetId);
@@ -265,6 +270,26 @@ export function ShareGalleryEditor({
         previewUrl={presetPreviewUrl}
         shareSession={shareSession}
       />
+      <section className="gallery-preset-tools gallery-story-tools" aria-label="Entrega Stories da galeria">
+        <div>
+          <strong>Entrega Stories 9:16</strong>
+          <small className="summary-help" style={{ display: 'block' }}>
+            Envie uma cópia vertical com fundo desfocado junto com cada original pago.
+          </small>
+        </div>
+        <StoryDeliveryToggle
+          activeOverlayAsset={activeOverlayAsset}
+          activeOverlayEnabled={activeOverlayEnabled}
+          checked={draft.storyDeliveryEnabled === true}
+          onChange={(checked) => updateDraft(shareSession.token, 'storyDeliveryEnabled', checked)}
+          setNotice={setNotice}
+        />
+        {draft.storyDeliveryEnabled ? (
+          <small className="summary-help success">Ativa para próximas entregas pagas desta galeria.</small>
+        ) : (
+          <small className="summary-help">Inativa nesta galeria.</small>
+        )}
+      </section>
       <section className="gallery-preset-tools gallery-watermark-tools" aria-label="Marca d'água da galeria">
         <div>
           <strong>Marca d'água da galeria</strong>

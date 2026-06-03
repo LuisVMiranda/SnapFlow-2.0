@@ -2,8 +2,10 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fc = require('fast-check');
 const {
+  STORY_OVERLAY_DIMENSIONS,
   hasExplicitOverlaySettings,
   normalizeOverlaySettings,
+  normalizeStoryOverlayProfile,
   overlayPlacementForDimensions,
 } = require('../src/services/overlaySettingsService');
 
@@ -37,6 +39,22 @@ test('overlay settings resolve portrait and landscape placements by dimensions',
 
   assert.deepEqual(overlayPlacementForDimensions(settings, 800, 1200), settings.portrait);
   assert.deepEqual(overlayPlacementForDimensions(settings, 1200, 800), settings.landscape);
+});
+
+test('story overlay profile keeps the asset inside the 9:16 canvas', () => {
+  const asset = { width: 1000, height: 3000 };
+  const settings = normalizeStoryOverlayProfile({ x: 0, y: 1, widthRatio: 1.5, opacity: 1 }, asset);
+  const overlayWidth = Math.round(STORY_OVERLAY_DIMENSIONS.width * settings.widthRatio);
+  const overlayHeight = Math.round(overlayWidth * (asset.height / asset.width));
+  const left = Math.round((STORY_OVERLAY_DIMENSIONS.width * settings.x) - (overlayWidth / 2));
+  const top = Math.round((STORY_OVERLAY_DIMENSIONS.height * settings.y) - (overlayHeight / 2));
+
+  assert.equal(overlayWidth <= STORY_OVERLAY_DIMENSIONS.width, true);
+  assert.equal(overlayHeight <= STORY_OVERLAY_DIMENSIONS.height, true);
+  assert.equal(left >= 0, true);
+  assert.equal(top >= 0, true);
+  assert.equal(left + overlayWidth <= STORY_OVERLAY_DIMENSIONS.width, true);
+  assert.equal(top + overlayHeight <= STORY_OVERLAY_DIMENSIONS.height, true);
 });
 
 test('random overlay settings are always finite and clamped', () => {

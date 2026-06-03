@@ -29,6 +29,7 @@ export function draftFromShare(shareSession) {
     overlayAssetId: shareSession.overlayAssetId || '',
     overlayEnabled: Boolean(shareSession.overlayEnabled),
     overlaySettings: normalizeOverlaySettings(shareSession.overlaySettings || {}),
+    storyDeliveryEnabled: Boolean(shareSession.storyDeliveryEnabled),
     subtotal: String(shareSession.subtotal ?? shareSession.total ?? ''),
     watermarkAssetId: shareSession.watermarkAssetId || '',
     watermarkSettings: normalizeWatermarkSettings(shareSession.watermarkSettings || {}),

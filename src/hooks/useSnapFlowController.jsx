@@ -17,6 +17,7 @@ import { usePersistSnapFlowState, getSavedSnapFlowState, resolveInitialSnapFlowS
 import { useRetentionControls } from './useRetentionControls';
 import { useSnapFlowActions } from './useSnapFlowActions';
 import { useShareProtections } from './useShareProtections';
+import { useStoryDeliverySettings } from './useStoryDeliverySettings';
 import { useWhatsAppTemplates } from './useWhatsAppTemplates';
 import { useWatermarkSettings } from './useWatermarkSettings';
 
@@ -160,14 +161,11 @@ export function useSnapFlowController() {
     isAdminUnlocked,
     setNotice,
   });
-  const {
-    saveWatermarkSettings,
-    watermarkSettings,
-    watermarkSettingsStatus,
-  } = useWatermarkSettings({
-    adminJsonHeaders,
-    isAdminUnlocked,
-    setNotice,
+  const { saveWatermarkSettings, watermarkSettings, watermarkSettingsStatus } = useWatermarkSettings({
+    adminJsonHeaders, isAdminUnlocked, setNotice,
+  });
+  const { saveStoryDeliverySettings, storyDeliverySettings, storyDeliveryStatus } = useStoryDeliverySettings({
+    adminJsonHeaders, isAdminUnlocked, setNotice,
   });
   
   usePersistSnapFlowState({
@@ -556,8 +554,7 @@ export function useSnapFlowController() {
     saveCredentialsBatch,
     saveRetentionSettings,
     savePackageSettings,
-    saveWhatsAppTemplates,
-    saveWatermarkSettings,
+    saveStoryDeliverySettings, saveWhatsAppTemplates, saveWatermarkSettings,
     screen,
     selected,
     selectedPhotoItems,
@@ -585,6 +582,7 @@ export function useSnapFlowController() {
     shareToken,
     subtotal,
     startNewSession,
+    storyDeliverySettings, storyDeliveryStatus,
     toggle,
     toggleAllPhotos,
     total,

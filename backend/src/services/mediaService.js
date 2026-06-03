@@ -568,7 +568,7 @@ function createMediaService(config, { watermarkSettings } = {}) {
     absolutePath,
     processOverlayAssetUpload,
     processWatermarkAssetUpload,
-    prepareDeliveryPhotos: (photos, overlay) => prepareDeliveryPhotos(photos, overlay, absolutePath),
+    prepareDeliveryPhotos: (photos, overlay, options) => prepareDeliveryPhotos(photos, overlay, absolutePath, options),
     processUploadedFiles,
     reprocessPhotoOverlay,
     reprocessPhotoWatermark,

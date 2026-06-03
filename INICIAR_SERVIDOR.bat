@@ -12,6 +12,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
+call "%~dp0INICIAR_BANCO.bat" --skip-prepare
+if errorlevel 1 (
+  echo.
+  echo Não foi possível iniciar o banco de dados ou aplicar as migrações.
+  echo Corrija a mensagem acima e rode este arquivo novamente.
+  pause
+  exit /b 1
+)
+
 cd /d "%~dp0backend"
 echo Iniciando servidor na porta 3000...
 cmd /c npm.cmd start

@@ -130,7 +130,7 @@
 .watermark-asset-actions {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .gallery-watermark-controls {
@@ -287,6 +287,90 @@
   aspect-ratio: 4 / 3;
 }
 
+.overlay-preview-frame-story {
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  max-height: min(62vh, 560px);
+  width: min(100%, 320px);
+}
+
+.story-overlay-editor {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1fr);
+}
+
+.story-overlay-backdrop {
+  background:
+    linear-gradient(rgba(8, 12, 18, 0.2), rgba(8, 12, 18, 0.2)),
+    radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.34), transparent 18%),
+    linear-gradient(145deg, rgba(30, 144, 255, 0.28), rgba(0, 200, 81, 0.22)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.08) 0 2px, transparent 2px 20px);
+  filter: blur(2px);
+  inset: -8px;
+  position: absolute;
+}
+
+.story-preview-subject {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(225, 236, 246, 0.84)),
+    linear-gradient(135deg, rgba(30, 144, 255, 0.2), rgba(0, 200, 81, 0.16));
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+  position: relative;
+}
+
+.story-preview-portrait .story-preview-subject {
+  aspect-ratio: 3 / 4;
+  height: min(82%, 390px);
+}
+
+.story-preview-landscape .story-preview-subject {
+  aspect-ratio: 4 / 3;
+  width: 88%;
+}
+
+.story-overlay-controls {
+  grid-template-columns: 1fr;
+}
+
+.story-preview-mode {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.story-delivery-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.story-delivery-toggle {
+  align-items: center;
+  color: #fff;
+  display: inline-flex;
+  flex-direction: row;
+  gap: 8px;
+  justify-content: flex-start;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.share-edit-panel .story-delivery-toggle {
+  display: inline-flex;
+  flex-direction: row;
+}
+
+.share-edit-panel .story-delivery-toggle input[type='checkbox'],
+.story-delivery-toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 0;
+  min-height: 0;
+  width: 16px;
+}
+
 .overlay-preview-frame:active {
   cursor: grabbing;
 }
@@ -341,6 +425,7 @@
   .watermark-settings-layout,
     .watermark-controls,
     .watermark-asset-upload,
+    .story-overlay-editor,
     .gallery-watermark-controls,
     .gallery-overlay-tools .gallery-preset-actions,
     .gallery-watermark-tools .gallery-preset-actions {

@@ -20,6 +20,7 @@ const { createGalleryOverlayService } = require('./src/services/galleryOverlaySe
 const { createWatermarkAssetService } = require('./src/services/watermarkAssetService');
 const { createPhotoEditingPresetService } = require('./src/services/photoEditingPresetService');
 const { createGalleryPresetService } = require('./src/services/galleryPresetService');
+const { createStoryDeliverySettingsService } = require('./src/services/storyDeliverySettingsService');
 
 async function main() {
   const config = createConfig();
@@ -32,6 +33,7 @@ async function main() {
   const galleryOverlays = createGalleryOverlayService({ media, repos, watermarkSettings: watermark });
   const credentials = createCredentialsService({ config, repos });
   const whatsappTemplates = createWhatsAppTemplatesService({ repos });
+  const storyDelivery = createStoryDeliverySettingsService({ repos });
   const photoPresets = createPhotoEditingPresetService({ repos });
   const galleryPresets = createGalleryPresetService({ repos, media, photoPresets, galleryWatermarks, galleryOverlays });
   const whatsapp = createWhatsAppClient();
@@ -39,7 +41,7 @@ async function main() {
   const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryOverlays, galleryWatermarks, watermarkAssets });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryOverlays, galleryWatermarks, storyDelivery, watermarkAssets });
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);

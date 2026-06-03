@@ -86,8 +86,15 @@ function whatsappSendErrorMessage(error) {
   return message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.';
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, upload, whatsapp, whatsappTemplates, watermark }) {
+function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, storyDelivery, upload, whatsapp, whatsappTemplates, watermark }) {
   const router = express.Router();
+
+  async function assertStoryReady(body = {}, share = null) {
+    if (body.storyDeliveryEnabled !== true || !storyDelivery?.assertReady) return;
+    const overlayAssetId = body.overlayAssetId || body.assetId || '';
+    const overlayEnabled = body.overlayEnabled === undefined && !share && overlayAssetId ? true : body.overlayEnabled;
+    await storyDelivery.assertReady({ enabled: true, overlayAssetId, overlayEnabled, share });
+  }
 
   router.get('/access', auth.requireAdmin, (req, res) => {
     res.json({ ok: true });
@@ -137,6 +144,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const clientName = normalizeClientName(req.body.clientName);
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
+      await assertStoryReady(req.body);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
@@ -180,6 +188,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const clientName = normalizeClientName(req.body.clientName);
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
+      await assertStoryReady(req.body);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
@@ -273,6 +282,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const expiresAt = new Date(now.getTime() + safeMinutes * 60 * 1000);
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
       const totals = await resolveSaleAmounts(req.body, packages);
+      await assertStoryReady(req.body);
       const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
         baseUrl: await resolvePublicBaseUrl(req, config, credentials),
@@ -289,6 +299,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
           subtotal: totals.subtotal,
           discountAmount: totals.configuredDiscountAmount,
           total: totals.total,
+          storyDeliveryEnabled: req.body.storyDeliveryEnabled === true,
         },
         retentionExpiresAt,
       });
@@ -319,6 +330,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
         galleryDescription: responseShare.galleryDescription,
         overlayAssetId: responseShare.overlayAssetId || '',
         overlayEnabled: Boolean(responseShare.overlayEnabled),
+        storyDeliveryEnabled: Boolean(responseShare.storyDeliveryEnabled),
         photoPresetIds: responseShare.photoPresetIds || [],
         photoPresetSnapshot: responseShare.photoPresetSnapshot || [],
         subtotal: responseShare.subtotal,
@@ -484,6 +496,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const body = req.body || {};
       const currentShare = await repos.getShareSession(req.params.token, { includeAccessCode: true });
       if (!currentShare) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
+      await assertStoryReady(body, currentShare);
       const saleAmounts = (body.total !== undefined || body.subtotal !== undefined || body.discountAmount !== undefined)
         ? await resolveSaleAmounts({
             subtotal: body.subtotal ?? body.total,
@@ -515,6 +528,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
         clientEmail: body.clientEmail === undefined ? undefined : normalizeClientEmail(body.clientEmail),
         galleryName: body.galleryName === undefined ? undefined : normalizeGalleryName(body.galleryName),
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
+        storyDeliveryEnabled: body.storyDeliveryEnabled === undefined ? undefined : body.storyDeliveryEnabled === true,
         phone: body.phone === undefined ? undefined : validatedPhone.stored,
         packageType: body.packageType ? String(body.packageType) : undefined,
         ...(saleAmounts

@@ -13,6 +13,37 @@ const DEFAULT_OVERLAY_SETTINGS = Object.freeze({
   landscape: DEFAULT_OVERLAY_PLACEMENT,
 });
 
+const STORY_OVERLAY_DIMENSIONS = Object.freeze({
+  width: 1080,
+  height: 1920,
+});
+
+function storyOverlayAspect(asset = {}) {
+  const naturalWidth = Math.max(1, Number(asset?.width || 1));
+  const naturalHeight = Math.max(1, Number(asset?.height || 1));
+  return naturalHeight / naturalWidth;
+}
+
+function constrainStoryOverlayPlacement(placement, asset = {}) {
+  const aspect = storyOverlayAspect(asset);
+  const maxPixelWidth = Math.max(1, Math.min(
+    STORY_OVERLAY_DIMENSIONS.width,
+    Math.floor(STORY_OVERLAY_DIMENSIONS.height / aspect)
+  ));
+  const requestedPixelWidth = Math.round(STORY_OVERLAY_DIMENSIONS.width * placement.widthRatio);
+  const overlayWidth = Math.max(1, Math.min(requestedPixelWidth, maxPixelWidth));
+  const overlayHeight = Math.max(1, Math.round(overlayWidth * aspect));
+  const halfWidth = overlayWidth / (STORY_OVERLAY_DIMENSIONS.width * 2);
+  const halfHeight = overlayHeight / (STORY_OVERLAY_DIMENSIONS.height * 2);
+
+  return {
+    ...placement,
+    x: Number(clampNumber(placement.x, DEFAULT_OVERLAY_PLACEMENT.x, halfWidth, 1 - halfWidth).toFixed(4)),
+    y: Number(clampNumber(placement.y, DEFAULT_OVERLAY_PLACEMENT.y, halfHeight, 1 - halfHeight).toFixed(4)),
+    widthRatio: Number((overlayWidth / STORY_OVERLAY_DIMENSIONS.width).toFixed(4)),
+  };
+}
+
 function parseOverlaySettings(value = {}) {
   if (!value) return {};
   if (typeof value === 'object') return value;
@@ -39,6 +70,13 @@ function normalizeOverlayPlacement(value = {}, fallback = DEFAULT_OVERLAY_PLACEM
   };
 }
 
+function hasExplicitOverlayPlacement(value = {}) {
+  const source = parseOverlaySettings(value);
+  return ['x', 'y', 'widthRatio', 'opacity'].some((field) => (
+    source?.[field] !== undefined && source?.[field] !== null
+  ));
+}
+
 function normalizeOverlaySettings(value = {}) {
   const source = parseOverlaySettings(value);
   const base = normalizeOverlayPlacement(source);
@@ -51,13 +89,14 @@ function normalizeOverlaySettings(value = {}) {
 
 function hasExplicitOverlaySettings(value = {}) {
   const source = parseOverlaySettings(value);
-  const hasPlacementFields = (candidate = {}) => ['x', 'y', 'widthRatio', 'opacity'].some((field) => (
-    candidate?.[field] !== undefined && candidate?.[field] !== null
-  ));
-  return hasPlacementFields(source)
-    || OVERLAY_ORIENTATIONS.some((orientation) => hasPlacementFields(source[orientation]))
-    || hasPlacementFields(source.vertical)
-    || hasPlacementFields(source.horizontal);
+  return hasExplicitOverlayPlacement(source)
+    || OVERLAY_ORIENTATIONS.some((orientation) => hasExplicitOverlayPlacement(source[orientation]))
+    || hasExplicitOverlayPlacement(source.vertical)
+    || hasExplicitOverlayPlacement(source.horizontal);
+}
+
+function normalizeStoryOverlayProfile(value = {}, asset = {}) {
+  return constrainStoryOverlayPlacement(normalizeOverlayPlacement(value), asset);
 }
 
 function overlayOrientationForDimensions(width, height) {
@@ -81,9 +120,12 @@ module.exports = {
   DEFAULT_OVERLAY_PLACEMENT,
   DEFAULT_OVERLAY_SETTINGS,
   OVERLAY_ORIENTATIONS,
+  STORY_OVERLAY_DIMENSIONS,
+  hasExplicitOverlayPlacement,
   hasExplicitOverlaySettings,
   normalizeOverlayPlacement,
   normalizeOverlaySettings,
+  normalizeStoryOverlayProfile,
   overlayOrientationForDimensions,
   overlayPlacementForDimensions,
   overlayPlacementForOrientation,

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from './apiClient';
+import { buildApiErrorMessage, buildApiUrl, buildNetworkErrorMessage, readJsonResponse } from './apiClient';
 
 describe('API response reader', () => {
+  it('builds API URLs with query separators only when needed', () => {
+    expect(buildApiUrl('/api/share-session/token/photos', { limit: 40 }))
+      .toBe('/api/share-session/token/photos?limit=40');
+    expect(buildApiUrl('/api/share-session/token/photos', { cursor: 'next-1', limit: 40 }))
+      .toBe('/api/share-session/token/photos?cursor=next-1&limit=40');
+    expect(buildApiUrl('/api/media/photo_1/thumb?access_token=ok', { v: 'abc' }))
+      .toBe('/api/media/photo_1/thumb?access_token=ok&v=abc');
+    expect(buildApiUrl('/api/packages', {})).toBe('/api/packages');
+  });
+
   it('reads JSON responses directly', async () => {
     const response = new Response(JSON.stringify({ ok: true }), {
       headers: { 'content-type': 'application/json' },

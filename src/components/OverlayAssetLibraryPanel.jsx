@@ -1,5 +1,6 @@
-import { Save, Trash2, Upload } from 'lucide-react';
+import { Save, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
+import { StoryOverlayProfileModal } from './StoryOverlayProfileModal';
 
 export function OverlayAssetLibraryPanel({
   assets = [],
@@ -11,7 +12,9 @@ export function OverlayAssetLibraryPanel({
   const [identifier, setIdentifier] = useState('');
   const [file, setFile] = useState(null);
   const [renameDrafts, setRenameDrafts] = useState({});
+  const [storyAssetId, setStoryAssetId] = useState('');
   const isSaving = status === 'saving';
+  const storyAsset = assets.find((asset) => asset.id === storyAssetId);
 
   const handleUpload = async (event) => {
     event.preventDefault();
@@ -81,6 +84,15 @@ export function OverlayAssetLibraryPanel({
                       Salvar
                     </button>
                     <button
+                      className="share-quick-btn"
+                      disabled={isSaving}
+                      onClick={() => setStoryAssetId(asset.id)}
+                      type="button"
+                    >
+                      <Sparkles size={14} />
+                      Stories
+                    </button>
+                    <button
                       className="share-quick-btn share-quick-btn-danger"
                       disabled={isSaving}
                       onClick={() => deleteAsset(asset.id)}
@@ -90,6 +102,9 @@ export function OverlayAssetLibraryPanel({
                       Deletar
                     </button>
                   </div>
+                  <small className={asset.storyConfigured ? 'summary-help success' : 'summary-help'}>
+                    {asset.storyConfigured ? 'Stories 9:16 configurado.' : 'Stories 9:16 pendente.'}
+                  </small>
                 </div>
               </article>
             );
@@ -98,6 +113,16 @@ export function OverlayAssetLibraryPanel({
       ) : (
         <div className="share-gallery-empty">Nenhum overlay enviado ainda.</div>
       )}
+      <StoryOverlayProfileModal
+        asset={storyAsset}
+        initialSettings={storyAsset?.storySettings || {}}
+        isOpen={Boolean(storyAsset)}
+        onClose={() => setStoryAssetId('')}
+        onSave={async (storySettings) => {
+          const updated = await updateAsset(storyAsset.id, { storySettings });
+          if (updated) setStoryAssetId('');
+        }}
+      />
     </div>
   );
 }

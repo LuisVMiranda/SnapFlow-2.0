@@ -136,6 +136,15 @@ test('admin can upload, assign, toggle, clear, and expose gallery overlay asset 
   assert.equal(created.status, 201);
   assert.equal(created.body.identifier, 'Brand Overlay');
   assert.equal(created.body.url, '/api/admin/overlay-assets/overlay_1/file');
+  assert.equal(created.body.storyConfigured, false);
+
+  const storyProfile = await request(app)
+    .patch(`/api/admin/overlay-assets/${created.body.id}`)
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ storySettings: { x: 0.5, y: 0.9, widthRatio: 0.25, opacity: 1 } });
+  assert.equal(storyProfile.status, 200);
+  assert.equal(storyProfile.body.storyConfigured, true);
+  assert.deepEqual(storyProfile.body.storySettings, { x: 0.5, y: 0.9, widthRatio: 0.25, opacity: 1 });
 
   const assigned = await request(app)
     .patch('/api/admin/share-sessions/share_1/overlay')

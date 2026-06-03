@@ -85,9 +85,10 @@ node --version
 cmd /c npm.cmd --version
 docker --version
 docker compose version
+docker-compose --version
 ```
 
-Se `docker compose` responder que não consegue conectar ao Docker API, abra o Docker Desktop e aguarde o status indicar que o engine está pronto.
+Se `docker compose` não existir, mas `docker-compose --version` funcionar, os scripts npm usam automaticamente o comando disponível. Se o comando responder que não consegue conectar ao Docker API, abra o Docker Desktop e aguarde o status indicar que o engine está pronto.
 
 ## Configuração inicial
 
@@ -137,6 +138,12 @@ Depois de configurado, o início continua igual:
 
 ```powershell
 .\INICIAR_TUDO.bat
+```
+
+Esse script prepara dependências locais, inicia o PostgreSQL, aguarda o banco ficar pronto, roda migrações pendentes e só então abre backend e painel. Para verificar os scripts do banco sem iniciar serviços:
+
+```powershell
+.\INICIAR_BANCO.bat --verificar
 ```
 
 ### Opção manual
@@ -494,7 +501,7 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - `'vite' não é reconhecido`: as dependências do painel não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd install` na raiz.
 - `Cannot find module 'dotenv'`: as dependências do backend não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd --prefix backend install`.
 - Se `INICIAR_TUDO.bat`, `INICIAR_PAINEL.bat` ou `INICIAR_SERVIDOR.bat` detectarem dependências ausentes, eles oferecem instalar os pacotes locais antes de continuar.
-- `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `cmd /c npm.cmd run db:up`.
+- `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `.\INICIAR_BANCO.bat` ou `.\INICIAR_TUDO.bat`.
 - `Docker Desktop foi encontrado, mas o engine não respondeu`: abra o Docker Desktop e aguarde o status indicar que está pronto. Na primeira abertura após instalação ou atualização isso pode levar alguns minutos.
 - `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
 - `psql não encontrado` no instalador sem Docker: instale PostgreSQL pelo `INSTALAR_SNAPFLOW_SEM_DOCKER.bat` como administrador ou adicione `C:\Program Files\PostgreSQL\16\bin` ao `PATH`.

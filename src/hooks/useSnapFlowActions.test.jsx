@@ -96,6 +96,58 @@ describe('useSnapFlowActions shared null states', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('reloads shared photos after returning to an unpaid Pix gallery with a valid query URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        photos: [{ id: 'photo_1', url: '/api/media/photo_1/preview', thumbUrl: '/api/media/photo_1/thumb' }],
+        photosPage: { hasMore: false, nextCursor: null, loadedCount: 1, totalCount: 1, limit: 40 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const actions = useSnapFlowActions(makeActionsConfig({
+      photos: [],
+      photosPage: { hasMore: false, nextCursor: null, totalCount: 1, limit: 40 },
+      shareAccess: { customerAccessToken: 'customer-token' },
+    }));
+    await actions.loadMorePhotos();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/share-session/share_1/photos?limit=40',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer customer-token' },
+      })
+    );
+  });
+
+  it('loads later shared photo pages with cursor and limit query parameters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({
+        photos: [{ id: 'photo_2', url: '/api/media/photo_2/preview', thumbUrl: '/api/media/photo_2/thumb' }],
+        photosPage: { hasMore: false, nextCursor: null, loadedCount: 1, totalCount: 2, limit: 40 },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const actions = useSnapFlowActions(makeActionsConfig({
+      photos: [{ id: 'photo_1', url: '/photo.jpg', thumbUrl: '/thumb.jpg' }],
+      photosPage: { hasMore: true, nextCursor: 'cursor-1', totalCount: 2, limit: 40 },
+      shareAccess: { customerAccessToken: 'customer-token' },
+    }));
+    await actions.loadMorePhotos();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/share-session/share_1/photos?cursor=cursor-1&limit=40',
+      expect.any(Object)
+    );
+  });
+
   it('includes overlay draft in admin Pix requests', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ qr_code_base64: 'pix-base64', qr_code: 'pix-code' }), {
