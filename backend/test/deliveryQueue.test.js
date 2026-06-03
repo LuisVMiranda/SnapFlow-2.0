@@ -436,6 +436,81 @@ test('delivery queue sends original photos when gallery overlay is inactive', as
   assert.deepEqual(sentPhotos.map((photo) => photo.originalPath), ['originals/photo_1.jpg']);
 });
 
+test('delivery queue sends Story copies when overlay is inactive but Stories are enabled', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-queue-story-no-overlay-'));
+  const absolutePath = (relativePath) => path.join(root, relativePath);
+  await fs.mkdir(absolutePath('originals'), { recursive: true });
+  await fs.mkdir(absolutePath('tmp'), { recursive: true });
+  await sharp({ create: { width: 800, height: 600, channels: 3, background: '#336699' } })
+    .jpeg()
+    .toFile(absolutePath('originals/photo.jpg'));
+
+  let claimed = false;
+  let receivedOverlay = 'unseen';
+  let receivedOptions = null;
+  let sentPhotos = [];
+  let storyMetadata = null;
+  const repos = {
+    async claimDeliveryJob() {
+      if (claimed) return null;
+      claimed = true;
+      return { id: 15, session_id: 'sess_story_no_overlay' };
+    },
+    async getSession() {
+      return { id: 'sess_story_no_overlay', status: 'approved', phone: '11999999999', shareToken: 'share_story' };
+    },
+    async listPhotosForSession() {
+      return [{ id: 'photo_1', originalPath: 'originals/photo.jpg' }];
+    },
+    async updateDeliveryStatus() {},
+    async completeDeliveryJob() {},
+    async failDeliveryJob() {},
+  };
+  const galleryOverlays = {
+    async effectiveForShare(token) {
+      return {
+        enabled: false,
+        kind: 'none',
+        settings: {},
+        share: { token, overlayEnabled: false, storyDeliveryEnabled: true },
+      };
+    },
+  };
+  const media = {
+    storageRoot: root,
+    async prepareDeliveryPhotos(photos, overlay, options) {
+      receivedOverlay = overlay;
+      receivedOptions = options;
+      return prepareDeliveryPhotos(photos, overlay, absolutePath, options);
+    },
+  };
+  const whatsapp = {
+    async sendPhotos(phone, photos, storageRoot) {
+      sentPhotos = photos;
+      const storyPhoto = photos.find((photo) => photo.deliveryVariant === 'story');
+      if (storyPhoto) storyMetadata = await sharp(path.join(storageRoot, storyPhoto.originalPath)).metadata();
+    },
+  };
+
+  const queue = createDeliveryQueue({ media, repos, whatsapp, whatsappTemplates: null, galleryOverlays });
+
+  try {
+    await queue.processOnce();
+
+    assert.equal(receivedOverlay, null);
+    assert.equal(receivedOptions?.storyDeliveryEnabled, true);
+    assert.deepEqual(sentPhotos.map((photo) => photo.originalPath), [
+      'originals/photo.jpg',
+      sentPhotos[1].originalPath,
+    ]);
+    assert.equal(sentPhotos[1].deliveryVariant, 'story');
+    assert.equal(storyMetadata.width, 1080);
+    assert.equal(storyMetadata.height, 1920);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('delivery queue resolves the current overlay on each delivery attempt', async () => {
   const jobs = [
     { id: 12, session_id: 'sess_retry_overlay' },

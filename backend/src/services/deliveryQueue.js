@@ -12,11 +12,20 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galler
     return photoTokens.size === 1 ? Array.from(photoTokens)[0] : '';
   }
 
-  async function deliveryOverlayForShareToken(shareToken) {
-    if (!shareToken || typeof galleryOverlays?.effectiveForShare !== 'function') return null;
-    const overlay = await galleryOverlays.effectiveForShare(shareToken);
-    if (!overlay?.enabled || overlay.kind !== 'image' || !overlay.assetPath) return null;
-    return overlay;
+  function activeDeliveryOverlay(effectiveOverlay) {
+    if (!effectiveOverlay?.enabled || effectiveOverlay.kind !== 'image' || !effectiveOverlay.assetPath) return null;
+    return effectiveOverlay;
+  }
+
+  async function deliveryContextForShareToken(shareToken) {
+    if (!shareToken || typeof galleryOverlays?.effectiveForShare !== 'function') {
+      return { overlay: null, storyDeliveryEnabled: false };
+    }
+    const effectiveOverlay = await galleryOverlays.effectiveForShare(shareToken);
+    return {
+      overlay: activeDeliveryOverlay(effectiveOverlay),
+      storyDeliveryEnabled: effectiveOverlay?.share?.storyDeliveryEnabled === true,
+    };
   }
 
   async function processOnce() {
@@ -43,10 +52,10 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galler
       if (!sessionPhotos.length) throw new Error('Nenhuma foto encontrada para esta venda. Verifique se a galeria ainda possui fotos antes de reenviar.');
       await repos.updateDeliveryStatus(job.session_id, 'sending');
       const deliveryShareToken = shareTokenForDelivery(session, sessionPhotos);
-      const deliveryOverlay = await deliveryOverlayForShareToken(deliveryShareToken);
+      const deliveryContext = await deliveryContextForShareToken(deliveryShareToken);
       const prepared = media.prepareDeliveryPhotos
-        ? await media.prepareDeliveryPhotos(sessionPhotos, deliveryOverlay, {
-            storyDeliveryEnabled: Boolean(deliveryOverlay?.share?.storyDeliveryEnabled),
+        ? await media.prepareDeliveryPhotos(sessionPhotos, deliveryContext.overlay, {
+            storyDeliveryEnabled: deliveryContext.storyDeliveryEnabled,
           })
         : { photos: sessionPhotos, cleanup: async () => {} };
       const message = whatsappTemplates
