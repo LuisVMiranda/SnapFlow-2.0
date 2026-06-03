@@ -16,7 +16,7 @@ export function StoryDeliverySettingsPanel({
         Ativar entrega Stories 9:16 por padrão em novas galerias
       </label>
       <small className="summary-help">
-        Cada galeria ainda pode ligar ou desligar a versão Stories. O overlay usado precisa ter ajuste 9:16 salvo.
+        Cada galeria ainda pode ligar ou desligar a versão Stories. Se houver overlay com ajuste 9:16, ele entra na cópia Stories; caso contrário, a cópia sai sem overlay.
       </small>
       {isSaving ? <small className="summary-help">Salvando entrega Stories...</small> : null}
     </div>

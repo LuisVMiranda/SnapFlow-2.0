@@ -200,11 +200,9 @@ describe('SummaryScreen', () => {
     expect(props.handleManualPayment).toHaveBeenCalledWith('manual', overlay);
   });
 
-  it('denies Stories delivery until the selected overlay has a story profile', async () => {
+  it('sends Stories delivery flag without requiring an overlay', async () => {
     const props = buildProps({
       handleCreateShareSession: vi.fn(),
-      overlayAssets: [{ id: 'overlay_1', identifier: 'Moldura azul' }],
-      selectedOverlayAssetId: 'overlay_1',
       selectedStoryDeliveryEnabled: true,
       setNotice: vi.fn(),
     });
@@ -212,8 +210,11 @@ describe('SummaryScreen', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
 
-    expect(props.handleCreateShareSession).not.toHaveBeenCalled();
-    expect(props.setNotice).toHaveBeenCalledWith(expect.stringContaining('Configure primeiro o overlay para Stories'));
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
+      assetId: '',
+      storyDeliveryEnabled: true,
+    });
+    expect(props.setNotice).not.toHaveBeenCalled();
   });
 
   it('sends Stories delivery flag when the selected overlay has a story profile', async () => {

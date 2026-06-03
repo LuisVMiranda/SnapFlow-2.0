@@ -26,7 +26,6 @@ export function ShareGalleryEditor({
   pricingOptions,
   removePhotoPresets = () => {},
   saveShare,
-  setNotice = () => {},
   shareSession,
   toggleDraftPreset = () => {},
   undoPhotoPresetApplication = () => {},
@@ -55,9 +54,6 @@ export function ShareGalleryEditor({
   const selectedPresetStack = resolvePresetStack(photoPresets, selectedPresetIds);
   const activePresetStack = galleryDetail.photoPresetSnapshot || shareSession.photoPresetSnapshot || [];
   const activeWatermarkAssetId = galleryDetail.watermarkAssetId || shareSession.watermarkAssetId || '';
-  const activeOverlayAssetId = galleryDetail.overlayAssetId || shareSession.overlayAssetId || '';
-  const activeOverlayAsset = galleryDetail.overlayAsset || overlayAssets.find((asset) => asset.id === activeOverlayAssetId);
-  const activeOverlayEnabled = Boolean(galleryDetail.overlayEnabled ?? shareSession.overlayEnabled);
   const selectedWatermarkAssetId = draft.watermarkAssetId ?? activeWatermarkAssetId;
   const selectedWatermarkAsset = watermarkAssets.find((asset) => asset.id === selectedWatermarkAssetId);
   const activeWatermarkAsset = galleryDetail.watermarkAsset || watermarkAssets.find((asset) => asset.id === activeWatermarkAssetId);
@@ -278,11 +274,8 @@ export function ShareGalleryEditor({
           </small>
         </div>
         <StoryDeliveryToggle
-          activeOverlayAsset={activeOverlayAsset}
-          activeOverlayEnabled={activeOverlayEnabled}
           checked={draft.storyDeliveryEnabled === true}
           onChange={(checked) => updateDraft(shareSession.token, 'storyDeliveryEnabled', checked)}
-          setNotice={setNotice}
         />
         {draft.storyDeliveryEnabled ? (
           <small className="summary-help success">Ativa para próximas entregas pagas desta galeria.</small>

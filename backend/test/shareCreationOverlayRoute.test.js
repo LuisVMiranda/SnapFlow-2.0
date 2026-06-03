@@ -141,8 +141,8 @@ test('admin can apply an existing overlay during gallery creation', async () => 
   assert.equal(state().photos[0].overlayAppliedAt, '2026-01-01T00:01:00.000Z');
 });
 
-test('admin cannot enable story delivery until the overlay has a story profile', async () => {
-  const { app } = createOverlayCreationApp();
+test('admin can enable story delivery without a story overlay profile', async () => {
+  const { app, state } = createOverlayCreationApp();
 
   const response = await request(app)
     .post('/api/admin/share-session')
@@ -161,15 +161,13 @@ test('admin cannot enable story delivery until the overlay has a story profile',
       storyDeliveryEnabled: true,
     });
 
-  assert.equal(response.status, 400);
-  assert.equal(response.body.code, 'story_overlay_profile_required');
-  assert.match(response.body.error, /Configure primeiro o overlay para Stories/);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.storyDeliveryEnabled, true);
+  assert.equal(state().share.storyDeliveryEnabled, true);
 });
 
-test('admin cannot enable story delivery with a disabled overlay request', async () => {
-  const { app } = createOverlayCreationApp({
-    storySettings: { x: 0.5, y: 0.9, widthRatio: 0.25, opacity: 1 },
-  });
+test('admin can enable story delivery without an overlay request', async () => {
+  const { app, state } = createOverlayCreationApp();
 
   const response = await request(app)
     .post('/api/admin/share-session')
@@ -183,13 +181,14 @@ test('admin cannot enable story delivery with a disabled overlay request', async
       subtotal: 10,
       total: 10,
       expiresMinutes: 30,
-      overlayAssetId: 'overlay_1',
-      overlayEnabled: false,
       storyDeliveryEnabled: true,
     });
 
-  assert.equal(response.status, 400);
-  assert.equal(response.body.code, 'story_overlay_profile_required');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.storyDeliveryEnabled, true);
+  assert.equal(state().share.storyDeliveryEnabled, true);
+  assert.equal(state().share.overlayAssetId, '');
+  assert.equal(state().share.overlayEnabled, false);
 });
 
 test('admin can enable story delivery during gallery creation with a story overlay profile', async () => {

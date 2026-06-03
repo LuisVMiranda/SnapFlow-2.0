@@ -91,9 +91,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
 
   async function assertStoryReady(body = {}, share = null) {
     if (body.storyDeliveryEnabled !== true || !storyDelivery?.assertReady) return;
-    const overlayAssetId = body.overlayAssetId || body.assetId || '';
-    const overlayEnabled = body.overlayEnabled === undefined && !share && overlayAssetId ? true : body.overlayEnabled;
-    await storyDelivery.assertReady({ enabled: true, overlayAssetId, overlayEnabled, share });
+    await storyDelivery.assertReady({ enabled: true, share });
   }
 
   router.get('/access', auth.requireAdmin, (req, res) => {

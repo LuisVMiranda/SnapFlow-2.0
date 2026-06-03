@@ -134,7 +134,35 @@ test('story delivery appends 1080x1920 copies and cleans them up', async () => {
   await fs.rm(root, { recursive: true, force: true });
 });
 
-test('story delivery requires a story overlay profile', async () => {
+test('story delivery appends 1080x1920 copies without an active overlay', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-delivery-story-clean-'));
+  const absolutePath = (relativePath) => path.join(root, relativePath);
+  await fs.mkdir(absolutePath('originals'), { recursive: true });
+  await fs.mkdir(absolutePath('tmp'), { recursive: true });
+  await sharp({
+    create: { width: 800, height: 600, channels: 3, background: '#ffffff' },
+  }).jpeg().toFile(absolutePath('originals/photo.jpg'));
+
+  const prepared = await prepareDeliveryPhotos(
+    [{ id: 'photo_1', originalPath: 'originals/photo.jpg' }],
+    { enabled: false },
+    absolutePath,
+    { storyDeliveryEnabled: true }
+  );
+
+  assert.equal(prepared.photos.length, 2);
+  assert.equal(prepared.photos[0].originalPath, 'originals/photo.jpg');
+  assert.equal(prepared.photos[1].deliveryVariant, 'story');
+  const metadata = await sharp(absolutePath(prepared.photos[1].originalPath)).metadata();
+  assert.equal(metadata.width, 1080);
+  assert.equal(metadata.height, 1920);
+
+  await prepared.cleanup();
+  await assert.rejects(fs.stat(absolutePath(prepared.photos[1].originalPath)), /ENOENT/);
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test('story delivery skips the story overlay when the active overlay has no story profile', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'snapflow-delivery-story-missing-'));
   const absolutePath = (relativePath) => path.join(root, relativePath);
   await fs.mkdir(absolutePath('originals'), { recursive: true });
@@ -147,20 +175,23 @@ test('story delivery requires a story overlay profile', async () => {
     create: { width: 20, height: 20, channels: 4, background: '#ff0000' },
   }).png().toFile(absolutePath('overlay-assets/asset.png'));
 
-  await assert.rejects(
-    () => prepareDeliveryPhotos(
-      [{ id: 'photo_1', originalPath: 'originals/photo.jpg' }],
-      {
-        enabled: true,
-        kind: 'image',
-        assetPath: 'overlay-assets/asset.png',
-        asset: { width: 20, height: 20, mimeType: 'image/png' },
-        settings: { x: 0.5, y: 0.5, widthRatio: 0.5, opacity: 1 },
-      },
-      absolutePath,
-      { storyDeliveryEnabled: true }
-    ),
-    /Configure primeiro o overlay para Stories/
+  const prepared = await prepareDeliveryPhotos(
+    [{ id: 'photo_1', originalPath: 'originals/photo.jpg' }],
+    {
+      enabled: true,
+      kind: 'image',
+      assetPath: 'overlay-assets/asset.png',
+      asset: { width: 20, height: 20, mimeType: 'image/png' },
+      settings: { x: 0.5, y: 0.5, widthRatio: 0.5, opacity: 1 },
+    },
+    absolutePath,
+    { storyDeliveryEnabled: true }
   );
+
+  assert.equal(prepared.photos.length, 2);
+  const storyPixel = await rgbAt(absolutePath(prepared.photos[1].originalPath), 540, 960);
+  assert.ok(storyPixel[0] < 220 || storyPixel[1] > 180 || storyPixel[2] > 180);
+
+  await prepared.cleanup();
   await fs.rm(root, { recursive: true, force: true });
 });

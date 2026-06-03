@@ -8,7 +8,7 @@ import { buildStoredPhone, phoneDigits, splitStoredPhone, validateClientPhone } 
 import { mergePresetIds, resolvePresetStack } from '../lib/photoPresets';
 import { DEFAULT_PRICING, buildPackageNudge } from '../lib/pricing';
 import { buildShareWhatsAppMessage } from '../lib/share';
-import { STORY_DELIVERY_SETUP_MESSAGE, overlayAssetHasStoryProfile } from '../lib/storyDelivery';
+import { overlayAssetHasStoryProfile } from '../lib/storyDelivery';
 
 export function SummaryScreen({
   activeStage,
@@ -120,17 +120,7 @@ export function SummaryScreen({
     return { ...selectedOverlayPayload(), ...storyOptions };
   };
 
-  const canSubmitStoryDelivery = () => {
-    if (shareToken || !selectedStoryDeliveryEnabled) return true;
-    if (!selectedOverlayAssetId || !overlayAssetHasStoryProfile(selectedOverlayAsset)) {
-      setNotice(STORY_DELIVERY_SETUP_MESSAGE);
-      return false;
-    }
-    return true;
-  };
-
   const submitManualPayment = () => {
-    if (!canSubmitStoryDelivery()) return;
     const options = selectedGalleryOptions();
     if (options.assetId || options.storyDeliveryEnabled) {
       handleManualPayment('manual', options);
@@ -143,7 +133,6 @@ export function SummaryScreen({
     if (selectedPhotoPresetIds.length && !window.confirm('Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link')) {
       return;
     }
-    if (!canSubmitStoryDelivery()) return;
     runWithDiscountConfirmation(() => handleCreateShareSession(selectedPhotoPresetIds, selectedGalleryOptions()));
   };
 
@@ -431,7 +420,6 @@ export function SummaryScreen({
           className="btn-primary"
           disabled={isGeneratingPix || !canGeneratePix}
           onClick={() => {
-            if (!canSubmitStoryDelivery()) return;
             runWithDiscountConfirmation(() => handleGeneratePix(selectedGalleryOptions()));
           }}
         >

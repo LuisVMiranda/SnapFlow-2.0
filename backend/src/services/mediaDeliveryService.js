@@ -7,7 +7,6 @@ const {
   hasExplicitOverlayPlacement,
   normalizeStoryOverlayProfile,
 } = require('./overlaySettingsService');
-const { STORY_DELIVERY_SETUP_MESSAGE } = require('./storyDeliverySettingsService');
 
 function hasActiveOverlay(overlay) {
   return Boolean(overlay?.enabled && overlay.kind === 'image' && overlay.assetPath);
@@ -36,6 +35,14 @@ async function buildStoryOverlayInput(overlay, absolutePath) {
     overlay.asset,
     storySettings
   );
+}
+
+async function buildStoryComposites(foreground, overlay, absolutePath) {
+  const composites = [{ input: foreground, gravity: 'center' }];
+  if (hasStoryOverlayProfile(overlay)) {
+    composites.push({ input: await buildStoryOverlayInput(overlay, absolutePath), gravity: 'center' });
+  }
+  return composites;
 }
 
 async function prepareDeliveryPhoto(photo, overlay, absolutePath) {
@@ -71,10 +78,7 @@ async function prepareStoryPhoto(photo, overlay, absolutePath) {
     .png()
     .toBuffer();
   await sharp(background)
-    .composite([
-      { input: foreground, gravity: 'center' },
-      { input: await buildStoryOverlayInput(overlay, absolutePath), gravity: 'center' },
-    ])
+    .composite(await buildStoryComposites(foreground, overlay, absolutePath))
     .jpeg({ quality: 92, mozjpeg: true })
     .toFile(absolutePath(outputRel));
   return {
@@ -92,9 +96,6 @@ function shouldPrepareStory(options = {}) {
 async function prepareDeliveryPhotos(photos = [], overlay, absolutePath, options = {}) {
   if (!hasActiveOverlay(overlay) && !shouldPrepareStory(options)) {
     return { photos, cleanup: async () => {} };
-  }
-  if (shouldPrepareStory(options) && !hasStoryOverlayProfile(overlay)) {
-    throw new Error(STORY_DELIVERY_SETUP_MESSAGE);
   }
   const preparedPaths = [];
   try {

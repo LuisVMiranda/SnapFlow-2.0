@@ -451,7 +451,7 @@ describe('SharedLinksPanel', () => {
     );
   });
 
-  it('prompts before enabling Stories when active overlay has no story profile', async () => {
+  it('allows enabling Stories when active overlay has no story profile', async () => {
     const user = userEvent.setup();
     const setNotice = vi.fn();
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({
@@ -474,8 +474,10 @@ describe('SharedLinksPanel', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
-    await user.click(await screen.findByLabelText(/Ativar Stories na galeria/i));
+    const storiesToggle = await screen.findByLabelText(/Ativar Stories na galeria/i);
+    await user.click(storiesToggle);
 
-    expect(setNotice).toHaveBeenCalledWith(expect.stringContaining('Configure primeiro o overlay para Stories'));
+    expect(storiesToggle).toBeChecked();
+    expect(setNotice).not.toHaveBeenCalled();
   });
 });
