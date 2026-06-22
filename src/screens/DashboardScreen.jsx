@@ -28,6 +28,8 @@ export function DashboardScreen({
   deleteOverlayAsset,
   deleteWatermarkAsset,
   deleteCredential,
+  deliveryModeSettings,
+  deliveryModeStatus,
   fetchDashboard,
   handleFileUpload,
   hasActiveSession,
@@ -50,6 +52,7 @@ export function DashboardScreen({
   runCleanup,
   saveCredential,
   saveCredentialsBatch,
+  saveDeliveryModeSettings,
   savePackageSettings,
   saveRetentionSettings,
   saveStoryDeliverySettings,
@@ -109,6 +112,8 @@ export function DashboardScreen({
           cleanupPreview={cleanupPreview}
           createPhotoPreset={createPhotoPreset}
           deletePhotoPreset={deletePhotoPreset}
+          deliveryModeSettings={deliveryModeSettings}
+          deliveryModeStatus={deliveryModeStatus}
           packageSettingsStatus={packageSettingsStatus}
           photoPresets={photoPresets}
           photoPresetStatus={photoPresetStatus}
@@ -118,6 +123,7 @@ export function DashboardScreen({
           pricingOptions={pricingOptions}
           retentionSettings={retentionSettings}
           runCleanup={runCleanup}
+          saveDeliveryModeSettings={saveDeliveryModeSettings}
           savePackageSettings={savePackageSettings}
           saveRetentionSettings={saveRetentionSettings}
           saveStoryDeliverySettings={saveStoryDeliverySettings}

@@ -159,3 +159,13 @@ test('gallery expiration migration caps overlong active gallery links', async ()
   assert.match(sql, /deleted_at is null/i);
   assert.match(sql, /revoked_at is null/i);
 });
+
+test('gallery download delivery migration stores modes and entitlements', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '020_gallery_download_delivery.sql'), 'utf8');
+
+  assert.match(sql, /add column if not exists delivery_mode text not null default 'whatsapp'/i);
+  assert.match(sql, /create table if not exists download_entitlements/i);
+  assert.match(sql, /references share_sessions\(token\) on delete cascade/i);
+  assert.match(sql, /download_entitlements_share_photo_unique/i);
+  assert.match(sql, /'defaultDeliveryMode'/i);
+});

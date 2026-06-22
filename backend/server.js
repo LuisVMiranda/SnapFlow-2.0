@@ -21,6 +21,8 @@ const { createWatermarkAssetService } = require('./src/services/watermarkAssetSe
 const { createPhotoEditingPresetService } = require('./src/services/photoEditingPresetService');
 const { createGalleryPresetService } = require('./src/services/galleryPresetService');
 const { createStoryDeliverySettingsService } = require('./src/services/storyDeliverySettingsService');
+const { createDeliveryModeSettingsService } = require('./src/services/deliveryModeService');
+const { createDeliveryReleaseService } = require('./src/services/deliveryReleaseService');
 
 async function main() {
   const config = createConfig();
@@ -34,14 +36,16 @@ async function main() {
   const credentials = createCredentialsService({ config, repos });
   const whatsappTemplates = createWhatsAppTemplatesService({ repos });
   const storyDelivery = createStoryDeliverySettingsService({ repos });
+  const deliveryModeSettings = createDeliveryModeSettingsService({ repos });
   const photoPresets = createPhotoEditingPresetService({ repos });
   const galleryPresets = createGalleryPresetService({ repos, media, photoPresets, galleryWatermarks, galleryOverlays });
   const whatsapp = createWhatsAppClient();
   const deliveryQueue = createDeliveryQueue({ repos, media, whatsapp, whatsappTemplates, galleryOverlays });
-  const payment = createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates });
+  const deliveryRelease = createDeliveryReleaseService({ deliveryQueue, repos });
+  const payment = createPaymentService({ config, repos, deliveryQueue, deliveryRelease, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });
-  const app = createApp({ config, repos, media, payment, deliveryQueue, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryOverlays, galleryWatermarks, storyDelivery, watermarkAssets });
+  const app = createApp({ config, repos, media, payment, deliveryQueue, deliveryModeSettings, deliveryRelease, retention, packages, credentials, whatsapp, whatsappTemplates, watermark, photoPresets, galleryPresets, galleryOverlays, galleryWatermarks, storyDelivery, watermarkAssets });
 
   const server = app.listen(config.port, config.host, () => {
     console.log(`API rodando em ${config.host}:${config.port}`);

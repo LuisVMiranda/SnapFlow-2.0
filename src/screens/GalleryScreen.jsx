@@ -42,6 +42,8 @@ export function GalleryScreen({
   const loadedCount = photoPageCounts.loadedCount ?? photos.length;
   const totalPhotoCount = photoPageCounts.totalCount ?? photos.length;
   const selectedLoadedCount = photoPageCounts.selectedLoadedCount ?? selected.length;
+  const downloads = info.downloads || {};
+  const canDownloadAll = Boolean(shareToken && downloads.downloadAllUrl && Number(downloads.purchasedCount || 0) > 0);
   const manualPaymentNotice = shareToken
     ? 'Pedido enviado ao fotógrafo. Assim que o pagamento for aprovado, o envio das fotos será liberado automaticamente.'
     : undefined;
@@ -86,11 +88,12 @@ export function GalleryScreen({
         {photos.map((photo, index) => {
           const isSelected = selected.includes(photo.id);
           const isBroken = brokenPhotoIds.includes(photo.id);
+          const isPurchased = photo.purchased === true || photo.selectable === false;
 
           return (
             <div
               key={photo.id}
-              className={`photo-tile ${isSelected ? 'sel' : ''}`}
+              className={`photo-tile ${isSelected ? 'sel' : ''} ${isPurchased ? 'purchased' : ''}`}
               onClick={() => setViewerIndex(index)}
               style={{ position: 'relative' }}
             >
@@ -118,15 +121,27 @@ export function GalleryScreen({
                   ) : null}
                 </>
               )}
+              {isPurchased ? <span className="photo-purchased-badge">Comprada</span> : null}
               <div
-                className={`tile-check-circle ${isSelected ? 'active' : ''}`}
+                className={`tile-check-circle ${isSelected ? 'active' : ''} ${isPurchased ? 'disabled' : ''}`}
+                aria-disabled={isPurchased}
                 onClick={(event) => {
                   event.stopPropagation();
+                  if (isPurchased) return;
                   toggle(photo.id);
                 }}
               >
                 {isSelected ? '●' : ''}
               </div>
+              {isPurchased && photo.downloadUrl ? (
+                <a
+                  className="photo-download-btn"
+                  href={photo.downloadUrl}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  Download
+                </a>
+              ) : null}
             </div>
           );
         })}
@@ -146,6 +161,18 @@ export function GalleryScreen({
             <div className="share-view-notice-copy">
               Selecione suas fotos favoritas. As imagens originais em alta qualidade serão enviadas após o pagamento.
             </div>
+          </div>
+        ) : null}
+
+        {canDownloadAll ? (
+          <div className="gallery-download-panel">
+            <div>
+              <strong>{downloads.purchasedCount} foto(s) comprada(s)</strong>
+              <small>Baixe todas as versões finais liberadas nesta galeria.</small>
+            </div>
+            <a className="gallery-download-all-btn" href={downloads.downloadAllUrl}>
+              Download all
+            </a>
           </div>
         ) : null}
 

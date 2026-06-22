@@ -68,6 +68,63 @@
   margin: 0;
 }
 
+.delivery-mode-settings {
+  display: grid;
+  gap: 10px;
+}
+
+.delivery-mode-control {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.delivery-mode-control.compact {
+  gap: 8px;
+}
+
+.delivery-mode-option {
+  align-items: flex-start;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  min-height: 64px;
+  padding: 10px;
+}
+
+.delivery-mode-option.active {
+  background: rgba(30, 144, 255, 0.12);
+  border-color: rgba(30, 144, 255, 0.45);
+}
+
+.delivery-mode-option input {
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 2px 0 0;
+  width: 16px;
+}
+
+.delivery-mode-option span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.delivery-mode-option strong {
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.delivery-mode-option small {
+  color: var(--gray);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
 .whatsapp-templates-card {
   display: grid;
   gap: 14px;
@@ -329,6 +386,10 @@
 
   .package-settings-modal {
     max-height: calc(100vh - 90px);
+  }
+
+  .delivery-mode-control {
+    grid-template-columns: 1fr;
   }
 
   .credential-card-header,

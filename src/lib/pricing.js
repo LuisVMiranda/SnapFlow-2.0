@@ -29,6 +29,7 @@ export const PAYMENT_META = {
 export const DELIVERY_META = {
   idle: { label: 'Envio ainda não iniciado', tone: 'neutral' },
   queued: { label: 'Fila de envio preparada', tone: 'info' },
+  download_available: { label: 'Download liberado', tone: 'success' },
   sending: { label: 'Enviando no WhatsApp', tone: 'info' },
   sent: { label: 'Fotos entregues', tone: 'success' },
   failed: { label: 'Falha no envio', tone: 'danger' },

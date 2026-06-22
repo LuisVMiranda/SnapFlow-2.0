@@ -2,6 +2,7 @@ const { createPool, withTransaction } = require('../db');
 const { createCredentialRepo } = require('./credentials');
 const { createConversionEventRepo } = require('./conversionEvents');
 const { createDeliveryJobRepo } = require('./deliveryJobs');
+const { createDownloadEntitlementRepo } = require('./downloadEntitlements');
 const { createPaymentEventRepo } = require('./paymentEvents');
 const { createPhotoRepo } = require('./photos');
 const { createOverlayAssetRepo } = require('./overlayAssets');
@@ -39,6 +40,7 @@ function createRepos(config) {
     ...createConversionEventRepo({ query }),
     ...createCredentialRepo({ query }),
     ...createDeliveryJobRepo({ query }),
+    ...createDownloadEntitlementRepo(context),
     ...createPaymentEventRepo({ query }),
     ...createSettingsRepo(context),
     ...createOverlayAssetRepo(context),

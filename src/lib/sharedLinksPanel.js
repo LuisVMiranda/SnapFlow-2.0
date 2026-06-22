@@ -1,5 +1,6 @@
 import { buildApiErrorMessage } from './apiClient';
 import { formatMoney } from './formatters';
+import { normalizeDeliveryMode } from './deliveryMode';
 import { normalizeOverlaySettings } from '../hooks/useOverlaySettings';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 
@@ -20,6 +21,7 @@ export function draftFromShare(shareSession) {
     clientName: shareSession.clientName || '',
     clientEmail: shareSession.clientEmail || '',
     discountAmount: String(shareSession.discountAmount ?? ''),
+    deliveryMode: normalizeDeliveryMode(shareSession.deliveryMode, 'whatsapp'),
     expiresMinutes: '',
     galleryDescription: shareSession.galleryDescription || '',
     galleryName: shareSession.galleryName || '',

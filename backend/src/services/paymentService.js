@@ -33,7 +33,7 @@ function webhookSignatureTemplate(req, ts) {
   return pieces.join('');
 }
 
-function createPaymentService({ config, repos, deliveryQueue, credentials, whatsappTemplates }) {
+function createPaymentService({ config, repos, deliveryQueue, deliveryRelease, credentials, whatsappTemplates }) {
   async function mercadoPagoAccessToken() {
     return (typeof credentials.getSecretValue === 'function' ? await credentials.getSecretValue('mpAccessToken') : '') || config.mercadoPagoAccessToken;
   }
@@ -129,7 +129,11 @@ function createPaymentService({ config, repos, deliveryQueue, credentials, whats
             amount: session.amount,
           }).catch((error) => console.warn(`Falha ao registrar conversao de pagamento: ${error.message}`));
         }
-        await deliveryQueue.enqueue(session.id);
+        if (deliveryRelease && typeof deliveryRelease.releaseApprovedSession === 'function') {
+          await deliveryRelease.releaseApprovedSession(session);
+        } else {
+          await deliveryQueue.enqueue(session.id);
+        }
       }
       return session;
     }

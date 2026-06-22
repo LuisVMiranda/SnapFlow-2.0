@@ -16,6 +16,7 @@ import { useOverlayAssets } from './hooks/useOverlayAssets';
 import { useWatermarkAssets } from './hooks/useWatermarkAssets';
 import { useEffect, useState } from 'react';
 import { buildAdminApprovalUrl, readAdminApprovalSessionId } from './lib/adminApproval';
+import { DEFAULT_DELIVERY_MODE, normalizeDeliveryMode } from './lib/deliveryMode';
 
 export default function App() {
   const {
@@ -41,6 +42,8 @@ export default function App() {
     credentialsStatus,
     dashData,
     deleteCredential,
+    deliveryModeSettings,
+    deliveryModeStatus,
     discountAmount,
     discountValidation,
     fetchDashboard,
@@ -84,6 +87,7 @@ export default function App() {
     runCleanup,
     saveCredential,
     saveCredentialsBatch,
+    saveDeliveryModeSettings,
     savePackageSettings,
     saveRetentionSettings,
     saveStoryDeliverySettings,
@@ -166,6 +170,7 @@ export default function App() {
   const [selectedOverlayAssetId, setSelectedOverlayAssetId] = useState('');
   const [selectedOverlaySettings, setSelectedOverlaySettings] = useState({});
   const [selectedStoryDeliveryEnabled, setSelectedStoryDeliveryEnabled] = useState(false);
+  const [selectedDeliveryMode, setSelectedDeliveryMode] = useState(DEFAULT_DELIVERY_MODE);
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
@@ -177,8 +182,9 @@ export default function App() {
       setSelectedOverlayAssetId('');
       setSelectedOverlaySettings({});
       setSelectedStoryDeliveryEnabled(Boolean(storyDeliverySettings?.defaultEnabled));
+      setSelectedDeliveryMode(normalizeDeliveryMode(deliveryModeSettings?.defaultDeliveryMode));
     }
-  }, [screen, shareToken, storyDeliverySettings?.defaultEnabled]);
+  }, [deliveryModeSettings?.defaultDeliveryMode, screen, shareToken, storyDeliverySettings?.defaultEnabled]);
 
   const adminApprovalSessionId = readAdminApprovalSessionId();
   const approveFromPrompt = async (targetSessionId) => {
@@ -286,6 +292,8 @@ export default function App() {
         deleteOverlayAsset={deleteOverlayAsset}
         deleteWatermarkAsset={deleteWatermarkAsset}
         deleteCredential={deleteCredential}
+        deliveryModeSettings={deliveryModeSettings}
+        deliveryModeStatus={deliveryModeStatus}
         fetchDashboard={fetchDashboard}
         handleFileUpload={handleFileUpload}
         hasActiveSession={hasActiveSession}
@@ -310,6 +318,7 @@ export default function App() {
         runCleanup={runCleanup}
         saveCredential={saveCredential}
         saveCredentialsBatch={saveCredentialsBatch}
+        saveDeliveryModeSettings={saveDeliveryModeSettings}
         savePackageSettings={savePackageSettings}
         saveRetentionSettings={saveRetentionSettings}
         saveStoryDeliverySettings={saveStoryDeliverySettings}
@@ -403,6 +412,7 @@ export default function App() {
         selectedPhotoItems={selectedPhotoItems}
         selectedOverlayAssetId={selectedOverlayAssetId}
         selectedOverlaySettings={selectedOverlaySettings}
+        selectedDeliveryMode={selectedDeliveryMode}
         selectedPhotoPresetIds={selectedPhotoPresetIds}
         selectedStoryDeliveryEnabled={selectedStoryDeliveryEnabled}
         setClientEmail={setClientEmail}
@@ -413,6 +423,7 @@ export default function App() {
         setNotice={setNotice}
         setSelectedOverlayAssetId={setSelectedOverlayAssetId}
         setSelectedOverlaySettings={setSelectedOverlaySettings}
+        setSelectedDeliveryMode={setSelectedDeliveryMode}
         setSelectedPhotoPresetIds={setSelectedPhotoPresetIds}
         setSelectedStoryDeliveryEnabled={setSelectedStoryDeliveryEnabled}
         setScreen={setScreen}

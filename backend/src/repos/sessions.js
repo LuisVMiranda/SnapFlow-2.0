@@ -251,6 +251,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.overlay_settings,
                 ss.overlay_updated_at,
                 ss.story_delivery_enabled,
+                ss.delivery_mode,
                 coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
                 coalesce(sales.sold_order_count, 0)::int as sold_order_count,
                 coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,
@@ -358,8 +359,8 @@ function createSessionRepo({ pool, query, withTransaction }) {
         const galleryName = row.client_name ? `Venda - ${row.client_name}` : 'Venda direta';
         await client.query(
           `insert into share_sessions
-            (token, gallery_id, gallery_name, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link)
-           values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+            (token, gallery_id, gallery_name, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, delivery_mode)
+           values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'whatsapp')`,
           [
             token,
             galleryName,

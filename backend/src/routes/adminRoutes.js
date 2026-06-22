@@ -9,6 +9,10 @@ const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminSh
 const { assignInitialOverlay, createSaleGallery } = require('./adminSaleGallery');
 const { toPhotoIds } = require('./helpers');
 const { normalizeShareExpiresMinutes } = require('../services/shareExpiration');
+const {
+  DEFAULT_DELIVERY_MODE,
+  normalizeDeliveryMode,
+} = require('../services/deliveryModeService');
 
 function normalizeAccessCode(value) {
   return String(value || '')
@@ -86,12 +90,28 @@ function whatsappSendErrorMessage(error) {
   return message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.';
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, retention, storyDelivery, upload, whatsapp, whatsappTemplates, watermark }) {
+function createAdminRouter({ auth, config, credentials, deliveryModeSettings, deliveryQueue, deliveryRelease, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, storyDelivery, upload, whatsapp, whatsappTemplates }) {
   const router = express.Router();
 
   async function assertStoryReady(body = {}, share = null) {
     if (body.storyDeliveryEnabled !== true || !storyDelivery?.assertReady) return;
     await storyDelivery.assertReady({ enabled: true, share });
+  }
+
+  async function deliveryModeFromBody(body = {}) {
+    if (body.deliveryMode !== undefined) return normalizeDeliveryMode(body.deliveryMode, DEFAULT_DELIVERY_MODE);
+    const settings = deliveryModeSettings && typeof deliveryModeSettings.getSettings === 'function'
+      ? await deliveryModeSettings.getSettings()
+      : { defaultDeliveryMode: DEFAULT_DELIVERY_MODE };
+    return normalizeDeliveryMode(settings.defaultDeliveryMode, DEFAULT_DELIVERY_MODE);
+  }
+
+  async function releaseApprovedSession(session) {
+    if (deliveryRelease && typeof deliveryRelease.releaseApprovedSession === 'function') {
+      return deliveryRelease.releaseApprovedSession(session);
+    }
+    await deliveryQueue.enqueue(session.id);
+    return session;
   }
 
   router.get('/access', auth.requireAdmin, (req, res) => {
@@ -143,11 +163,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
+      const deliveryMode = await deliveryModeFromBody(req.body);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
           { config, credentials, repos },
-          { clientEmail, clientName, phone, photoIds, req, totals }
+          { clientEmail, clientName, deliveryMode, phone, photoIds, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
       }
@@ -187,11 +208,12 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
+      const deliveryMode = await deliveryModeFromBody(req.body);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
           { config, credentials, repos },
-          { clientEmail, clientName, phone, photoIds, req, totals }
+          { clientEmail, clientName, deliveryMode, phone, photoIds, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
       }
@@ -256,8 +278,8 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
           amount: session.amount,
         }).catch((error) => console.warn(`Falha ao registrar conversao de pagamento manual: ${error.message}`));
       }
-      await deliveryQueue.enqueue(session.id);
-      res.json({ success: true, session });
+      const released = await releaseApprovedSession(session);
+      res.json({ success: true, session: released || session });
     })
   );
 
@@ -281,6 +303,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
+      const deliveryMode = await deliveryModeFromBody(req.body);
       const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
         baseUrl: await resolvePublicBaseUrl(req, config, credentials),
@@ -298,6 +321,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
           discountAmount: totals.configuredDiscountAmount,
           total: totals.total,
           storyDeliveryEnabled: req.body.storyDeliveryEnabled === true,
+          deliveryMode,
         },
         retentionExpiresAt,
       });
@@ -329,6 +353,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
         overlayAssetId: responseShare.overlayAssetId || '',
         overlayEnabled: Boolean(responseShare.overlayEnabled),
         storyDeliveryEnabled: Boolean(responseShare.storyDeliveryEnabled),
+        deliveryMode: responseShare.deliveryMode,
         photoPresetIds: responseShare.photoPresetIds || [],
         photoPresetSnapshot: responseShare.photoPresetSnapshot || [],
         subtotal: responseShare.subtotal,
@@ -527,6 +552,7 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
         galleryName: body.galleryName === undefined ? undefined : normalizeGalleryName(body.galleryName),
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
         storyDeliveryEnabled: body.storyDeliveryEnabled === undefined ? undefined : body.storyDeliveryEnabled === true,
+        deliveryMode: body.deliveryMode === undefined ? undefined : normalizeDeliveryMode(body.deliveryMode, DEFAULT_DELIVERY_MODE),
         phone: body.phone === undefined ? undefined : validatedPhone.stored,
         packageType: body.packageType ? String(body.packageType) : undefined,
         ...(saleAmounts
@@ -554,38 +580,6 @@ function createAdminRouter({ auth, config, credentials, deliveryQueue, galleryOv
       res.json({ success: true, token: deleted.token, deletedAt: deleted.deletedAt });
     })
   );
-
-  router.get('/settings/retention', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await retention.getSettings());
-  }));
-
-  router.put('/settings/retention', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await retention.updateSettings(req.body || {}));
-  }));
-
-  router.get('/settings/packages', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await packages.getSettings());
-  }));
-
-  router.put('/settings/packages', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await packages.updateSettings(req.body || {}));
-  }));
-
-  router.get('/settings/watermark', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await watermark.getSettings());
-  }));
-
-  router.put('/settings/watermark', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await watermark.updateSettings(req.body || {}));
-  }));
-
-  router.get('/settings/whatsapp-messages', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await whatsappTemplates.getSettings());
-  }));
-
-  router.put('/settings/whatsapp-messages', auth.requireAdmin, asyncHandler(async (req, res) => {
-    res.json(await whatsappTemplates.updateSettings(req.body || {}));
-  }));
 
   return router;
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
+import { DeliveryModeSettingsPanel } from './DeliveryModeSettingsPanel';
 import { PackageSettingsModal } from './PackageSettingsModal';
 import { OverlayAssetLibraryPanel } from './OverlayAssetLibraryPanel';
 import { PhotoPresetSettingsPanel } from './PhotoPresetSettingsPanel';
@@ -16,6 +17,8 @@ export function SettingsPanel({
   deletePhotoPreset,
   deleteOverlayAsset,
   deleteWatermarkAsset,
+  deliveryModeSettings,
+  deliveryModeStatus,
   overlayAssets,
   overlayAssetStatus,
   packageSettingsStatus,
@@ -25,6 +28,7 @@ export function SettingsPanel({
   pricingOptions,
   runCleanup,
   savePackageSettings,
+  saveDeliveryModeSettings,
   saveRetentionSettings,
   saveStoryDeliverySettings,
   saveWatermarkSettings,
@@ -106,6 +110,18 @@ export function SettingsPanel({
         pricingOptions={pricingOptions}
         status={packageSettingsStatus}
       />
+
+      <CollapsibleSection
+        emoji="📦"
+        help="Defina se novas galerias entregam por WhatsApp, por download na galeria ou pelos dois canais."
+        title="Entrega da galeria"
+      >
+        <DeliveryModeSettingsPanel
+          onSave={saveDeliveryModeSettings}
+          settings={deliveryModeSettings}
+          status={deliveryModeStatus}
+        />
+      </CollapsibleSection>
 
       <CollapsibleSection
         emoji="🖼️"

@@ -109,6 +109,7 @@ function rowToShare(row, options = {}) {
     overlaySettings: row.overlay_settings || {},
     overlayUpdatedAt: row.overlay_updated_at || null,
     storyDeliveryEnabled: Boolean(row.story_delivery_enabled),
+    deliveryMode: row.delivery_mode || 'whatsapp',
     sales: {
       soldPhotoCount: Number(row.sold_photo_count || 0),
       soldOrderCount: Number(row.sold_order_count || 0),

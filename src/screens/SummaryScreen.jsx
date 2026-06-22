@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DeliveryModeControl } from '../components/DeliveryModeControl';
 import { OverlayPreviewModal } from '../components/OverlayPreviewModal';
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
@@ -35,6 +36,7 @@ export function SummaryScreen({
   selectedPhotoItems,
   selectedOverlayAssetId = '',
   selectedOverlaySettings = {},
+  selectedDeliveryMode = 'both',
   selectedPhotoPresetIds = [],
   selectedStoryDeliveryEnabled = false,
   setClientName,
@@ -45,6 +47,7 @@ export function SummaryScreen({
   setNotice = () => {},
   setSelectedOverlayAssetId = () => {},
   setSelectedOverlaySettings = () => {},
+  setSelectedDeliveryMode = () => {},
   setSelectedPhotoPresetIds = () => {},
   setSelectedStoryDeliveryEnabled = () => {},
   setScreen,
@@ -117,7 +120,8 @@ export function SummaryScreen({
     const storyOptions = !shareToken && selectedStoryDeliveryEnabled === true
       ? { storyDeliveryEnabled: true }
       : {};
-    return { ...selectedOverlayPayload(), ...storyOptions };
+    const deliveryOptions = !shareToken ? { deliveryMode: selectedDeliveryMode } : {};
+    return { ...selectedOverlayPayload(), ...storyOptions, ...deliveryOptions };
   };
 
   const submitManualPayment = () => {
@@ -333,6 +337,21 @@ export function SummaryScreen({
             onSave={saveInitialOverlay}
             previewUrl={overlayPreviewUrl}
           />
+        </div>
+      ) : null}
+
+      {!shareToken ? (
+        <div className="summary-card" style={{ marginTop: '16px' }}>
+          <div className="summary-label">Entrega principal da galeria</div>
+          <DeliveryModeControl
+            compact
+            idPrefix="summary-delivery-mode"
+            value={selectedDeliveryMode}
+            onChange={setSelectedDeliveryMode}
+          />
+          <small className="summary-help">
+            A escolha vale para as fotos pagas desta galeria. Em Ambos, o cliente recebe redundância por WhatsApp e download.
+          </small>
         </div>
       ) : null}
 

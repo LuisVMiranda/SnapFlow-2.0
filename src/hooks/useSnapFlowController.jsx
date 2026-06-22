@@ -9,10 +9,12 @@ import { NotificationCenterButton } from '../components/NotificationCenterButton
 import { NoticeBanner } from '../components/NoticeBanner';
 import { useAdminAccess } from './useAdminAccess';
 import { useDashboardPolling } from './useDashboardPolling';
+import { useDeliveryModeSettings } from './useDeliveryModeSettings';
 import { useCredentialsSettings } from './useCredentialsSettings';
 import { useManualApprovalShortcut } from './useManualApprovalShortcut';
 import { useNoticeCenter } from './useNoticeCenter';
 import { usePackageSettings } from './usePackageSettings';
+import { usePaymentStatusPolling } from './usePaymentStatusPolling';
 import { usePersistSnapFlowState, getSavedSnapFlowState, resolveInitialSnapFlowScreen } from './useSnapFlowPersistence';
 import { useRetentionControls } from './useRetentionControls';
 import { useSnapFlowActions } from './useSnapFlowActions';
@@ -140,6 +142,11 @@ export function useSnapFlowController() {
     setNotice,
     setType,
   });
+  const { deliveryModeSettings, deliveryModeStatus, saveDeliveryModeSettings } = useDeliveryModeSettings({
+    adminJsonHeaders,
+    isAdminUnlocked,
+    setNotice,
+  });
   const {
     credentialsData,
     credentialsStatus,
@@ -196,16 +203,27 @@ export function useSnapFlowController() {
     setType(safeShareSessionInfo.packageType);
   }, [safeShareSessionInfo.packageType, shareToken]);
 
-  const toggle = (id) =>
+  const selectablePhotoIds = useMemo(
+    () => photos.filter((photo) => photo.selectable !== false && photo.purchased !== true).map((photo) => photo.id),
+    [photos]
+  );
+  const selectablePhotoIdSet = useMemo(() => new Set(selectablePhotoIds), [selectablePhotoIds]);
+
+  const toggle = (id) => {
+    if (!selectablePhotoIdSet.has(id)) return;
     setSelected((previous) =>
       previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id]
     );
-
-  const toggleAllPhotos = () => {
-    setSelected((previous) => (previous.length === photos.length ? [] : photos.map((photo) => photo.id)));
   };
 
-  const count = selected.length;
+  const toggleAllPhotos = () => {
+    setSelected((previous) => {
+      const selectedSelectableCount = previous.filter((photoId) => selectablePhotoIdSet.has(photoId)).length;
+      return selectedSelectableCount === selectablePhotoIds.length ? [] : selectablePhotoIds;
+    });
+  };
+
+  const count = selected.filter((photoId) => selectablePhotoIdSet.has(photoId)).length;
   const activePackageType = pricingOptions[type] ? type : firstPackageKey(pricingOptions);
   const { unit, total: subtotal } = calcTotal(count, activePackageType, pricingOptions);
   const activePricing = pricingForType(activePackageType, pricingOptions);
@@ -220,12 +238,12 @@ export function useSnapFlowController() {
   const { discountAmount, total } = applyManualDiscount(subtotal, configuredDiscountAmount);
   const remaining = Math.max(0, activePricing.threshold - count);
   const hasDiscount = count >= activePricing.threshold;
-  const allPhotosSelected = photos.length > 0 && selected.length === photos.length;
+  const allPhotosSelected = selectablePhotoIds.length > 0 && selected.filter((photoId) => selectablePhotoIdSet.has(photoId)).length === selectablePhotoIds.length;
   const selectedPhotoItems = useMemo(
     () =>
       selected
         .map((id) => photos.find((photo) => photo.id === id))
-        .filter(Boolean),
+        .filter((photo) => photo && photo.selectable !== false && photo.purchased !== true),
     [photos, selected]
   );
   const photoPageCounts = useMemo(
@@ -363,46 +381,21 @@ export function useSnapFlowController() {
     return undefined;
   }, [photos, viewerIndex]);
 
-  useEffect(() => {
-    if (!['pix', 'manual-pending'].includes(screen) || !sessionId) return undefined;
-
-    const interval = setInterval(async () => {
-      try {
-        const response = await fetch(API_BASE_URL + '/api/status/' + sessionId);
-        if (!response.ok) {
-          throw new Error('Status retornou ' + response.status);
-        }
-
-        const data = await response.json();
-        setLiveOps((previous) => ({
-          ...previous,
-          paymentStatus: data.status === 'approved' ? 'approved' : 'pending',
-          deliveryStatus: data.deliveryStatus || previous.deliveryStatus,
-          deliveryError: data.deliveryError || null,
-          paymentMethod: data.paymentMethod || previous.paymentMethod,
-        }));
-
-        if (data.status === 'approved') {
-          if (liveOps.paymentStatus !== 'approved') {
-            setNotice(data.paymentMethod === 'PIX'
-              ? 'Pix confirmado pelo Mercado Pago. Fotos liberadas para entrega.'
-              : 'Pagamento confirmado e fotos liberadas.');
-            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-              new Notification('SnapFlow', {
-                body: 'Pagamento confirmado e fotos liberadas.',
-              });
-            }
-          }
-          setScreen('confirmed');
-          fetchDashboard({ silent: true });
-        }
-      } catch (error) {
-        console.warn('Falha ao consultar status do pagamento:', error);
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [screen, sessionId, liveOps.paymentStatus, fetchDashboard, setNotice]);
+  usePaymentStatusPolling({
+    fetchDashboard,
+    liveOps,
+    screen,
+    sessionId,
+    setHasLoadedPhotosPage,
+    setLiveOps,
+    setNotice,
+    setPhotoPageError,
+    setPhotos,
+    setPhotosPage,
+    setScreen,
+    setSelected,
+    shareToken,
+  });
 
   const {
     handleCreateShareSession,
@@ -509,6 +502,8 @@ export function useSnapFlowController() {
     credentialsStatus,
     dashData,
     deleteCredential,
+    deliveryModeSettings,
+    deliveryModeStatus,
     discountAmount,
     discountValidation,
     fetchDashboard,
@@ -552,6 +547,7 @@ export function useSnapFlowController() {
     runCleanup,
     saveCredential,
     saveCredentialsBatch,
+    saveDeliveryModeSettings,
     saveRetentionSettings,
     savePackageSettings,
     saveStoryDeliverySettings, saveWhatsAppTemplates, saveWatermarkSettings,

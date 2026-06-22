@@ -4,6 +4,7 @@ import { formatMoney } from '../lib/formatters';
 import { resolvePresetStack } from '../lib/photoPresets';
 import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
+import { DeliveryModeControl } from './DeliveryModeControl';
 import { GalleryOverlaySection } from './GalleryOverlaySection';
 import { PhotoPresetPreview } from './PhotoPresetPreview';
 import { StoryDeliveryToggle } from './StoryDeliveryToggle';
@@ -266,6 +267,20 @@ export function ShareGalleryEditor({
         previewUrl={presetPreviewUrl}
         shareSession={shareSession}
       />
+      <section className="gallery-preset-tools gallery-story-tools" aria-label="Modo de entrega da galeria">
+        <div>
+          <strong>Entrega da galeria</strong>
+          <small className="summary-help" style={{ display: 'block' }}>
+            Escolha se esta galeria libera fotos por WhatsApp, download ou pelos dois canais.
+          </small>
+        </div>
+        <DeliveryModeControl
+          compact
+          idPrefix={`share-delivery-mode-${shareSession.token}`}
+          value={draft.deliveryMode || shareSession.deliveryMode || 'whatsapp'}
+          onChange={(value) => updateDraft(shareSession.token, 'deliveryMode', value)}
+        />
+      </section>
       <section className="gallery-preset-tools gallery-story-tools" aria-label="Entrega Stories da galeria">
         <div>
           <strong>Entrega Stories 9:16</strong>

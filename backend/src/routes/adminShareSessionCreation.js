@@ -34,6 +34,7 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
     link,
     photoIds,
     storyDeliveryEnabled: requestBody.storyDeliveryEnabled === true,
+    deliveryMode: requestBody.deliveryMode,
   };
 
   const share = existingShare && typeof repos.restoreShareSession === 'function'

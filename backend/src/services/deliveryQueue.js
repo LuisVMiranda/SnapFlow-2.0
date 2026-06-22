@@ -1,31 +1,14 @@
+const {
+  deliveryContextForShareToken,
+  shareTokenForDelivery,
+} = require('./deliveryContextService');
+
 function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galleryOverlays }) {
   let timer = null;
   let running = false;
 
   async function enqueue(sessionId) {
     return repos.enqueueDelivery(sessionId);
-  }
-
-  function shareTokenForDelivery(session, photos = []) {
-    if (session?.shareToken) return session.shareToken;
-    const photoTokens = new Set(photos.map((photo) => photo.shareToken).filter(Boolean));
-    return photoTokens.size === 1 ? Array.from(photoTokens)[0] : '';
-  }
-
-  function activeDeliveryOverlay(effectiveOverlay) {
-    if (!effectiveOverlay?.enabled || effectiveOverlay.kind !== 'image' || !effectiveOverlay.assetPath) return null;
-    return effectiveOverlay;
-  }
-
-  async function deliveryContextForShareToken(shareToken) {
-    if (!shareToken || typeof galleryOverlays?.effectiveForShare !== 'function') {
-      return { overlay: null, storyDeliveryEnabled: false };
-    }
-    const effectiveOverlay = await galleryOverlays.effectiveForShare(shareToken);
-    return {
-      overlay: activeDeliveryOverlay(effectiveOverlay),
-      storyDeliveryEnabled: effectiveOverlay?.share?.storyDeliveryEnabled === true,
-    };
   }
 
   async function processOnce() {
@@ -52,7 +35,7 @@ function createDeliveryQueue({ repos, whatsapp, media, whatsappTemplates, galler
       if (!sessionPhotos.length) throw new Error('Nenhuma foto encontrada para esta venda. Verifique se a galeria ainda possui fotos antes de reenviar.');
       await repos.updateDeliveryStatus(job.session_id, 'sending');
       const deliveryShareToken = shareTokenForDelivery(session, sessionPhotos);
-      const deliveryContext = await deliveryContextForShareToken(deliveryShareToken);
+      const deliveryContext = await deliveryContextForShareToken({ galleryOverlays, shareToken: deliveryShareToken });
       const prepared = media.prepareDeliveryPhotos
         ? await media.prepareDeliveryPhotos(sessionPhotos, deliveryContext.overlay, {
             storyDeliveryEnabled: deliveryContext.storyDeliveryEnabled,

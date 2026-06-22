@@ -446,6 +446,7 @@ export function SharedLinksPanel({
     const body = {
       clientName: draft.clientName,
       clientEmail: draft.clientEmail,
+      deliveryMode: draft.deliveryMode,
       discountAmount: discountRaw === '' ? '' : discountAmount,
       galleryName: draft.galleryName,
       galleryDescription: draft.galleryDescription,

@@ -78,6 +78,9 @@ export function useSnapFlowActions(config) {
             id: item.id || photoIdFromUrl(rawUrl, index),
             url: normalizedUrl,
             thumbUrl: normalizedThumbUrl || normalizedUrl,
+            downloadUrl: item.downloadUrl || '',
+            purchased: item.purchased === true,
+            selectable: item.selectable !== false,
           };
         })
       : [];
@@ -212,6 +215,7 @@ export function useSnapFlowActions(config) {
         packageType: type,
         ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
         ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
+        ...(!shareToken && overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
       };
       const endpoint = shareToken
         ? API_BASE_URL + '/api/share-session/' + shareToken + '/pix'
@@ -289,6 +293,7 @@ export function useSnapFlowActions(config) {
           accessCode: safeShareSessionInfo.accessCode || '',
           ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
           ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
+          ...(!shareToken && overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
         }),
       });
 
@@ -338,7 +343,10 @@ export function useSnapFlowActions(config) {
     }));
     setPhotoPageError('');
     const loadedPhotoIds = new Set(sharedPhotos.map((photo) => photo.id));
-    setSelected(Array.isArray(data.cartPhotoIds) ? data.cartPhotoIds.filter((photoId) => loadedPhotoIds.has(photoId)) : []);
+    const purchasedPhotoIds = new Set(sharedPhotos.filter((photo) => photo.purchased).map((photo) => photo.id));
+    setSelected(Array.isArray(data.cartPhotoIds)
+      ? data.cartPhotoIds.filter((photoId) => loadedPhotoIds.has(photoId) && !purchasedPhotoIds.has(photoId))
+      : []);
     setBrokenPhotoIds([]);
     setQrCodeBase64('');
     setSessionId('');
@@ -417,6 +425,9 @@ export function useSnapFlowActions(config) {
       }
 
       const nextPhotos = mapSharedPhotos(data);
+      if (data.downloads) {
+        setShareSessionInfo((previous) => ({ ...(previous || {}), downloads: data.downloads }));
+      }
       setPhotos((previous) => mergePhotoPages(previous, nextPhotos));
       setHasLoadedPhotosPage(true);
       setPhotosPage(normalizePhotosPage(data.photosPage, {
@@ -456,6 +467,7 @@ export function useSnapFlowActions(config) {
           photoPresetIds,
           ...(overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
           ...(overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
+          ...(overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
         }),
       });
 
