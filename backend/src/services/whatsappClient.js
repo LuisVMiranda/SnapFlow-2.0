@@ -3,6 +3,8 @@ const fs = require('fs/promises');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const { normalizeClientPhone, validateClientPhone } = require('./phone');
 
+const AUTH_REMOVE_MAX_RETRIES = 10;
+const PROFILE_LOCK_CODES = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM']);
 const RETRY_DELAYS_MS = [5000, 10000, 30000, 60000];
 const transientWhatsAppNeedles = [
   'Execution context was destroyed',
@@ -33,9 +35,33 @@ function errorMessage(error) {
   return fallback || null;
 }
 
+function errorContext(error) {
+  return [errorMessage(error), error?.code, error?.path, error?.stack]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function profileLockCode(error) {
+  const directCode = String(error?.code || '').toUpperCase();
+  if (PROFILE_LOCK_CODES.has(directCode)) return directCode;
+  const match = (errorMessage(error) || '').match(/\b(EBUSY|ENOTEMPTY|EPERM)\b/i);
+  return match ? match[1].toUpperCase() : null;
+}
+
+function isLocalAuthContext(error) {
+  const context = errorContext(error).toLowerCase();
+  return context.includes('.wwebjs_auth')
+    || context.includes('localauth.logout')
+    || context.includes('authstrategies\\localauth')
+    || context.includes('authstrategies/localauth');
+}
+
 function isProfileLockedError(error) {
-  const message = errorMessage(error) || '';
-  return message.includes('browser is already running') || message.includes('Use a different `userDataDir`');
+  const message = (errorMessage(error) || '').toLowerCase();
+  const browserProfileLocked = message.includes('browser is already running')
+    || message.includes('use a different `userdatadir`');
+  return browserProfileLocked
+    || (PROFILE_LOCK_CODES.has(profileLockCode(error)) && isLocalAuthContext(error));
 }
 
 function friendlyWhatsAppError(error) {
@@ -71,7 +97,7 @@ function installWhatsAppProcessGuard() {
     const friendlyError = friendlyWhatsAppError(error);
     console.warn(`Falha recuperavel do WhatsApp interceptada: ${friendlyError.message}`);
     for (const handler of processFailureHandlers) {
-      handler(friendlyError);
+      handler(friendlyError, error);
     }
   };
 
@@ -109,6 +135,7 @@ async function writeClientId(filePath, clientId) {
 function createWhatsAppClient({
   authDataPath = path.join(process.cwd(), '.wwebjs_auth'),
   cachePath = path.join(process.cwd(), '.wwebjs_cache'),
+  clientFactory = null,
   clientIdPath = path.join(process.cwd(), '.wwebjs_client_id'),
 } = {}) {
   let client = null;
@@ -123,10 +150,13 @@ function createWhatsAppClient({
   let lastQrAt = null;
   let lastReadyAt = null;
   let latestQr = null;
-  const unsubscribeFromProcessFailures = subscribeToWhatsAppProcessFailures((error) => {
+  let profileRecovery = null;
+  let closed = false;
+  const unsubscribeFromProcessFailures = subscribeToWhatsAppProcessFailures((error, originalError) => {
     handleRecoverableFailure(error, {
       consoleMessage: `WhatsApp perdeu o contexto interno e sera reconectado: ${error.message}`,
       destroyBeforeRetry: true,
+      rotateProfileBeforeRetry: isProfileLockedError(originalError),
     });
   });
 
@@ -161,6 +191,19 @@ function createWhatsAppClient({
     return previousClientId;
   }
 
+  async function rotateClientIdForRecovery() {
+    if (profileRecovery) return profileRecovery;
+    profileRecovery = (async () => {
+      await ensureClientIdLoaded();
+      return rotateClientId();
+    })();
+    try {
+      return await profileRecovery;
+    } finally {
+      profileRecovery = null;
+    }
+  }
+
   function clearRetryTimer() {
     if (retryTimer) clearTimeout(retryTimer);
     retryTimer = null;
@@ -182,38 +225,51 @@ function createWhatsAppClient({
     }
   }
 
-  function handleRecoverableFailure(error, { consoleMessage, destroyBeforeRetry = false, nextStatus = 'failed' } = {}) {
+  async function recoverClient({ destroyBeforeRetry = false, rotateProfileBeforeRetry = false } = {}) {
+    if (closed) return;
+    if (rotateProfileBeforeRetry) clearRetryTimer();
+    if (destroyBeforeRetry) await destroyClient();
+    if (closed) return;
+    if (rotateProfileBeforeRetry) {
+      const previousClientId = await rotateClientIdForRecovery();
+      console.warn(`Perfil WhatsApp ${previousClientId} isolado após bloqueio do Windows. Novo perfil: ${activeClientId}.`);
+    }
+    scheduleReconnect();
+  }
+
+  function handleRecoverableFailure(error, options = {}) {
     ready = false;
     latestQr = null;
     lastError = friendlyWhatsAppError(error);
-    status = nextStatus;
-    if (consoleMessage) console.warn(consoleMessage);
-    const reconnect = () => scheduleReconnect();
-    if (destroyBeforeRetry) {
-      destroyClient().finally(reconnect);
-      return;
-    }
-    reconnect();
+    status = options.nextStatus || 'failed';
+    if (options.consoleMessage) console.warn(options.consoleMessage);
+    recoverClient(options).catch((recoveryError) => {
+      lastError = friendlyWhatsAppError(recoveryError);
+      console.warn(`Falha ao preparar a reconexão do WhatsApp: ${lastError.message}`);
+      scheduleReconnect();
+    });
   }
 
   function makeClient() {
     const authOptions = activeClientId
       ? { dataPath: authDataPath, clientId: activeClientId }
       : { dataPath: authDataPath };
-    const instance = new Client({
-      authStrategy: new LocalAuth(authOptions),
-      puppeteer: {
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--disable-extensions',
-          '--disable-background-timer-throttling',
-        ],
-      },
-    });
+    const instance = clientFactory
+      ? clientFactory({ authOptions, rmMaxRetries: AUTH_REMOVE_MAX_RETRIES })
+      : new Client({
+        authStrategy: new LocalAuth({ ...authOptions, rmMaxRetries: AUTH_REMOVE_MAX_RETRIES }),
+        puppeteer: {
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-background-timer-throttling',
+          ],
+        },
+      });
 
     instance.on('qr', (qr) => {
       lastQrAt = new Date().toISOString();
@@ -235,8 +291,10 @@ function createWhatsAppClient({
     });
     instance.on('disconnected', (reason) => {
       console.warn('WhatsApp desconectado:', reason);
+      const loggedOut = reason === 'LOGOUT';
       handleRecoverableFailure(new Error(`WhatsApp desconectado: ${reason || 'motivo não informado'}`), {
-        nextStatus: reason === 'LOGOUT' ? 'logged_out' : 'disconnected',
+        destroyBeforeRetry: loggedOut,
+        nextStatus: loggedOut ? 'logged_out' : 'disconnected',
       });
     });
     instance.on('auth_failure', (message) => {
@@ -251,7 +309,7 @@ function createWhatsAppClient({
   }
 
   function scheduleReconnect() {
-    if (retryTimer) return;
+    if (closed || retryTimer) return;
     const delay = RETRY_DELAYS_MS[Math.min(retryAttempts, RETRY_DELAYS_MS.length - 1)];
     status = 'waiting_retry';
     retryAttempts += 1;
@@ -264,9 +322,42 @@ function createWhatsAppClient({
     retryTimer.unref?.();
   }
 
+  async function initializeClientAttempt(profileRotationsRemaining) {
+    client = makeClient();
+    try {
+      await client.initialize();
+      return { completed: true, profileRotationsRemaining, result: getStatus() };
+    } catch (error) {
+      ready = false;
+      latestQr = null;
+      await destroyClient();
+      if (isProfileLockedError(error) && profileRotationsRemaining > 0) {
+        const previousClientId = await rotateClientId();
+        status = 'profile_locked';
+        lastError = friendlyWhatsAppError(error);
+        console.warn(`Perfil WhatsApp ${previousClientId} está bloqueado por Chromium. Tentando novo perfil ${activeClientId}.`);
+        return { completed: false, profileRotationsRemaining: profileRotationsRemaining - 1 };
+      }
+      lastError = friendlyWhatsAppError(error);
+      status = 'failed';
+      if (isTransientWhatsAppError(error) || isProfileLockedError(error)) scheduleReconnect();
+      throw lastError;
+    }
+  }
+
+  async function initializeWithProfileRotation() {
+    let profileRotationsRemaining = 2;
+    while (true) {
+      const attempt = await initializeClientAttempt(profileRotationsRemaining);
+      if (attempt.completed) return attempt.result;
+      profileRotationsRemaining = attempt.profileRotationsRemaining;
+    }
+  }
+
   async function initialize({ force = false } = {}) {
+    if (closed) throw new Error('Cliente WhatsApp encerrado. Reinicie o backend para iniciar uma nova sessão.');
     if (ready && !force) return getStatus();
-    if (initializing && !force) return initializing;
+    if (initializing) return initializing;
     if (force) {
       clearRetryTimer();
       ready = false;
@@ -278,31 +369,8 @@ function createWhatsAppClient({
       status = 'initializing';
       latestQr = null;
       await ensureClientIdLoaded();
-      let profileRotationsRemaining = 2;
       try {
-        while (true) {
-          client = makeClient();
-          try {
-            await client.initialize();
-            return getStatus();
-          } catch (error) {
-            ready = false;
-            latestQr = null;
-            await destroyClient();
-            if (isProfileLockedError(error) && profileRotationsRemaining > 0) {
-              const previousClientId = await rotateClientId();
-              profileRotationsRemaining -= 1;
-              status = 'profile_locked';
-              lastError = friendlyWhatsAppError(error);
-              console.warn(`Perfil WhatsApp ${previousClientId} está bloqueado por Chromium. Tentando novo perfil ${activeClientId}.`);
-              continue;
-            }
-            lastError = friendlyWhatsAppError(error);
-            status = 'failed';
-            if (isTransientWhatsAppError(error) || isProfileLockedError(error)) scheduleReconnect();
-            throw lastError;
-          }
-        }
+        return await initializeWithProfileRotation();
       } finally {
         initializing = null;
       }
@@ -382,6 +450,7 @@ function createWhatsAppClient({
   }
 
   async function shutdown() {
+    closed = true;
     clearRetryTimer();
     ready = false;
     status = 'closed';
@@ -396,6 +465,7 @@ function createWhatsAppClient({
 module.exports = {
   createWhatsAppClient,
   friendlyWhatsAppError,
+  isWhatsAppRecoverableProcessError,
   isTransientWhatsAppError,
   normalizeClientPhone,
   validateClientPhone,

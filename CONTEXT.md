@@ -30,6 +30,7 @@
 - Payment promotion: operação idempotente compartilhada por Pix e aprovação manual que cria Download entitlements e estende `expiresAt` até, no mínimo, `approvedAt + Post-payment access window`.
 - Explicit gallery revocation: bloqueio administrativo que Payment promotion não desfaz automaticamente; os direitos da compra permanecem registrados até o fotógrafo reativar a galeria.
 - Startup readiness gate: contrato do `INICIAR_TUDO.bat` que exige portas exclusivas, PostgreSQL migrado, resposta identificada de `/api/health` e HTML do painel SnapFlow antes de declarar o sistema iniciado.
+- WhatsApp profile recovery: falhas transitórias do Chromium e bloqueios `EBUSY`/`EPERM`/`ENOTEMPTY` dentro do perfil LocalAuth não podem encerrar a API; o browser antigo é fechado, um perfil bloqueado é isolado e a reconexão continua em segundo plano.
 - Plan B watermark: marca d'água padrão da SnapFlow usada quando uma galeria não tem imagem de marca personalizada.
 - Paid original: arquivo entregue ao cliente depois da liberação de pagamento, sem marca d'água de prévia; quando uma Gallery overlay está ativa, ela é aplicada também na entrega.
 - Story delivery variant: cópia 9:16 de uma Paid original, gerada para compartilhamento em Instagram Stories e entregue junto com o arquivo pago normal quando a Shared gallery habilita esse modo; não depende de Gallery overlay.
