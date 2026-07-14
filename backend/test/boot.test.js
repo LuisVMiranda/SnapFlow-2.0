@@ -70,3 +70,16 @@ test('upload processing concurrency is bounded for local machines', () => {
   if (previous === undefined) delete process.env.UPLOAD_PROCESSING_CONCURRENCY;
   else process.env.UPLOAD_PROCESSING_CONCURRENCY = previous;
 });
+
+test('direct backend startup runs migrations unless the batch launcher already applied them', () => {
+  const previous = process.env.SNAPFLOW_SKIP_STARTUP_MIGRATIONS;
+  const { createConfig } = require('../src/config');
+  delete process.env.SNAPFLOW_SKIP_STARTUP_MIGRATIONS;
+  assert.equal(createConfig().skipStartupMigrations, false);
+
+  process.env.SNAPFLOW_SKIP_STARTUP_MIGRATIONS = '1';
+  assert.equal(createConfig().skipStartupMigrations, true);
+
+  if (previous === undefined) delete process.env.SNAPFLOW_SKIP_STARTUP_MIGRATIONS;
+  else process.env.SNAPFLOW_SKIP_STARTUP_MIGRATIONS = previous;
+});

@@ -21,7 +21,11 @@ function createDeliveryJobRepo({ query }) {
        set status = 'running', attempts = attempts + 1, updated_at = now()
        where id = (
         select id from delivery_jobs
-        where status in ('pending', 'failed') and attempts < 5 and next_attempt_at <= now()
+        where attempts < 5
+          and (
+            (status in ('pending', 'failed') and next_attempt_at <= now())
+            or (status = 'running' and updated_at <= now() - interval '10 minutes')
+          )
         order by case when kind = 'approval_notification' then 0 else 1 end, created_at
         for update skip locked
         limit 1

@@ -33,15 +33,23 @@ function sendsOriginalsViaWhatsapp(mode) {
   return allowsWhatsappDelivery(mode);
 }
 
+function numberOrNaN(value) {
+  try {
+    return Number(value);
+  } catch {
+    return Number.NaN;
+  }
+}
+
 function normalizePostPaymentAccessDays(value, fallback = DEFAULT_POST_PAYMENT_ACCESS_DAYS) {
-  const parsed = Number(value);
+  const parsed = numberOrNaN(value);
   if (!Number.isInteger(parsed)) return fallback;
   if (parsed < MIN_POST_PAYMENT_ACCESS_DAYS || parsed > MAX_POST_PAYMENT_ACCESS_DAYS) return fallback;
   return parsed;
 }
 
 function validatePostPaymentAccessDays(value) {
-  const parsed = Number(value);
+  const parsed = numberOrNaN(value);
   if (!Number.isInteger(parsed) || parsed < MIN_POST_PAYMENT_ACCESS_DAYS || parsed > MAX_POST_PAYMENT_ACCESS_DAYS) {
     throw new HttpError(
       400,

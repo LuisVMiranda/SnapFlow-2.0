@@ -249,7 +249,8 @@ Queue responsibilities:
 - send a notice or originals through WhatsApp according to job type;
 - clean temporary files;
 - mark success or failure;
-- allow retry.
+- allow retry;
+- recover jobs left `running` by a terminated or restarted process after 10 minutes.
 
 ### Watermarks
 
@@ -552,11 +553,14 @@ Local operation:
 `INICIAR_TUDO.bat`:
 
 1. prepares local dependencies;
-2. loads host settings from `.env`;
+2. loads hosts and ports and confirms that API and dashboard can own the exact configured ports;
 3. starts or validates PostgreSQL;
-4. runs migrations;
-5. opens backend;
-6. opens the Vite dashboard.
+4. runs migrations once;
+5. opens the backend and waits for `/api/health` to identify a ready SnapFlow API;
+6. opens the Vite dashboard with strict port ownership;
+7. verifies that the returned page is actually the SnapFlow dashboard.
+
+During brief restarts, the WhatsApp card keeps polling the API and only alerts the operator after consecutive failures. When the backend returns, status recovers automatically. This avoids treating a transient `502` as permanent service loss without hiding sustained downtime.
 
 Separate scripts:
 

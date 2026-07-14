@@ -27,7 +27,11 @@ const { createGalleryAccessService } = require('./src/services/galleryAccessServ
 
 async function main() {
   const config = createConfig();
-  await runMigrations(config);
+  if (config.skipStartupMigrations) {
+    console.log('Migrações já aplicadas pelo iniciador do SnapFlow.');
+  } else {
+    await runMigrations(config);
+  }
   const repos = createRepos(config);
   const watermark = createWatermarkSettingsService({ repos });
   const media = createMediaService(config, { watermarkSettings: watermark });

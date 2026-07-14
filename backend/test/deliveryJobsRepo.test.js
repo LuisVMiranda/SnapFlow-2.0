@@ -20,3 +20,20 @@ test('manual job retry resets exhausted attempts and clears the previous error',
   assert.deepEqual(values, [42]);
   assert.equal(job.attempts, 0);
 });
+
+test('job claiming recovers a running delivery abandoned by a previous server process', async () => {
+  let statement = '';
+  const repo = createDeliveryJobRepo({
+    query: async (sql) => {
+      statement = sql;
+      return { rows: [{ id: 43, status: 'running', attempts: 2 }] };
+    },
+  });
+
+  const job = await repo.claimDeliveryJob();
+
+  assert.match(statement, /status = 'running'/i);
+  assert.match(statement, /updated_at <= now\(\) - interval '10 minutes'/i);
+  assert.match(statement, /attempts < 5/i);
+  assert.equal(job.id, 43);
+});

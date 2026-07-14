@@ -18,6 +18,7 @@
 - Post-payment access window: prazo de 1 a 365 dias, contado de `approvedAt`, durante o qual uma Shared gallery aprovada permanece aberta para Gallery downloads; o padrão é 7 dias e pode ser sobrescrito por galeria.
 - Approval notification job: job independente que tenta enviar pelo WhatsApp uma mensagem leve com link, código e validade após a aprovação, sem bloquear Gallery downloads.
 - Media delivery job: job opcional que prepara e envia Paid originals pelo WhatsApp quando a Shared gallery habilita esse canal adicional.
+- Delivery job lease: período de execução de um Delivery job; jobs que permanecem `running` por mais de 10 minutos são considerados abandonados por um processo encerrado e podem ser reclamados novamente.
 - Download entitlement: direito de download criado por uma Delivery session aprovada, ligado a uma Shared gallery e aos Paid originals comprados nela; múltiplos direitos podem coexistir na mesma galeria enquanto ela permitir acesso.
 - Purchased photo: foto de uma Shared gallery coberta por um Download entitlement; continua visível para o cliente, mas não deve voltar ao carrinho de uma nova compra na mesma galeria.
 - Purchased photo controls: estado de UI em que uma Purchased photo permanece no grid, não pode ser selecionada novamente e exibe seu Gallery download quando a galeria oferece download.
@@ -28,6 +29,7 @@
 - Download-all availability: o Download-all archive só aparece quando há pelo menos uma Purchased photo e o Gallery delivery mode permite Gallery download.
 - Payment promotion: operação idempotente compartilhada por Pix e aprovação manual que cria Download entitlements e estende `expiresAt` até, no mínimo, `approvedAt + Post-payment access window`.
 - Explicit gallery revocation: bloqueio administrativo que Payment promotion não desfaz automaticamente; os direitos da compra permanecem registrados até o fotógrafo reativar a galeria.
+- Startup readiness gate: contrato do `INICIAR_TUDO.bat` que exige portas exclusivas, PostgreSQL migrado, resposta identificada de `/api/health` e HTML do painel SnapFlow antes de declarar o sistema iniciado.
 - Plan B watermark: marca d'água padrão da SnapFlow usada quando uma galeria não tem imagem de marca personalizada.
 - Paid original: arquivo entregue ao cliente depois da liberação de pagamento, sem marca d'água de prévia; quando uma Gallery overlay está ativa, ela é aplicada também na entrega.
 - Story delivery variant: cópia 9:16 de uma Paid original, gerada para compartilhamento em Instagram Stories e entregue junto com o arquivo pago normal quando a Shared gallery habilita esse modo; não depende de Gallery overlay.

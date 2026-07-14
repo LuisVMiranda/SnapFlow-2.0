@@ -21,29 +21,41 @@ function autoEnhanceLevelFromEnv(value) {
   return ['soft', 'balanced', 'cinematic'].includes(normalized) ? normalized : 'balanced';
 }
 
+function textFromEnv(name, fallback = '') {
+  return process.env[name] || fallback;
+}
+
+function credentialsSecretFromEnv() {
+  return textFromEnv('CREDENTIALS_SECRET', textFromEnv('ADMIN_ACCESS_TOKEN'));
+}
+
+function storageRootFromEnv() {
+  const configuredRoot = textFromEnv('STORAGE_ROOT');
+  return configuredRoot ? path.resolve(configuredRoot) : path.join(__dirname, '..', 'storage');
+}
+
 function createConfig() {
   return {
-    port: Number(process.env.PORT) || 3000,
-    host: process.env.HOST || '127.0.0.1',
-    databaseUrl: process.env.DATABASE_URL || '',
-    publicBaseUrl: process.env.PUBLIC_BASE_URL || 'http://localhost:5173',
-    adminAccessToken: process.env.ADMIN_ACCESS_TOKEN || '',
-    mercadoPagoAccessToken: process.env.MP_ACCESS_TOKEN || '',
-    mercadoPagoWebhookSecret: process.env.MP_WEBHOOK_SECRET || '',
-    credentialsSecret: process.env.CREDENTIALS_SECRET || process.env.ADMIN_ACCESS_TOKEN || '',
+    port: numberFromEnv('PORT', 3000),
+    host: textFromEnv('HOST', '127.0.0.1'),
+    databaseUrl: textFromEnv('DATABASE_URL'),
+    publicBaseUrl: textFromEnv('PUBLIC_BASE_URL', 'http://localhost:5173'),
+    adminAccessToken: textFromEnv('ADMIN_ACCESS_TOKEN'),
+    mercadoPagoAccessToken: textFromEnv('MP_ACCESS_TOKEN'),
+    mercadoPagoWebhookSecret: textFromEnv('MP_WEBHOOK_SECRET'),
+    credentialsSecret: credentialsSecretFromEnv(),
     adminLockMinutes: boundedNumberFromEnv('ADMIN_LOCK_MINUTES', 30, 30, 60),
-    storageRoot: process.env.STORAGE_ROOT
-      ? path.resolve(process.env.STORAGE_ROOT)
-      : path.join(__dirname, '..', 'storage'),
+    storageRoot: storageRootFromEnv(),
     maxUploadMb: numberFromEnv('MAX_UPLOAD_MB', 25),
     maxFilesPerUpload: numberFromEnv('MAX_FILES_PER_UPLOAD', 100),
     uploadProcessingConcurrency: boundedNumberFromEnv('UPLOAD_PROCESSING_CONCURRENCY', 3, 1, 6),
     defaultGalleryRetentionDays: numberFromEnv('DEFAULT_GALLERY_RETENTION_DAYS', 30),
     deliveredPhotoRetentionDays: numberFromEnv('DELIVERED_PHOTO_RETENTION_DAYS', 30),
     expiredShareRetentionDays: numberFromEnv('EXPIRED_SHARE_RETENTION_DAYS', 7),
-    autoCleanupEnabled: String(process.env.AUTO_CLEANUP_ENABLED || 'false') === 'true',
+    autoCleanupEnabled: booleanFromEnv('AUTO_CLEANUP_ENABLED', false),
     autoEnhanceEnabled: booleanFromEnv('AUTO_ENHANCE', false),
     autoEnhanceLevel: autoEnhanceLevelFromEnv(process.env.AUTO_ENHANCE_LEVEL),
+    skipStartupMigrations: booleanFromEnv('SNAPFLOW_SKIP_STARTUP_MIGRATIONS', false),
   };
 }
 

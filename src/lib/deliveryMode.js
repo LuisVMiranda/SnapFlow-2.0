@@ -42,8 +42,16 @@ export function sendsOriginalsViaWhatsapp(value) {
   return normalizeDeliveryMode(value, DELIVERY_MODES.WHATSAPP) !== DELIVERY_MODES.DOWNLOAD;
 }
 
+function numberOrNaN(value) {
+  try {
+    return Number(value);
+  } catch {
+    return Number.NaN;
+  }
+}
+
 export function normalizePostPaymentAccessDays(value, fallback = DEFAULT_POST_PAYMENT_ACCESS_DAYS) {
-  const parsed = Number(value);
+  const parsed = numberOrNaN(value);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 365 ? parsed : fallback;
 }
 

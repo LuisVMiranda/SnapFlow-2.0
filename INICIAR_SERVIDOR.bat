@@ -12,6 +12,20 @@ if errorlevel 1 (
   exit /b 1
 )
 
+set "SNAPFLOW_API_PORT="
+if exist "%~dp0backend\.env.local" (
+  for /f "usebackq tokens=1,* delims==" %%A in ("%~dp0backend\.env.local") do (
+    if /i "%%A"=="PORT" set "SNAPFLOW_API_PORT=%%B"
+  )
+)
+if "%SNAPFLOW_API_PORT%"=="" set "SNAPFLOW_API_PORT=3000"
+cmd /c node scripts\snapflow-startup.mjs assert-port API "%SNAPFLOW_API_PORT%"
+if errorlevel 1 (
+  echo Feche a janela APP FOTOGRAFIA - SERVIDOR antiga e tente novamente.
+  pause
+  exit /b 1
+)
+
 call "%~dp0INICIAR_BANCO.bat" --skip-prepare
 if errorlevel 1 (
   echo.
@@ -22,6 +36,8 @@ if errorlevel 1 (
 )
 
 cd /d "%~dp0backend"
-echo Iniciando servidor na porta 3000...
+set "SNAPFLOW_SKIP_STARTUP_MIGRATIONS=1"
+echo Iniciando servidor na porta %SNAPFLOW_API_PORT%...
 cmd /c npm.cmd start
-endlocal
+set "EXIT_CODE=%ERRORLEVEL%"
+endlocal & exit /b %EXIT_CODE%

@@ -51,12 +51,16 @@ try {
 for (const [key, value] of Object.entries(postgresEnv)) {
   rootEnv.set(key, value);
 }
+if (backendEnv.get('PORT')) {
+  rootEnv.set('SNAPFLOW_API_PORT', backendEnv.get('PORT'));
+}
 
 const preferredOrder = [
   'POSTGRES_DB',
   'POSTGRES_USER',
   'POSTGRES_PASSWORD',
   'POSTGRES_PORT',
+  'SNAPFLOW_API_PORT',
   'SNAPFLOW_DEV_HOST',
   'SNAPFLOW_DEV_PORT',
   'SNAPFLOW_ALLOWED_HOSTS',

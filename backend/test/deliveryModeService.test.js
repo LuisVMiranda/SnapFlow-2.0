@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { createDeliveryModeSettingsService } = require('../src/services/deliveryModeService');
+const {
+  createDeliveryModeSettingsService,
+  normalizePostPaymentAccessDays,
+} = require('../src/services/deliveryModeService');
 
 function memoryRepos(initial = {}) {
   let settings = { ...initial };
@@ -46,6 +49,17 @@ test('gallery delivery settings reject access windows outside 1 to 365 days', as
   );
   await assert.rejects(
     service.updateSettings({ defaultPostPaymentAccessDays: 366 }),
+    (error) => error.status === 400 && error.code === 'post_payment_access_days_invalid'
+  );
+});
+
+test('gallery delivery access normalization tolerates values that cannot become numbers', async () => {
+  const invalidValue = Object.create(null);
+  const service = createDeliveryModeSettingsService({ repos: memoryRepos() });
+
+  assert.equal(normalizePostPaymentAccessDays(invalidValue), 7);
+  await assert.rejects(
+    service.updateSettings({ defaultPostPaymentAccessDays: invalidValue }),
     (error) => error.status === 400 && error.code === 'post_payment_access_days_invalid'
   );
 });

@@ -18,6 +18,7 @@ const CODE_HINTS = {
   admin_locked: 'O bloqueio é temporário. Aguarde a liberação automática antes de tentar novamente.',
   admin_required: 'Entre novamente com a credencial administrativa no botão Conta.',
   admin_token_missing: 'Configure ADMIN_ACCESS_TOKEN no arquivo backend\\.env.local e reinicie o servidor.',
+  api_unavailable: 'Aguarde alguns segundos: o painel tentará se reconectar automaticamente ao servidor.',
   api_route_not_found: 'O backend em execução está desatualizado. Rode as migrações, reinicie a janela APP FOTOGRAFIA - SERVIDOR e tente de novo.',
   credential_confirmation_invalid: 'Digite a mesma credencial administrativa usada para entrar no painel.',
   credential_not_found: 'Atualize a página de Credenciais e tente novamente.',
@@ -67,17 +68,32 @@ const CODE_HINTS = {
   whatsapp_unavailable: 'Abra Galerias, verifique o cartão WhatsApp de envio e use Reconectar WhatsApp se necessário.',
 };
 
+const STATUS_HINTS = new Map([
+  [400, 'Revise os dados preenchidos e tente novamente.'],
+  [401, 'Verifique a credencial administrativa ou o código de acesso da galeria.'],
+  [403, 'Verifique a credencial administrativa ou o código de acesso da galeria.'],
+  [404, 'Confirme se o backend foi reiniciado depois da atualização e se a rota existe na versão atual.'],
+  [409, 'Atualize a tela: esta venda ou galeria pode já ter mudado de estado.'],
+  [413, 'O envio ultrapassou o limite configurado para arquivos.'],
+  [429, 'Aguarde alguns minutos antes de tentar novamente.'],
+  [502, 'O painel não conseguiu falar com a API. Confira se a janela APP FOTOGRAFIA - SERVIDOR continua aberta; se ela fechou, reinicie o backend e tente novamente.'],
+  [503, 'O painel não conseguiu falar com a API. Confira se a janela APP FOTOGRAFIA - SERVIDOR continua aberta; se ela fechou, reinicie o backend e tente novamente.'],
+]);
+
 function statusHint(status) {
   if (!status) return '';
-  if (status === 400) return 'Revise os dados preenchidos e tente novamente.';
-  if (status === 401 || status === 403) return 'Verifique a credencial administrativa ou o código de acesso da galeria.';
-  if (status === 404) return 'Confirme se o backend foi reiniciado depois da atualização e se a rota existe na versão atual.';
-  if (status === 409) return 'Atualize a tela: esta venda ou galeria pode já ter mudado de estado.';
-  if (status === 413) return 'O envio ultrapassou o limite configurado para arquivos.';
-  if (status === 429) return 'Aguarde alguns minutos antes de tentar novamente.';
-  if (status === 502 || status === 503) return 'O painel não conseguiu falar com a API. Confira se a janela APP FOTOGRAFIA - SERVIDOR continua aberta; se ela fechou, reinicie o backend e tente novamente.';
-  if (status >= 500) return 'Verifique o terminal APP FOTOGRAFIA - SERVIDOR para detalhes e reinicie o backend se a falha persistir.';
-  return '';
+  return STATUS_HINTS.get(status)
+    || (status >= 500 ? 'Verifique o terminal APP FOTOGRAFIA - SERVIDOR para detalhes e reinicie o backend se a falha persistir.' : '');
+}
+
+function appendApiErrorDetails(parts, details) {
+  if (details.maxUploadMb) parts.push(`Limite por arquivo: ${details.maxUploadMb} MB`);
+  if (details.maxFilesPerUpload) parts.push(`Limite por envio: ${details.maxFilesPerUpload} arquivos`);
+  if (details.receivedType) parts.push(`Tipo recebido: ${details.receivedType}`);
+  if (details.reason) parts.push(`Detalhe técnico: ${details.reason}`);
+  if (details.lockedUntil) parts.push(`Liberação automática: ${new Date(details.lockedUntil).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+  if (details.retryAfterSeconds) parts.push(`Tempo aproximado: ${Math.ceil(Number(details.retryAfterSeconds) / 60)} minuto(s)`);
+  if (Array.isArray(details.allowedTypes)) parts.push(`Tipos permitidos: ${details.allowedTypes.join(', ')}`);
 }
 
 export async function readJsonResponse(response) {
@@ -111,14 +127,7 @@ export function buildApiErrorMessage(prefix, response, data = {}) {
   if (data.error) parts.push(data.error);
   if (data.code) parts.push(`Código: ${data.code}`);
 
-  const details = data.details || {};
-  if (details.maxUploadMb) parts.push(`Limite por arquivo: ${details.maxUploadMb} MB`);
-  if (details.maxFilesPerUpload) parts.push(`Limite por envio: ${details.maxFilesPerUpload} arquivos`);
-  if (details.receivedType) parts.push(`Tipo recebido: ${details.receivedType}`);
-  if (details.reason) parts.push(`Detalhe técnico: ${details.reason}`);
-  if (details.lockedUntil) parts.push(`Liberação automática: ${new Date(details.lockedUntil).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
-  if (details.retryAfterSeconds) parts.push(`Tempo aproximado: ${Math.ceil(Number(details.retryAfterSeconds) / 60)} minuto(s)`);
-  if (Array.isArray(details.allowedTypes)) parts.push(`Tipos permitidos: ${details.allowedTypes.join(', ')}`);
+  appendApiErrorDetails(parts, data.details || {});
 
   const hint = CODE_HINTS[data.code] || statusHint(response.status);
   if (hint) parts.push(`Orientação: ${hint}`);

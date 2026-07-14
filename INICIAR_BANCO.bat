@@ -36,6 +36,8 @@ cmd /c node --check scripts\run-docker-compose.mjs
 if errorlevel 1 exit /b 1
 cmd /c node --check scripts\sync-docker-env.mjs
 if errorlevel 1 exit /b 1
+cmd /c node --check scripts\snapflow-startup.mjs
+if errorlevel 1 exit /b 1
 cmd /c node scripts\run-docker-compose.mjs version
 if errorlevel 1 exit /b 1
 echo Verificação do banco concluída.

@@ -181,3 +181,11 @@ test('post-payment access migration stores gallery windows and independent deliv
   assert.match(sql, /'defaultPostPaymentAccessDays'/i);
   assert.match(sql, /'defaultSendOriginalsViaWhatsapp'/i);
 });
+
+test('delivery recovery migration indexes jobs abandoned during a server restart', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '022_delivery_job_recovery.sql'), 'utf8');
+
+  assert.match(sql, /delivery_jobs_running_recovery_idx/i);
+  assert.match(sql, /on delivery_jobs\(status, updated_at\)/i);
+  assert.match(sql, /where status = 'running'/i);
+});

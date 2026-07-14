@@ -295,7 +295,7 @@ if exist "%ROOT%\backend\.env.local" (
 if /i "%SOBRESCREVER_ROOT_ENV%"=="S" (
   if exist "%ROOT%\.env" copy /Y "%ROOT%\.env" "%ROOT%\.env.bak-%STAMP%" >nul
   set "SNAPFLOW_ROOT=%ROOT%"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=$env:SNAPFLOW_ROOT; $lines=@('POSTGRES_DB='+$env:POSTGRES_DB,'POSTGRES_USER='+$env:POSTGRES_USER,'POSTGRES_PASSWORD='+$env:POSTGRES_PASSWORD,'POSTGRES_PORT='+$env:POSTGRES_PORT,'SNAPFLOW_DEV_HOST='+$env:FRONTEND_HOST,'SNAPFLOW_DEV_PORT='+$env:FRONTEND_PORT,'SNAPFLOW_ALLOWED_HOSTS='+$env:SNAPFLOW_ALLOWED_HOSTS); [IO.File]::WriteAllLines((Join-Path $root '.env'), $lines, [Text.UTF8Encoding]::new($false))"
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "$root=$env:SNAPFLOW_ROOT; $lines=@('POSTGRES_DB='+$env:POSTGRES_DB,'POSTGRES_USER='+$env:POSTGRES_USER,'POSTGRES_PASSWORD='+$env:POSTGRES_PASSWORD,'POSTGRES_PORT='+$env:POSTGRES_PORT,'SNAPFLOW_API_PORT='+$env:PORT,'SNAPFLOW_DEV_HOST='+$env:FRONTEND_HOST,'SNAPFLOW_DEV_PORT='+$env:FRONTEND_PORT,'SNAPFLOW_ALLOWED_HOSTS='+$env:SNAPFLOW_ALLOWED_HOSTS); [IO.File]::WriteAllLines((Join-Path $root '.env'), $lines, [Text.UTF8Encoding]::new($false))"
   if errorlevel 1 exit /b 1
   echo Criado: .env
 ) else (

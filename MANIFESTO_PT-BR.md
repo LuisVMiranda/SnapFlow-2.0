@@ -249,7 +249,8 @@ Responsabilidades da fila:
 - enviar aviso ou originais pelo WhatsApp conforme o tipo;
 - limpar temporários;
 - marcar sucesso ou falha;
-- permitir retry.
+- permitir retry;
+- recuperar, após 10 minutos, jobs deixados em `running` por encerramento ou reinício do processo.
 
 ### Marcas d'Água
 
@@ -552,11 +553,14 @@ Operação local:
 `INICIAR_TUDO.bat`:
 
 1. prepara dependências locais;
-2. carrega configurações de host do `.env`;
+2. carrega hosts e portas e confirma que API e painel podem usar exatamente as portas configuradas;
 3. inicia ou valida PostgreSQL;
-4. roda migrações;
-5. abre backend;
-6. abre painel Vite.
+4. roda migrações uma única vez;
+5. abre o backend e aguarda `/api/health` identificar uma API SnapFlow pronta;
+6. abre o painel Vite com porta estrita;
+7. valida que a página retornada é realmente o painel SnapFlow.
+
+Durante reinícios breves, o cartão do WhatsApp continua consultando a API e só alerta o operador após falhas consecutivas. Quando o backend retorna, o estado é atualizado automaticamente. Isso evita tratar um `502` transitório como perda definitiva do serviço, sem esconder indisponibilidade persistente.
 
 Scripts separados:
 

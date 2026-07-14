@@ -146,7 +146,9 @@ Depois de configurado, o início continua igual:
 .\INICIAR_TUDO.bat
 ```
 
-Esse script prepara dependências locais, inicia o PostgreSQL, aguarda o banco ficar pronto, roda migrações pendentes e só então abre backend e painel. Para verificar os scripts do banco sem iniciar serviços:
+Esse script prepara dependências locais, recusa portas já ocupadas, inicia o PostgreSQL, roda migrações pendentes uma única vez, abre o backend e aguarda uma resposta identificada do SnapFlow em `/api/health`. O painel só é aberto depois disso, sempre na porta configurada; se o Vite não puder usar essa porta, o início falha com orientação em vez de mudar silenciosamente para outra. Ao final, o próprio HTML do painel também é validado.
+
+Para verificar os scripts do banco e a sintaxe das sondas de inicialização sem iniciar serviços:
 
 ```powershell
 .\INICIAR_BANCO.bat --verificar
@@ -199,6 +201,7 @@ POSTGRES_DB=snapflow
 POSTGRES_USER=snapflow
 POSTGRES_PASSWORD=sua-senha-local
 POSTGRES_PORT=55432
+SNAPFLOW_API_PORT=3000
 SNAPFLOW_DEV_HOST=127.0.0.1
 SNAPFLOW_DEV_PORT=5173
 SNAPFLOW_ALLOWED_HOSTS=
@@ -509,6 +512,9 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - `'vite' não é reconhecido`: as dependências do painel não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd install` na raiz.
 - `Cannot find module 'dotenv'`: as dependências do backend não foram instaladas. Rode `.\INSTALAR_SNAPFLOW.bat` ou `cmd /c npm.cmd --prefix backend install`.
 - Se `INICIAR_TUDO.bat`, `INICIAR_PAINEL.bat` ou `INICIAR_SERVIDOR.bat` detectarem dependências ausentes, eles oferecem instalar os pacotes locais antes de continuar.
+- `A porta 3000/5173 já está em uso`: feche a janela antiga do servidor/painel ou o outro aplicativo indicado. O SnapFlow não troca de porta silenciosamente porque isso quebraria o proxy e o endereço publicado pelo Tailscale.
+- `HTTP 502/503` logo após reiniciar: o painel tenta novamente sem notificar nas duas primeiras falhas transitórias. Se a indisponibilidade persistir, confira a janela do servidor; quando a API voltar, o cartão do WhatsApp se recupera automaticamente.
+- Se a porta do backend for alterada em `backend\.env.local`, os BATs usam esse `PORT` como fonte de verdade e o repassam ao proxy Vite como `SNAPFLOW_API_PORT`.
 - `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `.\INICIAR_BANCO.bat` ou `.\INICIAR_TUDO.bat`.
 - `Docker Desktop foi encontrado, mas o engine não respondeu`: abra o Docker Desktop e aguarde o status indicar que está pronto. Na primeira abertura após instalação ou atualização isso pode levar alguns minutos.
 - `container name "/snapflow-postgres" is already in use`: existe um container antigo com o mesmo nome; pare/remova esse container pelo Docker Desktop antes de subir novamente.
