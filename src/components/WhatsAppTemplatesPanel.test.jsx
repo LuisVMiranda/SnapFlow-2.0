@@ -12,6 +12,10 @@ const templates = {
     label: 'Aguardando pagamento',
     body: 'Aguardando pagamento. {linkText}',
   },
+  paymentApproved: {
+    label: 'Pagamento confirmado',
+    body: 'Pago. Baixe até {expiresAt}. {linkText} Código {code}',
+  },
   deliveryThanks: {
     label: 'Agradecimento e envio',
     body: 'Obrigado, {name}! Aqui estão suas {count} foto(s).',
@@ -31,8 +35,10 @@ describe('WhatsAppTemplatesPanel', () => {
     expect(screen.getByText('Mensagens do WhatsApp')).toBeInTheDocument();
     expect(screen.getByLabelText('Link da galeria')).toHaveValue(templates.shareLink.body);
     expect(screen.getByLabelText('Aguardando pagamento')).toHaveValue(templates.paymentWaiting.body);
+    expect(screen.getByLabelText('Pagamento confirmado')).toHaveValue(templates.paymentApproved.body);
     expect(screen.getByLabelText('Agradecimento e envio')).toHaveValue(templates.deliveryThanks.body);
     expect(screen.getByRole('button', { name: '{name}' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '{accessDays}' })).toBeInTheDocument();
     expect(screen.getByText(/a URL precisa aparecer para ficar clicável/i)).toBeInTheDocument();
   });
 

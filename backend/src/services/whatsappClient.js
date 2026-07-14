@@ -369,8 +369,11 @@ function createWhatsAppClient({
 
   async function sendPhotos(phone, photos, storageRoot, message = 'Obrigado por comprar conosco! Aqui estão suas fotos profissionais em qualidade máxima.') {
     return withWhatsAppOperation(async () => {
-      const number = await sendText(phone, message);
+      const validation = validateClientPhone(phone);
+      if (!validation.valid) throw new Error(validation.message);
+      const number = message ? await sendText(phone, message) : validation.normalized;
       const contactId = await client.getNumberId(number);
+      if (!contactId) throw new Error(`Número não encontrado no WhatsApp: ${validation.formatted}.`);
       for (const photo of photos) {
         const media = MessageMedia.fromFilePath(path.join(storageRoot, photo.originalPath));
         await client.sendMessage(contactId._serialized, media, { sendMediaAsDocument: true });

@@ -33,7 +33,7 @@ function webhookSignatureTemplate(req, ts) {
   return pieces.join('');
 }
 
-function createPaymentService({ config, repos, deliveryQueue, deliveryRelease, credentials, whatsappTemplates }) {
+function createPaymentService({ config, repos, deliveryQueue, deliveryRelease, credentials, whatsappTemplates, paymentClientFactory = createPaymentClient }) {
   async function mercadoPagoAccessToken() {
     return (typeof credentials.getSecretValue === 'function' ? await credentials.getSecretValue('mpAccessToken') : '') || config.mercadoPagoAccessToken;
   }
@@ -52,7 +52,7 @@ function createPaymentService({ config, repos, deliveryQueue, deliveryRelease, c
       throw new HttpError(500, 'Token do Mercado Pago ausente. Configure MP_ACCESS_TOKEN em Credenciais ou no backend\\.env.local antes de gerar Pix.', 'mp_token_missing');
     }
 
-    const response = await createPaymentClient(accessToken).create({
+    const response = await paymentClientFactory(accessToken).create({
       body: {
         transaction_amount: Number(payload.total),
         payment_method_id: 'pix',
@@ -107,7 +107,7 @@ function createPaymentService({ config, repos, deliveryQueue, deliveryRelease, c
   }
 
   async function approvePayment(paymentId) {
-    const payInfo = await createPaymentClient(await mercadoPagoAccessToken()).get({ id: paymentId });
+    const payInfo = await paymentClientFactory(await mercadoPagoAccessToken()).get({ id: paymentId });
     const sessionId = payInfo.metadata.session_id;
     await repos.recordPaymentEvent({
       providerEventId: `payment:${paymentId}:${payInfo.status}`,

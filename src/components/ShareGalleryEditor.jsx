@@ -4,7 +4,7 @@ import { formatMoney } from '../lib/formatters';
 import { resolvePresetStack } from '../lib/photoPresets';
 import { buildStoredPhone, phoneDigits, splitStoredPhone } from '../lib/phone';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
-import { DeliveryModeControl } from './DeliveryModeControl';
+import { GalleryDeliveryControl } from './GalleryDeliveryControl';
 import { GalleryOverlaySection } from './GalleryOverlaySection';
 import { PhotoPresetPreview } from './PhotoPresetPreview';
 import { StoryDeliveryToggle } from './StoryDeliveryToggle';
@@ -19,6 +19,7 @@ export function ShareGalleryEditor({
   deletePhoto,
   detail,
   draft,
+  extendDownloadAccess = () => {},
   isLoading,
   isPhotoBusy,
   loadMorePhotos = () => {},
@@ -271,16 +272,43 @@ export function ShareGalleryEditor({
         <div>
           <strong>Entrega da galeria</strong>
           <small className="summary-help" style={{ display: 'block' }}>
-            Escolha se esta galeria libera fotos por WhatsApp, download ou pelos dois canais.
+            Downloads ficam disponíveis após o pagamento. O WhatsApp pode avisar o cliente e, opcionalmente, enviar os originais.
           </small>
         </div>
-        <DeliveryModeControl
-          compact
+        <GalleryDeliveryControl
           idPrefix={`share-delivery-mode-${shareSession.token}`}
-          value={draft.deliveryMode || shareSession.deliveryMode || 'whatsapp'}
-          onChange={(value) => updateDraft(shareSession.token, 'deliveryMode', value)}
+          mode={draft.deliveryMode || shareSession.deliveryMode || 'whatsapp'}
+          postPaymentAccessDays={draft.postPaymentAccessDays}
+          onAccessDaysChange={(value) => updateDraft(shareSession.token, 'postPaymentAccessDays', value)}
+          onModeChange={(value) => {
+            updateDraft(shareSession.token, 'deliveryMode', value);
+            updateDraft(shareSession.token, 'sendOriginalsViaWhatsapp', value !== 'download');
+          }}
         />
       </section>
+      {soldOrderCount > 0 ? (
+        <section className="gallery-preset-tools gallery-access-tools" aria-label="Validade dos downloads da galeria">
+          <div>
+            <strong>Downloads disponíveis até {new Date(shareSession.expiresAt).toLocaleString('pt-BR')}</strong>
+            <small className="summary-help" style={{ display: 'block' }}>
+              Ajuste a validade atual sem alterar o padrão aplicado às próximas compras.
+            </small>
+          </div>
+          <label htmlFor={`share-access-expiry-${shareSession.token}`}>
+            Validade atual
+            <input
+              className="phone-input"
+              id={`share-access-expiry-${shareSession.token}`}
+              type="datetime-local"
+              value={draft.expiresAt || ''}
+              onChange={(event) => updateDraft(shareSession.token, 'expiresAt', event.target.value)}
+            />
+          </label>
+          <button className="share-quick-btn approve-session-btn" type="button" onClick={() => extendDownloadAccess(shareSession)}>
+            Estender por 7 dias
+          </button>
+        </section>
+      ) : null}
       <section className="gallery-preset-tools gallery-story-tools" aria-label="Entrega Stories da galeria">
         <div>
           <strong>Entrega Stories 9:16</strong>

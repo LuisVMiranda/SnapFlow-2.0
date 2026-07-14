@@ -178,15 +178,28 @@ function createSessionRepo({ pool, query, withTransaction }) {
     );
     const s = statsResult.rows[0] || {};
     const recentResult = await query(
-      `select sessions.*, delivery_jobs.id as delivery_job_id
+      `select sessions.*,
+              media_jobs.id as delivery_job_id,
+              notification_jobs.id as notification_job_id,
+              notification_jobs.status as notification_status,
+              notification_jobs.last_error as notification_error
        from sessions
        left join lateral (
          select id
          from delivery_jobs
          where delivery_jobs.session_id = sessions.id
+           and delivery_jobs.kind = 'media'
          order by updated_at desc, id desc
          limit 1
-       ) delivery_jobs on true
+       ) media_jobs on true
+       left join lateral (
+         select id, status, last_error
+         from delivery_jobs
+         where delivery_jobs.session_id = sessions.id
+           and delivery_jobs.kind = 'approval_notification'
+         order by updated_at desc, id desc
+         limit 1
+       ) notification_jobs on true
        left join share_sessions ss on ss.token = sessions.share_token
        where (sessions.status = 'approved' or sessions.created_at >= now() - interval '2 hours')
          and (
@@ -252,6 +265,7 @@ function createSessionRepo({ pool, query, withTransaction }) {
                 ss.overlay_updated_at,
                 ss.story_delivery_enabled,
                 ss.delivery_mode,
+                ss.post_payment_access_days,
                 coalesce(sales.sold_photo_count, 0)::int as sold_photo_count,
                 coalesce(sales.sold_order_count, 0)::int as sold_order_count,
                 coalesce(sales.sold_amount_cents, 0)::bigint as sold_amount_cents,

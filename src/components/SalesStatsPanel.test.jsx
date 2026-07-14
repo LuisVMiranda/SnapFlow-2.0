@@ -192,4 +192,37 @@ describe('SalesStatsPanel manual release cancellation', () => {
     expect(screen.getByText('Links abertos')).toBeInTheDocument();
     expect(screen.getByText('Pix gerados')).toBeInTheDocument();
   });
+
+  it('shows and retries WhatsApp notice independently from original media', async () => {
+    const user = userEvent.setup();
+    render(
+      <SalesStatsPanel
+        {...baseProps}
+        dashData={{
+          ...baseDashData,
+          recent: [{
+            id: 'approved_1',
+            amount: 40,
+            photoCount: 4,
+            packageType: 'eventos',
+            status: 'approved',
+            shareToken: 'share_1',
+            deliveryStatus: 'failed',
+            deliveryError: 'Falha nos documentos',
+            notificationStatus: 'failed',
+            notificationError: 'WhatsApp desconectado',
+          }],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Aviso falhou')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reenviar fotos' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reenviar aviso' }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/sessions/approved_1/retry-notification',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
 });

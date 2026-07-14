@@ -1,15 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL, buildApiErrorMessage, buildNetworkErrorMessage, readJsonResponse } from '../lib/apiClient';
-import { DEFAULT_DELIVERY_MODE, normalizeDeliveryMode } from '../lib/deliveryMode';
+import {
+  DEFAULT_DELIVERY_MODE,
+  DEFAULT_POST_PAYMENT_ACCESS_DAYS,
+  deliveryModeForOriginals,
+  normalizePostPaymentAccessDays,
+  sendsOriginalsViaWhatsapp,
+} from '../lib/deliveryMode';
 
 export const DEFAULT_DELIVERY_MODE_SETTINGS = {
   defaultDeliveryMode: DEFAULT_DELIVERY_MODE,
+  defaultPostPaymentAccessDays: DEFAULT_POST_PAYMENT_ACCESS_DAYS,
+  defaultSendOriginalsViaWhatsapp: false,
 };
 
 export function normalizeDeliveryModeSettings(value = {}) {
   const source = value && typeof value === 'object' ? value : {};
+  const defaultSendOriginalsViaWhatsapp = source.defaultSendOriginalsViaWhatsapp === undefined
+    ? sendsOriginalsViaWhatsapp(source.defaultDeliveryMode || DEFAULT_DELIVERY_MODE)
+    : source.defaultSendOriginalsViaWhatsapp === true;
   return {
-    defaultDeliveryMode: normalizeDeliveryMode(source.defaultDeliveryMode, DEFAULT_DELIVERY_MODE),
+    defaultDeliveryMode: deliveryModeForOriginals(defaultSendOriginalsViaWhatsapp),
+    defaultPostPaymentAccessDays: normalizePostPaymentAccessDays(source.defaultPostPaymentAccessDays),
+    defaultSendOriginalsViaWhatsapp,
   };
 }
 
@@ -21,7 +34,7 @@ export function useDeliveryModeSettings({ adminJsonHeaders, isAdminUnlocked, set
     if (!isAdminUnlocked) return DEFAULT_DELIVERY_MODE_SETTINGS;
     setDeliveryModeStatus('loading');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/settings/delivery-mode`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settings/gallery-delivery`, {
         headers: adminJsonHeaders(),
       });
       const data = await readJsonResponse(response);
@@ -50,7 +63,7 @@ export function useDeliveryModeSettings({ adminJsonHeaders, isAdminUnlocked, set
     }
     setDeliveryModeStatus('saving');
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/settings/delivery-mode`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/settings/gallery-delivery`, {
         method: 'PUT',
         headers: adminJsonHeaders(),
         body: JSON.stringify(normalizeDeliveryModeSettings(settings)),

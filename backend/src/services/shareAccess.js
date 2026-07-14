@@ -26,6 +26,8 @@ function publicSharePayload(share) {
     link: share.link,
     createdAt: share.createdAt,
     expiresAt: share.expiresAt,
+    postPaymentAccessDays: share.postPaymentAccessDays,
+    sendOriginalsViaWhatsapp: share.sendOriginalsViaWhatsapp,
     revokedAt: share.revokedAt,
     status: expired ? 'expired' : share.status,
     expired,

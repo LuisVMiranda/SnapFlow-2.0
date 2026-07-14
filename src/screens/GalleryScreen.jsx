@@ -139,7 +139,7 @@ export function GalleryScreen({
                   href={photo.downloadUrl}
                   onClick={(event) => event.stopPropagation()}
                 >
-                  Download
+                  Baixar
                 </a>
               ) : null}
             </div>
@@ -159,7 +159,7 @@ export function GalleryScreen({
           <div className="share-view-notice">
             <div className="share-view-notice-title">Modo de Visualização</div>
             <div className="share-view-notice-copy">
-              Selecione suas fotos favoritas. As imagens originais em alta qualidade serão enviadas após o pagamento.
+              Selecione suas fotos favoritas. As versões finais serão liberadas após a confirmação do pagamento.
             </div>
           </div>
         ) : null}
@@ -167,11 +167,11 @@ export function GalleryScreen({
         {canDownloadAll ? (
           <div className="gallery-download-panel">
             <div>
-              <strong>{downloads.purchasedCount} foto(s) comprada(s)</strong>
-              <small>Baixe todas as versões finais liberadas nesta galeria.</small>
+              <strong>Pagamento confirmado</strong>
+              <small>{downloads.purchasedCount} foto(s) comprada(s). Downloads disponíveis até {new Date(info.expiresAt).toLocaleString('pt-BR')}.</small>
             </div>
             <a className="gallery-download-all-btn" href={downloads.downloadAllUrl}>
-              Download all
+              Baixar tudo
             </a>
           </div>
         ) : null}

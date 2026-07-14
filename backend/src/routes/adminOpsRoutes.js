@@ -94,6 +94,17 @@ function createAdminOpsRouter({ auth, deliveryQueue, repos, retention, whatsapp 
     res.json({ success: true, job, session: await repos.getSession(session.id) });
   }));
 
+  router.post('/sessions/:sessionId/retry-notification', auth.requireAdmin, asyncHandler(async (req, res) => {
+    const session = await repos.getSession(req.params.sessionId);
+    if (!session) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e tente novamente.', 'session_not_found');
+    if (session.status !== 'approved' || !session.shareToken) {
+      throw new HttpError(409, 'O aviso só pode ser reenviado para uma venda aprovada de galeria.', 'notification_retry_not_allowed');
+    }
+    const job = await repos.retryDeliveryForSession(session.id, 'approval_notification');
+    if (typeof deliveryQueue.processOnce === 'function') await deliveryQueue.processOnce();
+    res.json({ success: true, job });
+  }));
+
   router.post('/stats/clear', auth.requireAdmin, asyncHandler(async (req, res) => {
     res.json(await repos.clearSalesStats());
   }));

@@ -5,14 +5,11 @@ const { optionalEmail } = require('../services/email');
 const { validateClientPhone } = require('../services/phone');
 const { addDays, generateAccessCode, hashValue } = require('../tokens');
 const { adminPhotoPagePayload, adminPhotoPayload, adminShareDetails } = require('./adminSharePayloads');
+const { editedExpiryFromBody, galleryDeliveryFromBody, validatePostPaymentDaysForExtension } = require('./adminGalleryDelivery');
 const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
 const { assignInitialOverlay, createSaleGallery } = require('./adminSaleGallery');
 const { toPhotoIds } = require('./helpers');
 const { normalizeShareExpiresMinutes } = require('../services/shareExpiration');
-const {
-  DEFAULT_DELIVERY_MODE,
-  normalizeDeliveryMode,
-} = require('../services/deliveryModeService');
 
 function normalizeAccessCode(value) {
   return String(value || '')
@@ -98,14 +95,6 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
     await storyDelivery.assertReady({ enabled: true, share });
   }
 
-  async function deliveryModeFromBody(body = {}) {
-    if (body.deliveryMode !== undefined) return normalizeDeliveryMode(body.deliveryMode, DEFAULT_DELIVERY_MODE);
-    const settings = deliveryModeSettings && typeof deliveryModeSettings.getSettings === 'function'
-      ? await deliveryModeSettings.getSettings()
-      : { defaultDeliveryMode: DEFAULT_DELIVERY_MODE };
-    return normalizeDeliveryMode(settings.defaultDeliveryMode, DEFAULT_DELIVERY_MODE);
-  }
-
   async function releaseApprovedSession(session) {
     if (deliveryRelease && typeof deliveryRelease.releaseApprovedSession === 'function') {
       return deliveryRelease.releaseApprovedSession(session);
@@ -163,12 +152,12 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
-      const deliveryMode = await deliveryModeFromBody(req.body);
+      const { deliveryMode, postPaymentAccessDays } = await galleryDeliveryFromBody(req.body, deliveryModeSettings);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
           { config, credentials, repos },
-          { clientEmail, clientName, deliveryMode, phone, photoIds, req, totals }
+          { clientEmail, clientName, deliveryMode, phone, photoIds, postPaymentAccessDays, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
       }
@@ -208,12 +197,12 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       const clientEmail = normalizeClientEmail(req.body.clientEmail);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
-      const deliveryMode = await deliveryModeFromBody(req.body);
+      const { deliveryMode, postPaymentAccessDays } = await galleryDeliveryFromBody(req.body, deliveryModeSettings);
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
           { config, credentials, repos },
-          { clientEmail, clientName, deliveryMode, phone, photoIds, req, totals }
+          { clientEmail, clientName, deliveryMode, phone, photoIds, postPaymentAccessDays, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
       }
@@ -261,7 +250,8 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       const current = await repos.getSession(req.params.id);
       if (!current) throw new HttpError(404, 'Sessão não encontrada. Atualize o painel e confirme se a venda ainda existe.', 'session_not_found');
       if (current.status === 'approved') {
-        res.json({ success: true, alreadyApproved: true, session: current });
+        const released = await releaseApprovedSession(current);
+        res.json({ success: true, alreadyApproved: true, session: released || current });
         return;
       }
       if (current.status === 'cancelled') {
@@ -303,7 +293,7 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
       const totals = await resolveSaleAmounts(req.body, packages);
       await assertStoryReady(req.body);
-      const deliveryMode = await deliveryModeFromBody(req.body);
+      const { deliveryMode, postPaymentAccessDays } = await galleryDeliveryFromBody(req.body, deliveryModeSettings);
       const { accessCode: resolvedAccessCode, link, share } = await createOrRestoreShareSession({
         accessCode,
         baseUrl: await resolvePublicBaseUrl(req, config, credentials),
@@ -322,6 +312,7 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
           total: totals.total,
           storyDeliveryEnabled: req.body.storyDeliveryEnabled === true,
           deliveryMode,
+          postPaymentAccessDays,
         },
         retentionExpiresAt,
       });
@@ -354,6 +345,8 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         overlayEnabled: Boolean(responseShare.overlayEnabled),
         storyDeliveryEnabled: Boolean(responseShare.storyDeliveryEnabled),
         deliveryMode: responseShare.deliveryMode,
+        postPaymentAccessDays: responseShare.postPaymentAccessDays,
+        sendOriginalsViaWhatsapp: responseShare.deliveryMode !== 'download',
         photoPresetIds: responseShare.photoPresetIds || [],
         photoPresetSnapshot: responseShare.photoPresetSnapshot || [],
         subtotal: responseShare.subtotal,
@@ -369,7 +362,10 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
     '/share-sessions/:token/extend',
     auth.requireAdmin,
     asyncHandler(async (req, res) => {
-      const updated = await repos.extendShareSession(req.params.token, Math.min(60, Math.max(1, Number(req.body.minutes) || 15)));
+      const requestedMinutes = req.body.days !== undefined
+        ? validatePostPaymentDaysForExtension(req.body.days) * 24 * 60
+        : Math.min(60, Math.max(1, Number(req.body.minutes) || 15));
+      const updated = await repos.extendShareSession(req.params.token, requestedMinutes);
       if (!updated) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
       res.json(updated);
     })
@@ -536,10 +532,12 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         }
       }
 
-      const minutes = Number(body.expiresMinutes);
-      const expiresAt = Number.isFinite(minutes) && minutes > 0
-        ? new Date(Date.now() + normalizeShareExpiresMinutes(minutes) * 60 * 1000)
-        : null;
+      const expiresAt = editedExpiryFromBody(body);
+      const hasDeliveryUpdate = ['deliveryMode', 'sendOriginalsViaWhatsapp', 'postPaymentAccessDays']
+        .some((key) => body[key] !== undefined);
+      const deliveryUpdate = hasDeliveryUpdate
+        ? await galleryDeliveryFromBody(body, deliveryModeSettings)
+        : {};
 
       const validatedPhone = body.phone === undefined ? null : validateClientPhone(body.phone);
       if (validatedPhone && !validatedPhone.valid) {
@@ -552,7 +550,8 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         galleryName: body.galleryName === undefined ? undefined : normalizeGalleryName(body.galleryName),
         galleryDescription: body.galleryDescription === undefined ? undefined : normalizeGalleryDescription(body.galleryDescription),
         storyDeliveryEnabled: body.storyDeliveryEnabled === undefined ? undefined : body.storyDeliveryEnabled === true,
-        deliveryMode: body.deliveryMode === undefined ? undefined : normalizeDeliveryMode(body.deliveryMode, DEFAULT_DELIVERY_MODE),
+        deliveryMode: deliveryUpdate.deliveryMode,
+        postPaymentAccessDays: deliveryUpdate.postPaymentAccessDays,
         phone: body.phone === undefined ? undefined : validatedPhone.stored,
         packageType: body.packageType ? String(body.packageType) : undefined,
         ...(saleAmounts

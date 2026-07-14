@@ -13,6 +13,11 @@ const TEMPLATE_ITEMS = [
     help: 'Usada como mensagem de cobrança enquanto o pagamento ainda não foi confirmado.',
   },
   {
+    key: 'paymentApproved',
+    title: 'Pagamento confirmado',
+    help: 'Enviada após a aprovação, com o link e a validade dos downloads.',
+  },
+  {
     key: 'deliveryThanks',
     title: 'Agradecimento e envio',
     help: 'Enviada antes dos arquivos finais na fila do WhatsApp.',
@@ -43,6 +48,14 @@ const PLACEHOLDERS = [
   {
     token: '{expiresMinutes}',
     help: 'Tempo, em minutos, antes do link da galeria expirar.',
+  },
+  {
+    token: '{expiresAt}',
+    help: 'Data e hora até quando os downloads pagos permanecerão disponíveis.',
+  },
+  {
+    token: '{accessDays}',
+    help: 'Prazo configurado, em dias, para acesso após a confirmação do pagamento.',
   },
   {
     token: '{count}',

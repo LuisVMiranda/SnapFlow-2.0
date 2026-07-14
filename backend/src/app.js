@@ -23,6 +23,7 @@ const { createPhotoEditingPresetService } = require('./services/photoEditingPres
 const { createOverlayAssetService } = require('./services/overlayAssetService');
 const { createDeliveryModeSettingsService } = require('./services/deliveryModeService');
 const { createDeliveryReleaseService } = require('./services/deliveryReleaseService');
+const { createGalleryAccessService } = require('./services/galleryAccessService');
 const { createStoryDeliverySettingsService } = require('./services/storyDeliverySettingsService');
 const { createWatermarkAssetService } = require('./services/watermarkAssetService');
 
@@ -34,12 +35,13 @@ function createApp({ config, repos, media, payment, deliveryQueue, deliveryModeS
   const overlayAssets = providedOverlayAssets || createOverlayAssetService({ media, repos });
   const storyDelivery = providedStoryDelivery || createStoryDeliverySettingsService({ repos });
   const deliveryModeSettings = providedDeliveryModeSettings || createDeliveryModeSettingsService({ repos });
-  const deliveryRelease = providedDeliveryRelease || createDeliveryReleaseService({ deliveryQueue, repos });
+  const galleryAccess = createGalleryAccessService({ repos });
+  const deliveryRelease = providedDeliveryRelease || createDeliveryReleaseService({ deliveryQueue, galleryAccess, repos });
   const watermarkAssets = providedWatermarkAssets || createWatermarkAssetService({ media, repos });
   const galleryOverlays = providedGalleryOverlays || createGalleryOverlayService({ media, repos, watermarkSettings: watermark });
   const galleryWatermarks = providedGalleryWatermarks || createGalleryWatermarkService({ media, repos, watermarkSettings: watermark });
   const galleryPresets = providedGalleryPresets || createGalleryPresetService({ galleryOverlays, galleryWatermarks, media, photoPresets, repos });
-  const deps = { auth, config, credentials, deliveryModeSettings, deliveryQueue, deliveryRelease, galleryOverlays, galleryPresets, galleryWatermarks, media, overlayAssets, packages, payment, photoPresets, repos, retention, storyDelivery, upload, watermarkAssets, whatsapp, whatsappTemplates, watermark };
+  const deps = { auth, config, credentials, deliveryModeSettings, deliveryQueue, deliveryRelease, galleryAccess, galleryOverlays, galleryPresets, galleryWatermarks, media, overlayAssets, packages, payment, photoPresets, repos, retention, storyDelivery, upload, watermarkAssets, whatsapp, whatsappTemplates, watermark };
 
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));

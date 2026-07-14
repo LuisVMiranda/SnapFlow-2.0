@@ -16,7 +16,7 @@ import { useOverlayAssets } from './hooks/useOverlayAssets';
 import { useWatermarkAssets } from './hooks/useWatermarkAssets';
 import { useEffect, useState } from 'react';
 import { buildAdminApprovalUrl, readAdminApprovalSessionId } from './lib/adminApproval';
-import { DEFAULT_DELIVERY_MODE, normalizeDeliveryMode } from './lib/deliveryMode';
+import { DEFAULT_DELIVERY_MODE, DEFAULT_POST_PAYMENT_ACCESS_DAYS, normalizeDeliveryMode } from './lib/deliveryMode';
 
 export default function App() {
   const {
@@ -171,6 +171,7 @@ export default function App() {
   const [selectedOverlaySettings, setSelectedOverlaySettings] = useState({});
   const [selectedStoryDeliveryEnabled, setSelectedStoryDeliveryEnabled] = useState(false);
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState(DEFAULT_DELIVERY_MODE);
+  const [selectedPostPaymentAccessDays, setSelectedPostPaymentAccessDays] = useState(DEFAULT_POST_PAYMENT_ACCESS_DAYS);
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
@@ -183,8 +184,9 @@ export default function App() {
       setSelectedOverlaySettings({});
       setSelectedStoryDeliveryEnabled(Boolean(storyDeliverySettings?.defaultEnabled));
       setSelectedDeliveryMode(normalizeDeliveryMode(deliveryModeSettings?.defaultDeliveryMode));
+      setSelectedPostPaymentAccessDays(deliveryModeSettings?.defaultPostPaymentAccessDays || DEFAULT_POST_PAYMENT_ACCESS_DAYS);
     }
-  }, [deliveryModeSettings?.defaultDeliveryMode, screen, shareToken, storyDeliverySettings?.defaultEnabled]);
+  }, [deliveryModeSettings, screen, shareToken, storyDeliverySettings?.defaultEnabled]);
 
   const adminApprovalSessionId = readAdminApprovalSessionId();
   const approveFromPrompt = async (targetSessionId) => {
@@ -413,6 +415,7 @@ export default function App() {
         selectedOverlayAssetId={selectedOverlayAssetId}
         selectedOverlaySettings={selectedOverlaySettings}
         selectedDeliveryMode={selectedDeliveryMode}
+        selectedPostPaymentAccessDays={selectedPostPaymentAccessDays}
         selectedPhotoPresetIds={selectedPhotoPresetIds}
         selectedStoryDeliveryEnabled={selectedStoryDeliveryEnabled}
         setClientEmail={setClientEmail}
@@ -424,6 +427,7 @@ export default function App() {
         setSelectedOverlayAssetId={setSelectedOverlayAssetId}
         setSelectedOverlaySettings={setSelectedOverlaySettings}
         setSelectedDeliveryMode={setSelectedDeliveryMode}
+        setSelectedPostPaymentAccessDays={setSelectedPostPaymentAccessDays}
         setSelectedPhotoPresetIds={setSelectedPhotoPresetIds}
         setSelectedStoryDeliveryEnabled={setSelectedStoryDeliveryEnabled}
         setScreen={setScreen}

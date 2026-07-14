@@ -35,6 +35,14 @@ function createAdminSettingsRouter({
     res.json(await deliveryModeSettings.updateSettings(req.body || {}));
   }));
 
+  router.get('/settings/gallery-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {
+    res.json(await deliveryModeSettings.getSettings());
+  }));
+
+  router.put('/settings/gallery-delivery', auth.requireAdmin, asyncHandler(async (req, res) => {
+    res.json(await deliveryModeSettings.updateSettings(req.body || {}));
+  }));
+
   router.get('/settings/watermark', auth.requireAdmin, asyncHandler(async (req, res) => {
     res.json(await watermark.getSettings());
   }));

@@ -1,5 +1,9 @@
 const { rowToShare, toCents } = require('./mappers');
-const { LEGACY_DELIVERY_MODE, normalizeDeliveryMode } = require('../services/deliveryModeService');
+const {
+  LEGACY_DELIVERY_MODE,
+  normalizeDeliveryMode,
+  normalizePostPaymentAccessDays,
+} = require('../services/deliveryModeService');
 
 const SHARE_WITH_SALES_SQL = `
   select ss.*,
@@ -31,8 +35,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
   async function createShareSession(share) {
     const result = await query(
       `insert into share_sessions
-        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, photo_preset_ids, photo_preset_snapshot, photo_preset_applied_at, story_delivery_enabled, delivery_mode)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        (token, gallery_id, gallery_name, gallery_description, access_code_hash, access_code, phone, client_name, client_email, package_type, photo_count, subtotal_cents, discount_cents, total_cents, expires_at, retention_expires_at, link, photo_preset_ids, photo_preset_snapshot, photo_preset_applied_at, story_delivery_enabled, delivery_mode, post_payment_access_days)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
        returning *`,
       [
         share.token,
@@ -57,6 +61,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         share.photoPresetAppliedAt || null,
         Boolean(share.storyDeliveryEnabled),
         normalizeDeliveryMode(share.deliveryMode, LEGACY_DELIVERY_MODE),
+        normalizePostPaymentAccessDays(share.postPaymentAccessDays),
       ]
     );
     await attachPhotosToSession(share.photoIds, {
@@ -128,7 +133,8 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            status = case when $14::boolean then 'active' else status end,
            revoked_at = case when $14::boolean then null else revoked_at end,
            story_delivery_enabled = coalesce($15, story_delivery_enabled),
-           delivery_mode = coalesce($16, delivery_mode)
+           delivery_mode = coalesce($16, delivery_mode),
+           post_payment_access_days = coalesce($17, post_payment_access_days)
        where token = $1 and deleted_at is null
        returning *`,
       [
@@ -148,7 +154,23 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         hasExpiresAt,
         updates.storyDeliveryEnabled === undefined ? null : Boolean(updates.storyDeliveryEnabled),
         updates.deliveryMode === undefined ? null : normalizeDeliveryMode(updates.deliveryMode, LEGACY_DELIVERY_MODE),
+        updates.postPaymentAccessDays === undefined ? null : normalizePostPaymentAccessDays(updates.postPaymentAccessDays),
       ]
+    );
+    return rowToShare(result.rows[0], { includeAccessCode: true });
+  }
+
+  async function promoteShareAfterPayment(token, expiresAt) {
+    const result = await query(
+      `update share_sessions
+       set expires_at = greatest(expires_at, $2::timestamptz),
+           status = 'active'
+       where token = $1
+         and deleted_at is null
+         and revoked_at is null
+         and status <> 'revoked'
+       returning *`,
+      [token, expiresAt]
     );
     return rowToShare(result.rows[0], { includeAccessCode: true });
   }
@@ -283,6 +305,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
            link = coalesce($15, link),
            story_delivery_enabled = coalesce($16, story_delivery_enabled),
            delivery_mode = coalesce($17, delivery_mode),
+           post_payment_access_days = coalesce($18, post_payment_access_days),
            status = 'active',
            revoked_at = null,
            deleted_at = null,
@@ -311,6 +334,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
         updates.link || null,
         updates.storyDeliveryEnabled === undefined ? null : Boolean(updates.storyDeliveryEnabled),
         updates.deliveryMode === undefined ? null : normalizeDeliveryMode(updates.deliveryMode, LEGACY_DELIVERY_MODE),
+        updates.postPaymentAccessDays === undefined ? null : normalizePostPaymentAccessDays(updates.postPaymentAccessDays),
       ]
     );
     return rowToShare(result.rows[0], { includeAccessCode: true, includeSensitive: true });
@@ -446,6 +470,7 @@ function createShareSessionRepo({ attachPhotosToSession, cancelPendingSessionsFo
     getShareCart,
     getShareSession,
     markShareAccessGranted,
+    promoteShareAfterPayment,
     reactivateShareSession,
     refreshSharePhotoCount,
     restoreShareSession,

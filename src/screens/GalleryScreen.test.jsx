@@ -142,4 +142,28 @@ describe('GalleryScreen paginated shared galleries', () => {
 
     expect(container.querySelector('.gallery-client-overlay')).toBeNull();
   });
+
+  it('shows purchased files, payment confirmation and the post-payment expiry', () => {
+    render(
+      <GalleryScreen
+        {...baseProps}
+        photos={[
+          { id: 'photo_1', thumbUrl: '/thumb/1.jpg', purchased: true, selectable: false, downloadUrl: '/download/1' },
+          { id: 'photo_2', thumbUrl: '/thumb/2.jpg', selectable: true },
+        ]}
+        photoPageCounts={{ loadedCount: 2, selectedCount: 0, selectedLoadedCount: 0, totalCount: 2 }}
+        photosPage={{ hasMore: false, nextCursor: null, totalCount: 2 }}
+        selected={[]}
+        shareSessionInfo={{
+          expiresAt: '2026-07-21T15:00:00.000Z',
+          downloads: { purchasedCount: 1, downloadAllUrl: '/download/all' },
+        }}
+      />
+    );
+
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Baixar' })).toHaveAttribute('href', '/download/1');
+    expect(screen.getByRole('link', { name: 'Baixar tudo' })).toHaveAttribute('href', '/download/all');
+    expect(screen.getByText(/Downloads disponíveis até/i)).toBeInTheDocument();
+  });
 });

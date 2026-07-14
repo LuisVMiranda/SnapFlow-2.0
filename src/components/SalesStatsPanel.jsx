@@ -10,6 +10,15 @@ const PERIODS = [
   { key: 'ano', label: 'Anual', seriesKey: 'anual' },
 ];
 
+const NOTIFICATION_META = {
+  idle: { label: 'Aviso não agendado', tone: 'neutral' },
+  pending: { label: 'Aviso na fila', tone: 'info' },
+  running: { label: 'Enviando aviso', tone: 'info' },
+  sent: { label: 'Aviso enviado', tone: 'success' },
+  failed: { label: 'Aviso falhou', tone: 'danger' },
+  cancelled: { label: 'Aviso cancelado', tone: 'neutral' },
+};
+
 function deliveryFailureHint(error) {
   const message = String(error || '').trim();
   if (!message) return 'O envio falhou, mas a API não retornou detalhes. Confira se o WhatsApp está pareado e tente reenviar.';
@@ -129,6 +138,25 @@ export function SalesStatsPanel({
     }
   };
 
+  const retryNotification = async (targetSessionId) => {
+    if (!targetSessionId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/sessions/${targetSessionId}/retry-notification`, {
+        method: 'POST',
+        headers: adminHeaders(),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível reenviar o aviso.', response, data));
+        return;
+      }
+      setNotice(data.job?.status === 'sent' ? 'Aviso reenviado com sucesso.' : 'Aviso reenfileirado.');
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível reenviar o aviso.', error));
+    }
+  };
+
   const clearStats = async () => {
     if (!window.confirm('Deseja apagar o histórico de vendas e estatísticas As galerias compartilhadas continuarão na aba Galerias.')) return;
     if (!window.confirm('Confirme novamente: esta ação apaga as sessões de venda do painel.')) return;
@@ -223,6 +251,7 @@ export function SalesStatsPanel({
         pricingOptions={pricingOptions}
         cancelRelease={cancelRelease}
         retryDelivery={retryDelivery}
+        retryNotification={retryNotification}
         setNotice={setNotice}
       />
     </section>
@@ -259,7 +288,7 @@ function ConversionFunnelCard({ funnel = [] }) {
   );
 }
 
-function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard, pricingOptions, retryDelivery, setNotice }) {
+function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard, pricingOptions, retryDelivery, retryNotification, setNotice }) {
   return (
     <div className="recent-sessions">
       <div className="recent-header">
@@ -276,6 +305,7 @@ function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard,
                 ? { label: 'Aguardando aprovação', tone: 'info' }
                 : PAYMENT_META.pending;
         const deliveryMeta = DELIVERY_META[session.deliveryStatus || 'idle'] || DELIVERY_META.idle;
+        const notificationMeta = NOTIFICATION_META[session.notificationStatus || 'idle'] || NOTIFICATION_META.idle;
 
         return (
           <div key={session.id} className="session-item" style={{ flexWrap: 'wrap' }}>
@@ -289,6 +319,9 @@ function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard,
             <div className="session-status dashboard-session-status">
               <span className={`badge badge-${paymentMeta.tone}`}>{paymentMeta.label}</span>
               <span className={`badge badge-${deliveryMeta.tone}`}>{deliveryMeta.label}</span>
+              {session.shareToken && session.status === 'approved' ? (
+                <span className={`badge badge-${notificationMeta.tone}`}>{notificationMeta.label}</span>
+              ) : null}
               {session.status === 'pending' && session.paymentMethod === 'Dinheiro/Cartão' ? (
                 <>
                   <button
@@ -323,8 +356,16 @@ function RecentSessions({ adminHeaders, cancelRelease, dashData, fetchDashboard,
                   Reenviar fotos
                 </button>
               ) : null}
+              {session.status === 'approved' && session.shareToken && ['idle', 'failed'].includes(session.notificationStatus || 'idle') ? (
+                <button className="share-quick-btn approve-session-btn" onClick={() => retryNotification(session.id)}>
+                  {session.notificationStatus === 'failed' ? 'Reenviar aviso' : 'Enviar aviso'}
+                </button>
+              ) : null}
               {session.deliveryStatus === 'failed' ? (
                 <small className="delivery-failure-note">{deliveryFailureHint(session.deliveryError)}</small>
+              ) : null}
+              {session.notificationStatus === 'failed' ? (
+                <small className="delivery-failure-note">Aviso: {deliveryFailureHint(session.notificationError)}</small>
               ) : null}
             </div>
           </div>

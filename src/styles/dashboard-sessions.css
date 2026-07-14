@@ -92,6 +92,20 @@
   margin-top: 0;
 }
 
+.share-edit-panel .gallery-delivery-toggle input[type='checkbox'] {
+  height: 16px;
+  min-height: 16px;
+  width: 16px;
+}
+
+.share-edit-panel .gallery-delivery-days-input input {
+  min-height: 40px;
+}
+
+.gallery-access-tools > button {
+  justify-self: start;
+}
+
 .phone-field-grid {
   display: grid;
   gap: 12px;
@@ -324,6 +338,11 @@
 
   .phone-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gallery-delivery-control .gallery-delivery-days {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .share-gallery-editor-header {

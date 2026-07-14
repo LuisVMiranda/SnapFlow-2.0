@@ -59,3 +59,21 @@ test('share cart lookup normalizes arbitrary stored values without crashing', as
     )
   );
 });
+
+test('post-payment promotion preserves longer manual expiry and explicit revocation', async () => {
+  let statement = '';
+  let values = [];
+  const repo = createRepoWithQuery(async (sql, params) => {
+    statement = sql;
+    values = params;
+    return { rows: [{ token: 'share_1', expires_at: params[1], status: 'active' }] };
+  });
+  const target = new Date('2026-07-21T12:00:00.000Z');
+
+  await repo.promoteShareAfterPayment('share_1', target);
+
+  assert.match(statement, /expires_at = greatest\(expires_at, \$2::timestamptz\)/i);
+  assert.match(statement, /revoked_at is null/i);
+  assert.match(statement, /status <> 'revoked'/i);
+  assert.deepEqual(values, ['share_1', target]);
+});

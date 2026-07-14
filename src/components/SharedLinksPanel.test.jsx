@@ -135,6 +135,59 @@ describe('SharedLinksPanel', () => {
     await waitFor(() => expect(baseProps.fetchDashboard).toHaveBeenCalled());
   });
 
+  it('normalizes a legacy WhatsApp gallery to download plus WhatsApp originals when saved', async () => {
+    const user = userEvent.setup();
+    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ photos: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    render(<SharedLinksPanel {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+
+    expect(screen.getByLabelText('Enviar também os originais pelo WhatsApp')).toBeChecked();
+    expect(screen.getByRole('spinbutton', { name: /Acesso para download após o pagamento/i })).toHaveValue(7);
+    await user.clear(screen.getByLabelText('Desconto manual'));
+    await user.click(screen.getByRole('button', { name: 'Salvar galeria' }));
+
+    await waitFor(() => expect(globalThis.fetch.mock.calls.some(([url, options]) => (
+      url === '/api/admin/share-sessions/old-token' && options?.method === 'PATCH'
+    ))).toBe(true));
+    const saveCall = globalThis.fetch.mock.calls.find(([url, options]) => (
+      url === '/api/admin/share-sessions/old-token' && options?.method === 'PATCH'
+    ));
+    const body = JSON.parse(saveCall[1].body);
+    expect(body.sendOriginalsViaWhatsapp).toBe(true);
+    expect(body.postPaymentAccessDays).toBe(7);
+  });
+
+  it('extends an approved gallery download window by seven days', async () => {
+    const user = userEvent.setup();
+    const paidShare = {
+      ...baseProps.dashData.shareRecent[0],
+      status: 'opened',
+      expiresAt: '2026-07-21T15:00:00.000Z',
+      sales: { soldPhotoCount: 1, soldOrderCount: 1, soldAmount: 20 },
+    };
+    globalThis.fetch = vi.fn(async (url) => new Response(JSON.stringify(
+      String(url).endsWith('/extend')
+        ? { ...paidShare, expiresAt: '2026-07-28T15:00:00.000Z' }
+        : { photos: [], sales: paidShare.sales }
+    ), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    render(<SharedLinksPanel {...baseProps} dashData={{ shareRecent: [paidShare] }} />);
+    await user.click(screen.getByRole('button', { name: 'Ver/Editar' }));
+    await user.click(screen.getByRole('button', { name: 'Estender por 7 dias' }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/admin/share-sessions/old-token/extend',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ days: 7 }) })
+    );
+  });
+
   it('lets the admin remove a gallery discount by leaving the field blank', async () => {
     const user = userEvent.setup();
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ success: true }), {

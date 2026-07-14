@@ -6,7 +6,7 @@ Este documento compila a visão de produto, arquitetura, tecnologias, fluxos, re
 
 ## Resumo Executivo
 
-SnapFlow 2.0 é um sistema operacional de vendas rápidas para fotógrafos presenciais. Ele une painel administrativo, upload de fotos, galerias compartilhadas, seleção do cliente, cobrança, pagamento, aprovação, processamento de imagem e entrega por WhatsApp em uma experiência única.
+SnapFlow 2.0 é um sistema operacional de vendas rápidas para fotógrafos presenciais. Ele une painel administrativo, upload de fotos, galerias compartilhadas, seleção do cliente, cobrança, pagamento, aprovação, processamento de imagem, downloads e entrega opcional por WhatsApp em uma experiência única.
 
 O produto existe para reduzir o tempo entre fotografar, vender e entregar. Em eventos, turismo, escolas, parques, ações corporativas e operações de alta rotatividade, cada minuto de fricção custa venda. SnapFlow organiza esse ciclo para que o fotógrafo consiga atender mais pessoas, vender com menos improviso e entregar arquivos de qualidade sem perder controle comercial.
 
@@ -76,8 +76,8 @@ O produto também serve para operações pequenas que precisam de processo profi
 5. O resumo calcula quantidade, preço unitário, subtotal, desconto manual e total.
 6. O operador informa nome, telefone, e-mail opcional e método de pagamento.
 7. O pedido pode seguir por Pix Mercado Pago ou pagamento manual.
-8. Quando aprovado, a sessão entra na fila de entrega.
-9. A fila prepara os arquivos finais e envia pelo WhatsApp.
+8. Quando aprovado, a galeria recebe direitos de download e pelo menos 7 dias de acesso pós-pagamento.
+9. O WhatsApp envia um aviso leve e, quando habilitado, a fila também envia os originais.
 
 ### Fluxo de Galeria Compartilhada
 
@@ -89,7 +89,7 @@ O produto também serve para operações pequenas que precisam de processo profi
 6. O cliente seleciona fotos; o carrinho pode ser salvo no backend.
 7. O cliente gera Pix ou solicita pagamento manual.
 8. O Pix aprovado libera entrega automaticamente; pagamento manual aguarda aprovação do fotógrafo.
-9. Os arquivos pagos são enviados pelo WhatsApp.
+9. Os arquivos pagos ficam disponíveis individualmente e em ZIP na galeria; o envio dos originais pelo WhatsApp é opcional.
 
 ### Fluxo Pix
 
@@ -113,15 +113,14 @@ O produto também serve para operações pequenas que precisam de processo profi
 
 ### Fluxo de Entrega
 
-1. A aprovação cria ou ativa um job na tabela de entregas.
-2. A fila processa jobs pendentes periodicamente.
-3. A fila valida se a sessão está aprovada.
-4. As fotos selecionadas são carregadas pelo repositório.
-5. O contexto visual da galeria é resolvido: overlay ativo, Stories habilitado e demais metadados.
-6. O serviço de mídia prepara arquivos temporários quando necessário.
-7. O WhatsApp envia mensagem de agradecimento e arquivos como documento.
-8. A fila limpa temporários, marca job como enviado e registra evento de conversão.
-9. Em falha, o erro fica visível e pode ser reenviado pelo painel.
+1. A aprovação promove a validade com base em `approvedAt`, sem reduzir prazos manuais maiores nem desfazer revogação explícita.
+2. Os direitos de download são criados antes de qualquer dependência do WhatsApp.
+3. A fila cria jobs independentes para aviso de aprovação e, opcionalmente, mídia.
+4. O aviso com link, código e validade tem prioridade sobre os documentos.
+5. Quando o envio de originais está ativo, o contexto visual da galeria é resolvido e os arquivos finais são preparados.
+6. O WhatsApp envia os originais como documentos, sem repetir a mensagem de aprovação.
+7. A fila limpa temporários, marca cada job separadamente e registra o evento de conversão da mídia.
+8. Falhas de aviso e mídia ficam visíveis e podem ser reenviadas de forma independente.
 
 ## Recursos de Produto
 
@@ -234,20 +233,20 @@ Operações disponíveis:
 - enviar fotos como documentos;
 - tentar reconectar após falhas transientes.
 
-As mensagens são configuráveis e aceitam variáveis como `{name}`, `{link}`, `{linkText}`, `{code}`, `{expiresMinutes}`, `{count}`, `{total}`, `{phone}` e `{sessionId}`.
+As mensagens são configuráveis e aceitam variáveis como `{name}`, `{link}`, `{linkText}`, `{code}`, `{expiresMinutes}`, `{expiresAt}`, `{accessDays}`, `{count}`, `{total}`, `{phone}` e `{sessionId}`.
 
 ### Fila de Entrega
 
-A fila de entrega isola aprovação de pagamento do envio real. Isso evita que uma falha do WhatsApp quebre a venda inteira.
+A fila de entrega isola aprovação, aviso e envio de mídia. Downloads e validade são persistidos antes dela, então uma falha do WhatsApp não quebra a venda.
 
 Responsabilidades da fila:
 
-- reclamar job pendente;
+- reclamar primeiro o aviso pendente e depois a mídia;
 - validar sessão aprovada;
 - buscar fotos selecionadas;
 - resolver contexto da galeria;
 - preparar arquivos finais;
-- enviar pelo WhatsApp;
+- enviar aviso ou originais pelo WhatsApp conforme o tipo;
 - limpar temporários;
 - marcar sucesso ou falha;
 - permitir retry.
@@ -469,7 +468,8 @@ Entidades importantes:
 - `sessions`: vendas, pagamentos, status e entrega;
 - `photos`: metadados e caminhos de mídia;
 - `share_sessions`: galerias compartilhadas;
-- `delivery_jobs`: fila de envio;
+- `delivery_jobs`: fila tipada de aviso de aprovação e envio de mídia;
+- `download_entitlements`: direitos persistentes de download por compra e foto;
 - `payment_events`: eventos do provedor;
 - `app_settings`: configurações;
 - `cleanup_runs`: histórico de limpeza;

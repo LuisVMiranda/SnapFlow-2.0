@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DeliveryModeControl } from '../components/DeliveryModeControl';
+import { GalleryDeliveryControl } from '../components/GalleryDeliveryControl';
 import { OverlayPreviewModal } from '../components/OverlayPreviewModal';
 import { ShareCountdown } from '../components/ShareCountdown';
 import { SessionOpsCard } from '../components/SessionOpsCard';
@@ -36,7 +36,8 @@ export function SummaryScreen({
   selectedPhotoItems,
   selectedOverlayAssetId = '',
   selectedOverlaySettings = {},
-  selectedDeliveryMode = 'both',
+  selectedDeliveryMode = 'download',
+  selectedPostPaymentAccessDays = 7,
   selectedPhotoPresetIds = [],
   selectedStoryDeliveryEnabled = false,
   setClientName,
@@ -48,6 +49,7 @@ export function SummaryScreen({
   setSelectedOverlayAssetId = () => {},
   setSelectedOverlaySettings = () => {},
   setSelectedDeliveryMode = () => {},
+  setSelectedPostPaymentAccessDays = () => {},
   setSelectedPhotoPresetIds = () => {},
   setSelectedStoryDeliveryEnabled = () => {},
   setScreen,
@@ -120,17 +122,19 @@ export function SummaryScreen({
     const storyOptions = !shareToken && selectedStoryDeliveryEnabled === true
       ? { storyDeliveryEnabled: true }
       : {};
-    const deliveryOptions = !shareToken ? { deliveryMode: selectedDeliveryMode } : {};
+    const deliveryOptions = !shareToken
+      ? {
+          deliveryMode: selectedDeliveryMode,
+          postPaymentAccessDays: selectedPostPaymentAccessDays,
+          sendOriginalsViaWhatsapp: selectedDeliveryMode !== 'download',
+        }
+      : {};
     return { ...selectedOverlayPayload(), ...storyOptions, ...deliveryOptions };
   };
 
   const submitManualPayment = () => {
     const options = selectedGalleryOptions();
-    if (options.assetId || options.storyDeliveryEnabled) {
-      handleManualPayment('manual', options);
-      return;
-    }
-    handleManualPayment('manual');
+    handleManualPayment('manual', options);
   };
 
   const createSharedLinkWithPresetConfirmation = () => {
@@ -342,16 +346,14 @@ export function SummaryScreen({
 
       {!shareToken ? (
         <div className="summary-card" style={{ marginTop: '16px' }}>
-          <div className="summary-label">Entrega principal da galeria</div>
-          <DeliveryModeControl
-            compact
+          <div className="summary-label">Entrega após o pagamento</div>
+          <GalleryDeliveryControl
             idPrefix="summary-delivery-mode"
-            value={selectedDeliveryMode}
-            onChange={setSelectedDeliveryMode}
+            mode={selectedDeliveryMode}
+            postPaymentAccessDays={selectedPostPaymentAccessDays}
+            onAccessDaysChange={setSelectedPostPaymentAccessDays}
+            onModeChange={setSelectedDeliveryMode}
           />
-          <small className="summary-help">
-            A escolha vale para as fotos pagas desta galeria. Em Ambos, o cliente recebe redundância por WhatsApp e download.
-          </small>
         </div>
       ) : null}
 
@@ -481,7 +483,7 @@ export function SummaryScreen({
           </small>
           <div style={{ marginTop: '12px' }}>
             <label className="share-duration-label" htmlFor="share-duration">
-              Tempo de acesso em minutos
+              Tempo para selecionar e pagar, em minutos
             </label>
             <input
               id="share-duration"

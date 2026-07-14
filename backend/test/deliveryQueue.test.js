@@ -59,6 +59,120 @@ test('delivery queue uses the configured WhatsApp thank-you message', async () =
   assert.equal(sentMessage, 'Obrigado Ana Cliente, pela compra de 2 foto(s)!');
 });
 
+test('approval notification is processed independently before media delivery', async () => {
+  let claimed = false;
+  let sent = null;
+  let completed = null;
+  let deliveryStatusUpdates = 0;
+  const repos = {
+    async claimDeliveryJob() {
+      if (claimed) return null;
+      claimed = true;
+      return { id: 21, kind: 'approval_notification', session_id: 'sess_notice' };
+    },
+    async getSession() {
+      return { id: 'sess_notice', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999', clientName: 'Ana' };
+    },
+    async getShareSession() {
+      return { token: 'share_1', accessCode: 'AB12', expiresAt: '2026-07-21T15:00:00.000Z', link: 'https://snap.test/s/share_1', postPaymentAccessDays: 7 };
+    },
+    async completeDeliveryJob(jobId) {
+      completed = jobId;
+    },
+    async failDeliveryJob() {},
+    async updateDeliveryStatus() {
+      deliveryStatusUpdates += 1;
+    },
+  };
+  const whatsappTemplates = {
+    async renderPaymentApprovedMessage(variables) {
+      assert.equal(variables.accessDays, 7);
+      return 'Pagamento confirmado. Abra a galeria.';
+    },
+  };
+  const whatsapp = {
+    async sendText(phone, message) {
+      sent = { phone, message };
+    },
+  };
+
+  const queue = createDeliveryQueue({ repos, whatsapp, whatsappTemplates });
+  await queue.processOnce();
+
+  assert.deepEqual(sent, { phone: '+55 11 99999-9999', message: 'Pagamento confirmado. Abra a galeria.' });
+  assert.equal(completed, 21);
+  assert.equal(deliveryStatusUpdates, 0);
+});
+
+test('delayed approval notifications are skipped after gallery revocation or expiry', async () => {
+  const unavailableShares = [
+    { status: 'revoked', revokedAt: null, expiresAt: new Date(Date.now() + 86_400_000).toISOString() },
+    { status: 'active', revokedAt: null, expiresAt: new Date(Date.now() - 60_000).toISOString() },
+  ];
+
+  for (const [index, unavailableShare] of unavailableShares.entries()) {
+    let completed = null;
+    let sendCount = 0;
+    const repos = {
+      async claimDeliveryJob() {
+        return completed ? null : { id: 30 + index, kind: 'approval_notification', session_id: `sess_${index}` };
+      },
+      async getSession() {
+        return { id: `sess_${index}`, status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' };
+      },
+      async getShareSession() {
+        return { token: 'share_1', link: 'https://snap.test/s/share_1', ...unavailableShare };
+      },
+      async completeDeliveryJob(jobId) {
+        completed = jobId;
+      },
+      async failDeliveryJob() {},
+    };
+    const queue = createDeliveryQueue({
+      repos,
+      whatsapp: { async sendText() { sendCount += 1; } },
+      whatsappTemplates: { async renderPaymentApprovedMessage() { return 'Pago'; } },
+    });
+
+    await queue.processOnce();
+
+    assert.equal(completed, 30 + index);
+    assert.equal(sendCount, 0);
+  }
+});
+
+test('approval notification failure does not mark media delivery as failed', async () => {
+  let failed = null;
+  let deliveryStatusUpdates = 0;
+  const repos = {
+    async claimDeliveryJob() {
+      return failed ? null : { id: 22, kind: 'approval_notification', session_id: 'sess_notice' };
+    },
+    async getSession() {
+      return { id: 'sess_notice', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' };
+    },
+    async getShareSession() {
+      return { token: 'share_1', link: 'https://snap.test/s/share_1' };
+    },
+    async completeDeliveryJob() {},
+    async failDeliveryJob(jobId, error) {
+      failed = { jobId, error };
+    },
+    async updateDeliveryStatus() {
+      deliveryStatusUpdates += 1;
+    },
+  };
+  const whatsappTemplates = { async renderPaymentApprovedMessage() { return 'Pago'; } };
+  const whatsapp = { async sendText() { throw new Error('WhatsApp desconectado'); } };
+
+  const queue = createDeliveryQueue({ repos, whatsapp, whatsappTemplates });
+  await queue.processOnce();
+
+  assert.equal(failed.jobId, 22);
+  assert.match(failed.error, /desconectado/);
+  assert.equal(deliveryStatusUpdates, 0);
+});
+
 test('delivery queue does not send photos before manual payment approval', async () => {
   let claimed = false;
   let cancelledJob = null;
@@ -114,6 +228,7 @@ test('delivery queue sends overlay-prepared photos for galleries with active ove
   let claimed = false;
   let cleanupCalled = false;
   let sentPhotos = [];
+  let sentMessage = 'unseen';
   let receivedOverlay = null;
   const repos = {
     async claimDeliveryJob() {
@@ -142,9 +257,10 @@ test('delivery queue sends overlay-prepared photos for galleries with active ove
     },
   };
   const whatsapp = {
-    async sendPhotos(phone, photos) {
+    async sendPhotos(phone, photos, storageRoot, message) {
       assert.equal(phone, '11999999999');
       sentPhotos = photos;
+      sentMessage = message;
     },
   };
   const galleryOverlays = {
@@ -167,6 +283,7 @@ test('delivery queue sends overlay-prepared photos for galleries with active ove
   assert.equal(receivedOverlay.assetPath, 'overlay-assets/overlay_1.png');
   assert.deepEqual(receivedOverlay.settings, { x: 0.8, y: 0.2, widthRatio: 0.4, opacity: 0.9 });
   assert.deepEqual(sentPhotos.map((photo) => photo.originalPath), ['tmp/photo_1-delivery.jpg']);
+  assert.equal(sentMessage, undefined);
   assert.equal(cleanupCalled, true);
 });
 

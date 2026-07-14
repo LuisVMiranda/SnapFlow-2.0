@@ -23,6 +23,7 @@ const { createGalleryPresetService } = require('./src/services/galleryPresetServ
 const { createStoryDeliverySettingsService } = require('./src/services/storyDeliverySettingsService');
 const { createDeliveryModeSettingsService } = require('./src/services/deliveryModeService');
 const { createDeliveryReleaseService } = require('./src/services/deliveryReleaseService');
+const { createGalleryAccessService } = require('./src/services/galleryAccessService');
 
 async function main() {
   const config = createConfig();
@@ -41,7 +42,8 @@ async function main() {
   const galleryPresets = createGalleryPresetService({ repos, media, photoPresets, galleryWatermarks, galleryOverlays });
   const whatsapp = createWhatsAppClient();
   const deliveryQueue = createDeliveryQueue({ repos, media, whatsapp, whatsappTemplates, galleryOverlays });
-  const deliveryRelease = createDeliveryReleaseService({ deliveryQueue, repos });
+  const galleryAccess = createGalleryAccessService({ repos });
+  const deliveryRelease = createDeliveryReleaseService({ deliveryQueue, galleryAccess, repos });
   const payment = createPaymentService({ config, repos, deliveryQueue, deliveryRelease, credentials, whatsappTemplates });
   const packages = createPackageSettingsService({ repos });
   const retention = createRetentionService({ repos, media });

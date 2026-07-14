@@ -4,6 +4,12 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SummaryScreen } from './SummaryScreen';
 
+const defaultGalleryDelivery = {
+  deliveryMode: 'download',
+  postPaymentAccessDays: 7,
+  sendOriginalsViaWhatsapp: false,
+};
+
 function buildProps(overrides = {}) {
   return {
     activeStage: 'Conferindo valor',
@@ -96,7 +102,7 @@ describe('SummaryScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: /Pagamento Dinheiro\/Cart/i }));
 
     expect(screen.getByDisplayValue('ana@cliente.com')).toBeInTheDocument();
-    expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
+    expect(props.handleManualPayment).toHaveBeenCalledWith('manual', { assetId: '', ...defaultGalleryDelivery });
   });
 
   it('shows discount controls only for direct admin sales', () => {
@@ -170,7 +176,7 @@ describe('SummaryScreen', () => {
     await userEvent.click(screen.getByRole('button', { name: /Pagamento Dinheiro\/Cart/i }));
 
     expect(props.handleGeneratePix).toHaveBeenCalledTimes(1);
-    expect(props.handleManualPayment).toHaveBeenCalledWith('manual');
+    expect(props.handleManualPayment).toHaveBeenCalledWith('manual', { assetId: '', ...defaultGalleryDelivery });
   });
 
   it('sends selected overlay draft when generating direct admin checkout actions', async () => {
@@ -191,7 +197,7 @@ describe('SummaryScreen', () => {
 
     const overlay = {
       assetId: 'overlay_1',
-      deliveryMode: 'both',
+      ...defaultGalleryDelivery,
       settings: {
         portrait: { x: 0.2, y: 0.8, widthRatio: 0.35, opacity: 0.8 },
         landscape: { x: 0.7, y: 0.3, widthRatio: 0.45, opacity: 0.9 },
@@ -213,7 +219,7 @@ describe('SummaryScreen', () => {
 
     expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
       assetId: '',
-      deliveryMode: 'both',
+      ...defaultGalleryDelivery,
       storyDeliveryEnabled: true,
     });
     expect(props.setNotice).not.toHaveBeenCalled();
@@ -236,7 +242,7 @@ describe('SummaryScreen', () => {
 
     expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
       assetId: 'overlay_1',
-      deliveryMode: 'both',
+      ...defaultGalleryDelivery,
       storyDeliveryEnabled: true,
     });
   });
@@ -323,7 +329,7 @@ describe('SummaryScreen', () => {
     expect(confirmSpy).toHaveBeenCalledWith(
       'Aplicar os presets selecionados nas fotos desta galeria antes de enviar o link'
     );
-    expect(props.handleCreateShareSession).toHaveBeenCalledWith(['soft'], { assetId: '', deliveryMode: 'both' });
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith(['soft'], { assetId: '', ...defaultGalleryDelivery });
   });
 
   it('lets admin choose an existing overlay while creating a gallery link', async () => {
@@ -352,7 +358,7 @@ describe('SummaryScreen', () => {
     await user.selectOptions(screen.getByLabelText('Overlay inicial da galeria'), 'overlay_2');
     await user.click(screen.getByRole('button', { name: /Criar link e enviar WhatsApp/i }));
 
-    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], { assetId: 'overlay_2', deliveryMode: 'both' });
+    expect(props.handleCreateShareSession).toHaveBeenCalledWith([], { assetId: 'overlay_2', ...defaultGalleryDelivery });
   });
 
   it('saves initial overlay settings from the creation preview modal', async () => {
@@ -386,7 +392,7 @@ describe('SummaryScreen', () => {
 
     expect(props.handleCreateShareSession).toHaveBeenCalledWith([], {
       assetId: 'overlay_1',
-      deliveryMode: 'both',
+      ...defaultGalleryDelivery,
       settings: expect.objectContaining({
         x: 0.5,
         y: 0.5,

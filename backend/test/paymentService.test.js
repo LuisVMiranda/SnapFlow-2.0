@@ -55,3 +55,37 @@ test('payment service rejects invalid Mercado Pago webhook signatures', async ()
 
   await assert.rejects(() => service.verifyWebhook(req), /Assinatura de webhook inválida/);
 });
+
+test('approved Pix payment uses the shared post-payment release flow', async () => {
+  const released = [];
+  const events = [];
+  const approvedSession = {
+    id: 'session_1',
+    shareToken: 'share_1',
+    photoCount: 2,
+    amount: 30,
+    approvedAt: new Date('2026-07-14T12:00:00.000Z'),
+  };
+  const service = createPaymentService({
+    config: {},
+    credentials: { getSecretValue: async () => 'access-token' },
+    deliveryQueue: { enqueue: async () => assert.fail('legacy queue should not be used') },
+    deliveryRelease: { releaseApprovedSession: async (session) => released.push(session) },
+    paymentClientFactory: () => ({
+      get: async ({ id }) => ({ id, status: 'approved', metadata: { session_id: 'session_1' } }),
+    }),
+    repos: {
+      approveSession: async (id) => {
+        assert.equal(id, 'session_1');
+        return approvedSession;
+      },
+      recordPaymentEvent: async (event) => events.push(event),
+    },
+  });
+
+  const result = await service.approvePayment('payment_1');
+
+  assert.equal(result, approvedSession);
+  assert.deepEqual(released, [approvedSession]);
+  assert.equal(events[0].providerEventId, 'payment:payment_1:approved');
+});

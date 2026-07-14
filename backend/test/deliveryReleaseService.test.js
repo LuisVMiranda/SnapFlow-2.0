@@ -4,7 +4,7 @@ const { createDeliveryReleaseService } = require('../src/services/deliveryReleas
 
 function makeRepos(deliveryMode) {
   const calls = [];
-  const session = { id: 'sess_1', status: 'approved', shareToken: 'share_1' };
+  const session = { id: 'sess_1', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' };
   return {
     calls,
     async createDownloadEntitlementsForSession(sessionId, shareToken) {
@@ -16,7 +16,7 @@ function makeRepos(deliveryMode) {
     },
     async getShareSession(shareToken) {
       calls.push(['getShare', shareToken]);
-      return { token: shareToken, deliveryMode };
+      return { token: shareToken, deliveryMode, phone: session.phone };
     },
     async updateDeliveryStatus(sessionId, status) {
       calls.push(['status', sessionId, status]);
@@ -29,12 +29,15 @@ test('approved WhatsApp gallery creates purchase records and enqueues WhatsApp',
   const enqueued = [];
   const service = createDeliveryReleaseService({
     repos,
-    deliveryQueue: { enqueue: async (sessionId) => enqueued.push(sessionId) },
+    deliveryQueue: { enqueue: async (sessionId, kind) => enqueued.push([sessionId, kind]) },
   });
 
-  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1' });
+  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' });
 
-  assert.deepEqual(enqueued, ['sess_1']);
+  assert.deepEqual(enqueued, [
+    ['sess_1', 'approval_notification'],
+    ['sess_1', 'media'],
+  ]);
   assert.ok(repos.calls.some((call) => call[0] === 'entitlement'));
   assert.ok(repos.calls.some((call) => call[0] === 'status' && call[2] === 'queued'));
 });
@@ -44,12 +47,12 @@ test('approved download-only gallery creates records without WhatsApp enqueue', 
   const enqueued = [];
   const service = createDeliveryReleaseService({
     repos,
-    deliveryQueue: { enqueue: async (sessionId) => enqueued.push(sessionId) },
+    deliveryQueue: { enqueue: async (sessionId, kind) => enqueued.push([sessionId, kind]) },
   });
 
-  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1' });
+  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' });
 
-  assert.deepEqual(enqueued, []);
+  assert.deepEqual(enqueued, [['sess_1', 'approval_notification']]);
   assert.ok(repos.calls.some((call) => call[0] === 'entitlement'));
   assert.ok(repos.calls.some((call) => call[0] === 'status' && call[2] === 'download_available'));
 });
@@ -59,12 +62,59 @@ test('approved both-channel gallery records purchase and enqueues WhatsApp', asy
   const enqueued = [];
   const service = createDeliveryReleaseService({
     repos,
-    deliveryQueue: { enqueue: async (sessionId) => enqueued.push(sessionId) },
+    deliveryQueue: { enqueue: async (sessionId, kind) => enqueued.push([sessionId, kind]) },
   });
 
-  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1' });
+  await service.releaseApprovedSession({ id: 'sess_1', status: 'approved', shareToken: 'share_1', phone: '+55 11 99999-9999' });
 
-  assert.deepEqual(enqueued, ['sess_1']);
+  assert.deepEqual(enqueued, [
+    ['sess_1', 'approval_notification'],
+    ['sess_1', 'media'],
+  ]);
   assert.ok(repos.calls.some((call) => call[0] === 'entitlement'));
   assert.ok(repos.calls.some((call) => call[0] === 'status' && call[2] === 'queued'));
+});
+
+test('revoked gallery status keeps entitlements but does not enqueue a link notification', async () => {
+  const repos = makeRepos('download');
+  const enqueued = [];
+  const service = createDeliveryReleaseService({
+    repos,
+    galleryAccess: { promoteAfterPayment: async () => ({ revokedAt: null, status: 'revoked', phone: '+55 11 99999-9999' }) },
+    deliveryQueue: { enqueue: async (sessionId, kind) => enqueued.push([sessionId, kind]) },
+  });
+
+  await service.releaseApprovedSession({
+    id: 'sess_1',
+    status: 'approved',
+    shareToken: 'share_1',
+    phone: '+55 11 99999-9999',
+    approvedAt: new Date(),
+  });
+
+  assert.deepEqual(enqueued, []);
+  assert.ok(repos.calls.some((call) => call[0] === 'entitlement'));
+});
+
+test('media enqueue failure does not reject an approved sale', async () => {
+  const repos = makeRepos('both');
+  const service = createDeliveryReleaseService({
+    repos,
+    deliveryQueue: {
+      async enqueue(sessionId, kind) {
+        if (kind === 'media') throw new Error('fila indisponível');
+        return { sessionId, kind };
+      },
+    },
+  });
+
+  const result = await service.releaseApprovedSession({
+    id: 'sess_1',
+    status: 'approved',
+    shareToken: 'share_1',
+    phone: '+55 11 99999-9999',
+  });
+
+  assert.equal(result.status, 'approved');
+  assert.ok(repos.calls.some((call) => call[0] === 'status' && call[2] === 'failed'));
 });

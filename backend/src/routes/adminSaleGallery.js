@@ -23,6 +23,7 @@ async function createSaleGallery({ config, credentials, repos }, sale) {
       discountAmount: sale.totals.configuredDiscountAmount,
       total: sale.totals.total,
       deliveryMode: sale.deliveryMode,
+      postPaymentAccessDays: sale.postPaymentAccessDays,
     },
     retentionExpiresAt,
   });

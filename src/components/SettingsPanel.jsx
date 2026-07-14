@@ -113,7 +113,7 @@ export function SettingsPanel({
 
       <CollapsibleSection
         emoji="📦"
-        help="Defina se novas galerias entregam por WhatsApp, por download na galeria ou pelos dois canais."
+          help="Defina o prazo de download após o pagamento e se novas galerias também enviam os originais pelo WhatsApp."
         title="Entrega da galeria"
       >
         <DeliveryModeSettingsPanel

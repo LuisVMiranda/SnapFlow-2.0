@@ -21,6 +21,16 @@ const DEFAULT_WHATSAPP_TEMPLATES = {
       '{linkText}',
     ].join('\n'),
   },
+  paymentApproved: {
+    label: 'Pagamento confirmado',
+    description: 'Aviso leve enviado quando o pagamento libera o acesso pós-pagamento.',
+    body: [
+      'Pagamento confirmado, {name}!',
+      'Seu acesso à galeria fica disponível até {expiresAt}.',
+      '{linkText}',
+      'Código: {code}',
+    ].join('\n'),
+  },
   deliveryThanks: {
     label: 'Agradecimento e envio',
     description: 'Mensagem enviada antes dos arquivos finais na fila do WhatsApp.',
@@ -105,6 +115,15 @@ function linkVariables({ link = '', linkLabel = 'Acessar galeria privada' } = {}
   };
 }
 
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 function cleanLinklessPaymentMessage(message) {
   return String(message || '')
     .split('\n')
@@ -171,6 +190,15 @@ function createWhatsAppTemplatesService({ repos }) {
     return hasPublicLink ? rendered.trim() : cleanLinklessPaymentMessage(rendered);
   }
 
+  async function renderPaymentApprovedMessage(variables = {}) {
+    return render('paymentApproved', {
+      ...variables,
+      ...linkVariables(variables),
+      code: variables.accessCode || variables.code || '',
+      expiresAt: formatDateTime(variables.expiresAt),
+    });
+  }
+
   async function renderDeliveryThanksMessage(variables = {}) {
     return render('deliveryThanks', {
       ...linkVariables(variables),
@@ -182,6 +210,7 @@ function createWhatsAppTemplatesService({ repos }) {
     getSettings,
     render,
     renderDeliveryThanksMessage,
+    renderPaymentApprovedMessage,
     renderPaymentWaitingMessage,
     renderShareLinkMessage,
     updateSettings,

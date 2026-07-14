@@ -73,6 +73,49 @@
   gap: 10px;
 }
 
+.gallery-delivery-control {
+  display: grid;
+  gap: 10px;
+}
+
+.gallery-delivery-control .gallery-delivery-toggle {
+  align-items: center;
+  color: #fff;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 9px;
+  line-height: 1.35;
+}
+
+.gallery-delivery-toggle input[type='checkbox'] {
+  flex: 0 0 auto;
+  height: 16px;
+  margin: 0;
+  min-height: 16px;
+  width: 16px;
+}
+
+.gallery-delivery-control .gallery-delivery-days {
+  align-items: center;
+  color: #b7c0cc;
+  display: flex;
+  font-size: 12px;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.gallery-delivery-days-input {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.gallery-delivery-days-input input {
+  min-height: 38px;
+  width: 84px;
+}
+
 .delivery-mode-control {
   display: grid;
   gap: 10px;

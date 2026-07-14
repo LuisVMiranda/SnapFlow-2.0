@@ -27,6 +27,9 @@ function rowToSession(row) {
     deliveryStatus: row.delivery_status || 'idle',
     deliveryError: row.delivery_error || null,
     deliveryJobId: row.delivery_job_id || null,
+    notificationJobId: row.notification_job_id || null,
+    notificationStatus: row.notification_status || 'idle',
+    notificationError: row.notification_error || null,
     deliveredAt: row.delivered_at,
   };
 }
@@ -110,6 +113,8 @@ function rowToShare(row, options = {}) {
     overlayUpdatedAt: row.overlay_updated_at || null,
     storyDeliveryEnabled: Boolean(row.story_delivery_enabled),
     deliveryMode: row.delivery_mode || 'whatsapp',
+    postPaymentAccessDays: Number(row.post_payment_access_days || 7),
+    sendOriginalsViaWhatsapp: (row.delivery_mode || 'whatsapp') !== 'download',
     sales: {
       soldPhotoCount: Number(row.sold_photo_count || 0),
       soldOrderCount: Number(row.sold_order_count || 0),

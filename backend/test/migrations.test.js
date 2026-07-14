@@ -169,3 +169,15 @@ test('gallery download delivery migration stores modes and entitlements', async 
   assert.match(sql, /download_entitlements_share_photo_unique/i);
   assert.match(sql, /'defaultDeliveryMode'/i);
 });
+
+test('post-payment access migration stores gallery windows and independent delivery jobs', async () => {
+  const sql = await fs.readFile(path.join(__dirname, '..', 'migrations', '021_post_payment_access_notifications.sql'), 'utf8');
+
+  assert.match(sql, /post_payment_access_days integer not null default 7/i);
+  assert.match(sql, /check \(post_payment_access_days between 1 and 365\)/i);
+  assert.match(sql, /kind text not null default 'media'/i);
+  assert.match(sql, /kind in \('media', 'approval_notification'\)/i);
+  assert.match(sql, /on delivery_jobs\(session_id, kind\)/i);
+  assert.match(sql, /'defaultPostPaymentAccessDays'/i);
+  assert.match(sql, /'defaultSendOriginalsViaWhatsapp'/i);
+});

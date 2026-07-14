@@ -4,7 +4,8 @@ export const DELIVERY_MODES = {
   BOTH: 'both',
 };
 
-export const DEFAULT_DELIVERY_MODE = DELIVERY_MODES.BOTH;
+export const DEFAULT_DELIVERY_MODE = DELIVERY_MODES.DOWNLOAD;
+export const DEFAULT_POST_PAYMENT_ACCESS_DAYS = 7;
 
 export const DELIVERY_MODE_OPTIONS = [
   {
@@ -31,4 +32,27 @@ export function normalizeDeliveryMode(value, fallback = DEFAULT_DELIVERY_MODE) {
 export function deliveryModeLabel(value) {
   const normalized = normalizeDeliveryMode(value);
   return DELIVERY_MODE_OPTIONS.find((option) => option.value === normalized)?.label || 'Ambos';
+}
+
+export function deliveryModeForOriginals(sendOriginalsViaWhatsapp) {
+  return sendOriginalsViaWhatsapp === true ? DELIVERY_MODES.BOTH : DELIVERY_MODES.DOWNLOAD;
+}
+
+export function sendsOriginalsViaWhatsapp(value) {
+  return normalizeDeliveryMode(value, DELIVERY_MODES.WHATSAPP) !== DELIVERY_MODES.DOWNLOAD;
+}
+
+export function normalizePostPaymentAccessDays(value, fallback = DEFAULT_POST_PAYMENT_ACCESS_DAYS) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 365 ? parsed : fallback;
+}
+
+export function galleryDeliveryPayload(options = {}) {
+  return {
+    ...(options.deliveryMode ? { deliveryMode: options.deliveryMode } : {}),
+    ...(options.postPaymentAccessDays ? { postPaymentAccessDays: options.postPaymentAccessDays } : {}),
+    ...(options.sendOriginalsViaWhatsapp !== undefined
+      ? { sendOriginalsViaWhatsapp: options.sendOriginalsViaWhatsapp }
+      : {}),
+  };
 }

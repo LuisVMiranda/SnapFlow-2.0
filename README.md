@@ -1,6 +1,6 @@
 # SnapFlow 2.0
 
-SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presenciais: painel de venda, cobrança, galeria, processamento e entrega de fotos para eventos, turismo, escolas, parques, ações corporativas e atendimentos de alta rotatividade. Ele ajuda o fotógrafo a selecionar fotos, encantar o cliente, cobrar, liberar a compra e entregar os arquivos pelo WhatsApp com menos passos manuais.
+SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presenciais: painel de venda, cobrança, galeria, processamento e entrega de fotos para eventos, turismo, escolas, parques, ações corporativas e atendimentos de alta rotatividade. Ele ajuda o fotógrafo a selecionar fotos, encantar o cliente, cobrar, liberar a compra e entregar os arquivos pela própria galeria, com WhatsApp opcional para aviso e redundância.
 
 ## Principais recursos
 
@@ -16,8 +16,11 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 - Notificação visível para o administrador quando o Pix é confirmado.
 - Pagamento em dinheiro ou cartão sempre aguardando aprovação administrativa explícita.
 - Tela focada de aprovação manual em nova aba, sem travar a venda em andamento.
-- Fila de entrega das fotos pelo WhatsApp como documento, preservando qualidade.
-- Botão para reenviar fotos quando uma entrega falha.
+- Downloads individuais e ZIP `Baixar tudo` com as mesmas versões finais preparadas para entrega.
+- Prazo pós-pagamento de 7 dias por padrão, editável globalmente, por galeria e na validade atual.
+- Notificação de pagamento confirmado pelo WhatsApp com link, código e validade.
+- Fila opcional de originais pelo WhatsApp como documento, preservando qualidade.
+- Estados e reenvios independentes para aviso e originais no WhatsApp.
 - Pareamento do WhatsApp dentro do painel, com QR Code visível em Vendas/Galerias.
 - Galerias compartilhadas com link temporário, código de acesso e expiração.
 - Mensagem de compartilhamento do WhatsApp com texto de link mais confiável, usando rótulos como `Acessar galeria privada`.
@@ -35,7 +38,7 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 - Botão para cancelar liberação de pedidos manuais pendentes em testes ou desistências.
 - Configurações de retenção e limpeza de arquivos.
 - Credenciais editáveis pelo painel com um único salvamento global e confirmação de senha.
-- Modelos de mensagens WhatsApp editáveis, com variáveis como `{name}`, `{link}`, `{code}`, `{count}` e `{total}`.
+- Modelos de mensagens WhatsApp editáveis, incluindo `Pagamento confirmado`, com variáveis como `{name}`, `{linkText}`, `{code}`, `{expiresAt}` e `{accessDays}`.
 - Notificações responsivas: topo em celular/tablet e lateral direita em desktop, com botão de fechar.
 - Botão global de voltar ao topo.
 
@@ -56,14 +59,17 @@ SnapFlow é um sistema operacional de vendas rápidas para fotógrafos presencia
 2. Acessa a galeria com o código de 4 caracteres.
 3. Escolhe as fotos.
 4. Paga por Pix ou solicita pagamento manual.
-5. Recebe as fotos pelo WhatsApp depois da liberação.
+5. Depois da aprovação, volta à galeria para baixar cada foto ou todas em um ZIP.
+6. Continua vendo as fotos compradas, sem poder selecioná-las novamente, e pode comprar as restantes.
 
 ### Entrega
 
 - Pix aprovado pelo Mercado Pago libera a sessão automaticamente quando o webhook chega ao backend.
 - Dinheiro/cartão só libera depois da aprovação manual do administrador.
-- Depois da aprovação, a fila de entrega envia as fotos pelo WhatsApp.
-- Se o WhatsApp estiver indisponível ou o número estiver incorreto, o painel mostra erro e permite reenviar.
+- Na primeira aprovação, a galeria permanece acessível por pelo menos 7 dias contados de `approvedAt`; compras posteriores podem ampliar esse prazo.
+- Downloads são liberados antes de qualquer tentativa de WhatsApp e não dependem do pareamento desse canal.
+- O WhatsApp tenta enviar um aviso leve. Os originais só entram na fila quando o fotógrafo ativa `Enviar também os originais pelo WhatsApp`.
+- Falhas de aviso e de envio dos originais aparecem separadamente no painel e podem ser reenviadas sem desfazer a aprovação.
 
 ## Requisitos
 
@@ -416,6 +422,8 @@ Variáveis disponíveis:
 - `{linkText}`: rótulo e link juntos.
 - `{code}`: código de acesso da galeria.
 - `{expiresMinutes}`: tempo de expiração.
+- `{expiresAt}`: data e hora final do acesso pós-pagamento.
+- `{accessDays}`: quantidade de dias configurada após a aprovação.
 - `{count}`: quantidade de fotos.
 - `{total}`: valor total.
 - `{phone}`: telefone do cliente.
@@ -423,7 +431,7 @@ Variáveis disponíveis:
 
 ## Galerias compartilhadas
 
-Cada galeria tem token/link, código e identificador de metadados. Recriar ou revalidar uma galeria deve reaproveitar o registro correto, evitando acúmulo de galerias duplicadas.
+Cada galeria tem token/link, código, prazo curto de seleção e prazo de download após o pagamento. Recriar ou revalidar uma galeria deve reaproveitar o registro correto, evitando acúmulo de galerias duplicadas. Em `Configurações > Entrega da galeria`, o fotógrafo define o padrão global; em criação e edição, pode sobrescrever os dias e ativar o envio adicional dos originais pelo WhatsApp.
 
 Galerias com muitas fotos são carregadas em páginas internas de até 40 imagens por vez. O cliente vê a primeira leva rapidamente e pode usar `Carregar mais fotos` conforme navega, sem forçar o navegador, o backend ou o link Tailscale/Funnel a transferirem a galeria inteira de uma só vez. O Tailscale/Funnel deve ser tratado como camada de acesso/rede, não como CDN; para centenas de fotos e vários clientes simultâneos, prefira uma VPS ou conexão estável.
 

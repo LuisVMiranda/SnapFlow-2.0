@@ -10,6 +10,7 @@ import { normalizePhotoUrl, photoIdFromUrl } from '../lib/photos';
 import { firstPackageKey } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 import { createSessionId } from '../lib/session';
+import { galleryDeliveryPayload } from '../lib/deliveryMode';
 
 export function useSnapFlowActions(config) {
   const {
@@ -215,7 +216,7 @@ export function useSnapFlowActions(config) {
         packageType: type,
         ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
         ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
-        ...(!shareToken && overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
+        ...(!shareToken ? galleryDeliveryPayload(overlay) : {}),
       };
       const endpoint = shareToken
         ? API_BASE_URL + '/api/share-session/' + shareToken + '/pix'
@@ -293,7 +294,7 @@ export function useSnapFlowActions(config) {
           accessCode: safeShareSessionInfo.accessCode || '',
           ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
           ...(!shareToken && overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
-          ...(!shareToken && overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
+          ...(!shareToken ? galleryDeliveryPayload(overlay) : {}),
         }),
       });
 
@@ -467,7 +468,7 @@ export function useSnapFlowActions(config) {
           photoPresetIds,
           ...(overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
           ...(overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
-          ...(overlay?.deliveryMode ? { deliveryMode: overlay.deliveryMode } : {}),
+          ...galleryDeliveryPayload(overlay),
         }),
       });
 

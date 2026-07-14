@@ -6,7 +6,7 @@ This document compiles the product vision, architecture, technologies, workflows
 
 ## Executive Summary
 
-SnapFlow 2.0 is a fast-sales operating system for in-person photographers. It combines an admin dashboard, photo upload, shared galleries, customer selection, checkout, payment, approval, image processing, and WhatsApp delivery into one focused workflow.
+SnapFlow 2.0 is a fast-sales operating system for in-person photographers. It combines an admin dashboard, photo upload, shared galleries, customer selection, checkout, payment, approval, image processing, downloads, and optional WhatsApp delivery into one focused workflow.
 
 The product exists to shorten the time between taking a photo, selling it, and delivering it. In events, tourism, schools, parks, corporate activations, and high-turnover environments, every minute of friction costs sales. SnapFlow organizes that cycle so photographers can serve more people, sell with less improvisation, and deliver high-quality files without losing commercial control.
 
@@ -76,8 +76,8 @@ The product also serves smaller operations that need a professional process with
 5. The summary calculates count, unit price, subtotal, manual discount, and total.
 6. The operator enters name, phone, optional e-mail, and payment method.
 7. The order can proceed through Mercado Pago Pix or manual payment.
-8. Once approved, the session enters the delivery queue.
-9. The queue prepares final files and sends them through WhatsApp.
+8. Once approved, the gallery receives download rights and at least seven days of post-payment access.
+9. WhatsApp sends a lightweight notice and, when enabled, the queue also sends originals.
 
 ### Shared Gallery
 
@@ -89,7 +89,7 @@ The product also serves smaller operations that need a professional process with
 6. The customer selects photos; the cart can be saved in the backend.
 7. The customer generates Pix or requests manual payment.
 8. Approved Pix releases delivery automatically; manual payment waits for photographer approval.
-9. Paid files are sent through WhatsApp.
+9. Paid files become available individually and as a ZIP in the gallery; sending originals through WhatsApp is optional.
 
 ### Pix Flow
 
@@ -113,15 +113,14 @@ The product also serves smaller operations that need a professional process with
 
 ### Delivery Flow
 
-1. Approval creates or activates a delivery job.
-2. The queue periodically processes pending jobs.
-3. The queue validates that the session is approved.
-4. Selected photos are loaded through the repository.
-5. The gallery visual context is resolved: active overlay, Stories enabled, and related metadata.
-6. The media service prepares temporary final files when needed.
-7. WhatsApp sends a thank-you message and files as documents.
-8. The queue cleans temporary files, marks the job as sent, and records a conversion event.
-9. On failure, the error remains visible and can be retried from the dashboard.
+1. Approval promotes expiry from `approvedAt` without shortening a longer manual expiry or clearing explicit revocation.
+2. Download entitlements are created before any WhatsApp dependency.
+3. The queue creates independent jobs for approval notification and optional media.
+4. The notice containing link, code, and expiry is prioritized before documents.
+5. When original sending is enabled, the gallery visual context is resolved and final files are prepared.
+6. WhatsApp sends originals as documents without duplicating the approval message.
+7. The queue cleans temporary files, tracks each job separately, and records the media conversion event.
+8. Notice and media failures remain independently visible and retryable.
 
 ## Product Features
 
@@ -234,20 +233,20 @@ Available operations:
 - send photos as documents;
 - retry after transient failures.
 
-Messages are configurable and support variables such as `{name}`, `{link}`, `{linkText}`, `{code}`, `{expiresMinutes}`, `{count}`, `{total}`, `{phone}`, and `{sessionId}`.
+Messages are configurable and support variables such as `{name}`, `{link}`, `{linkText}`, `{code}`, `{expiresMinutes}`, `{expiresAt}`, `{accessDays}`, `{count}`, `{total}`, `{phone}`, and `{sessionId}`.
 
 ### Delivery Queue
 
-The delivery queue separates payment approval from actual sending. This prevents a WhatsApp failure from breaking the whole sale.
+The delivery queue separates approval, notification, and media sending. Downloads and expiry are persisted first, so WhatsApp failure cannot break the sale.
 
 Queue responsibilities:
 
-- claim pending job;
+- claim the pending notice before media;
 - validate approved session;
 - fetch selected photos;
 - resolve gallery context;
 - prepare final files;
-- send through WhatsApp;
+- send a notice or originals through WhatsApp according to job type;
 - clean temporary files;
 - mark success or failure;
 - allow retry.
@@ -469,7 +468,8 @@ Important entities:
 - `sessions`: sales, payments, status, and delivery;
 - `photos`: media metadata and paths;
 - `share_sessions`: shared galleries;
-- `delivery_jobs`: send queue;
+- `delivery_jobs`: typed approval-notification and media queue;
+- `download_entitlements`: persistent download rights per purchase and photo;
 - `payment_events`: provider events;
 - `app_settings`: settings;
 - `cleanup_runs`: cleanup history;

@@ -9,8 +9,10 @@ const { hashValue } = require('../src/tokens');
 
 function createTestApp({
   deliveryQueue = { enqueue: async () => null },
+  expireShareOnSessionCreate = false,
   initialDeletedShareToken = null,
   initialPhotos = null,
+  releaseFailuresBeforeSuccess = 0,
   whatsapp = {
     getStatus: () => ({ ready: true, status: 'ready', lastError: null }),
     reconnect: async () => ({ ready: true, status: 'ready', lastError: null }),
@@ -18,6 +20,7 @@ function createTestApp({
     sendText: async () => {},
   },
 } = {}) {
+  let releaseFailuresRemaining = releaseFailuresBeforeSuccess;
   const emptySales = () => ({
     soldPhotoCount: 0,
     soldOrderCount: 0,
@@ -54,6 +57,8 @@ function createTestApp({
     revokedAt: null,
     status: 'active',
     link: 'http://localhost:5173/s/share_1',
+    deliveryMode: 'whatsapp',
+    postPaymentAccessDays: 7,
     sales: emptySales(),
   };
   let deletedShareToken = initialDeletedShareToken;
@@ -185,6 +190,8 @@ function createTestApp({
         revokedAt: null,
         status: 'active',
         link: payload.link,
+        deliveryMode: payload.deliveryMode,
+        postPaymentAccessDays: payload.postPaymentAccessDays,
         sales: emptySales(),
       };
       photos = photos.map((photo) => (payload.photoIds.includes(photo.id) ? { ...photo, shareToken: payload.token } : photo));
@@ -223,6 +230,8 @@ function createTestApp({
         deletedAt: null,
         status: 'active',
         link: updates.link || target.link,
+        deliveryMode: updates.deliveryMode || target.deliveryMode,
+        postPaymentAccessDays: updates.postPaymentAccessDays || target.postPaymentAccessDays,
       };
       if (token === share.token) share = restored;
       if (recreatedShare?.token === token) recreatedShare = restored;
@@ -298,6 +307,10 @@ function createTestApp({
         accessCodeHash: updates.accessCodeHash || share.accessCodeHash,
         revokedAt: updates.expiresAt ? null : share.revokedAt,
         status: updates.expiresAt ? 'active' : share.status,
+        deliveryMode: updates.deliveryMode === undefined ? share.deliveryMode : updates.deliveryMode,
+        postPaymentAccessDays: updates.postPaymentAccessDays === undefined
+          ? share.postPaymentAccessDays
+          : updates.postPaymentAccessDays,
       };
       return share;
     },
@@ -330,8 +343,12 @@ function createTestApp({
         paymentMethod: session.paymentMethod,
         shareToken: session.shareToken || null,
         deliveryStatus: session.deliveryStatus,
+        approvedAt: session.approvedAt || null,
       };
       sessions.set(stored.id, stored);
+      if (expireShareOnSessionCreate && stored.shareToken === share.token) {
+        share = { ...share, expiresAt: new Date(Date.now() - 60_000).toISOString(), status: 'expired' };
+      }
       if (photoIds.length) {
         photos = photos.map((photo) => (photoIds.includes(photo.id) ? { ...photo, sessionId: stored.id } : photo));
       }
@@ -342,11 +359,17 @@ function createTestApp({
       sessions.clear();
       return { deletedSessions };
     },
+    createDownloadEntitlementsForSession: async () => {
+      if (releaseFailuresRemaining <= 0) return;
+      releaseFailuresRemaining -= 1;
+      throw new Error('Falha transitória ao criar direitos de download.');
+    },
     approveSession: async (sessionId) => {
       const session = sessions.get(sessionId);
       if (!session) return null;
       if (session.status === 'cancelled') return null;
       session.status = 'approved';
+      session.approvedAt = session.approvedAt || new Date().toISOString();
       session.deliveryStatus = 'queued';
       if (session.shareToken === share.token) {
         share = {
@@ -360,6 +383,15 @@ function createTestApp({
         };
       }
       return session;
+    },
+    promoteShareAfterPayment: async (token, expiresAt) => {
+      if (token !== share.token || share.revokedAt || share.deletedAt) return share;
+      share = {
+        ...share,
+        expiresAt: new Date(Math.max(new Date(share.expiresAt).getTime(), new Date(expiresAt).getTime())).toISOString(),
+        status: 'active',
+      };
+      return share;
     },
     cancelManualSessionRelease: async (sessionId) => {
       const session = sessions.get(sessionId);
@@ -624,7 +656,7 @@ test('admin dashboard accepts bearer token and does not expose managementKey', a
 
 test('admin manual cash/card payment stays pending until explicit approval', async () => {
   const enqueued = [];
-  const app = createTestApp({ deliveryQueue: { enqueue: async (id) => enqueued.push(id) } });
+  const app = createTestApp({ deliveryQueue: { enqueue: async (id, kind) => enqueued.push([id, kind]) } });
 
   const pending = await request(app)
     .post('/api/admin/manual-payment')
@@ -657,7 +689,7 @@ test('admin manual cash/card payment stays pending until explicit approval', asy
 
   assert.equal(approved.status, 200);
   assert.equal(approved.body.session.status, 'approved');
-  assert.deepEqual(enqueued, ['manual_1']);
+  assert.deepEqual(enqueued, [['manual_1', 'approval_notification']]);
 
   const duplicate = await request(app)
     .post('/api/admin/approve-manual-session/manual_1')
@@ -665,7 +697,41 @@ test('admin manual cash/card payment stays pending until explicit approval', asy
 
   assert.equal(duplicate.status, 200);
   assert.equal(duplicate.body.alreadyApproved, true);
-  assert.deepEqual(enqueued, ['manual_1']);
+  assert.deepEqual(enqueued, [
+    ['manual_1', 'approval_notification'],
+    ['manual_1', 'approval_notification'],
+  ]);
+});
+
+test('admin can retry release when a manual sale was approved before a transient release failure', async () => {
+  const enqueued = [];
+  const app = createTestApp({
+    deliveryQueue: { enqueue: async (id, kind) => enqueued.push([id, kind]) },
+    releaseFailuresBeforeSuccess: 1,
+  });
+  await request(app)
+    .post('/api/admin/manual-payment')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({
+      sessionId: 'manual_release_retry',
+      total: 15,
+      count: 1,
+      phone: '11999999999',
+      packageType: 'eventos',
+      photoIds: ['photo_1'],
+    });
+
+  const failed = await request(app)
+    .post('/api/admin/approve-manual-session/manual_release_retry')
+    .set('Authorization', 'Bearer admin-secret');
+  const retried = await request(app)
+    .post('/api/admin/approve-manual-session/manual_release_retry')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(failed.status, 500);
+  assert.equal(retried.status, 200);
+  assert.equal(retried.body.alreadyApproved, true);
+  assert.deepEqual(enqueued, [['manual_release_retry', 'approval_notification']]);
 });
 
 test('admin can cancel a pending manual release and cannot approve it afterwards', async () => {
@@ -1352,6 +1418,41 @@ test('admin retention settings route saves with a valid token', async () => {
   assert.equal(response.body.archiveBeforeDelete, true);
 });
 
+test('admin gallery delivery settings persist post-payment days and optional WhatsApp originals', async () => {
+  const app = createTestApp();
+  const defaults = await request(app)
+    .get('/api/admin/settings/gallery-delivery')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(defaults.status, 200);
+  assert.equal(defaults.body.defaultPostPaymentAccessDays, 7);
+  assert.equal(defaults.body.defaultSendOriginalsViaWhatsapp, false);
+
+  const saved = await request(app)
+    .put('/api/admin/settings/gallery-delivery')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ defaultPostPaymentAccessDays: 14, defaultSendOriginalsViaWhatsapp: true });
+
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.defaultDeliveryMode, 'both');
+  assert.equal(saved.body.defaultPostPaymentAccessDays, 14);
+  assert.equal(saved.body.defaultSendOriginalsViaWhatsapp, true);
+
+  const legacyRoute = await request(app)
+    .get('/api/admin/settings/delivery-mode')
+    .set('Authorization', 'Bearer admin-secret');
+  assert.equal(legacyRoute.body.defaultPostPaymentAccessDays, 14);
+  assert.equal(legacyRoute.body.defaultDeliveryMode, 'both');
+
+  const invalid = await request(app)
+    .put('/api/admin/settings/gallery-delivery')
+    .set('Authorization', 'Bearer admin-secret')
+    .send({ defaultPostPaymentAccessDays: 366 });
+
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.body.code, 'post_payment_access_days_invalid');
+});
+
 test('admin package settings route saves with a valid token', async () => {
   const response = await request(createTestApp())
     .put('/api/admin/settings/packages')
@@ -1823,6 +1924,38 @@ test('unlocked share sessions apply the gallery discount to manual payment reque
   assert.equal(stored.body.discountAmount, 5);
   assert.equal(stored.body.amount, 45);
   assert.equal(stored.body.status, 'pending');
+});
+
+test('manual approval reopens an expired gallery for seven post-payment days', async () => {
+  const enqueued = [];
+  const app = createTestApp({
+    expireShareOnSessionCreate: true,
+    deliveryQueue: { enqueue: async (id, kind) => enqueued.push([id, kind]) },
+  });
+  const unlock = await request(app)
+    .post('/api/share-session/share_1/unlock')
+    .send({ code: '1234' });
+
+  const pending = await request(app)
+    .post('/api/share-session/share_1/manual-payment')
+    .set('Authorization', `Bearer ${unlock.body.customerAccessToken}`)
+    .send({ sessionId: 'guest_manual_expired', photoIds: ['photo_1'] });
+
+  assert.equal(pending.status, 200);
+  const approvedAtFloor = Date.now();
+  const approved = await request(app)
+    .post('/api/admin/approve-manual-session/guest_manual_expired')
+    .set('Authorization', 'Bearer admin-secret');
+
+  assert.equal(approved.status, 200);
+  assert.equal(approved.body.session.status, 'approved');
+  const reopened = await request(app).get('/api/share-session/share_1');
+  assert.equal(reopened.status, 200);
+  assert.ok(new Date(reopened.body.expiresAt).getTime() >= approvedAtFloor + (7 * 86_400_000) - 1000);
+  assert.deepEqual(enqueued, [
+    ['guest_manual_expired', 'approval_notification'],
+    ['guest_manual_expired', 'media'],
+  ]);
 });
 
 test('unlocked share sessions reject Pix for photos outside the share', async () => {

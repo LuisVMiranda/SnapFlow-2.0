@@ -39,6 +39,7 @@ test('WhatsApp template settings merge saved bodies with safe defaults', () => {
 
   assert.equal(templates.shareLink.body, 'Galeria: {link}');
   assert.match(templates.paymentWaiting.body, /pagamento/i);
+  assert.match(templates.paymentApproved.body, /galeria/i);
   assert.equal(templates.deliveryThanks.body, 'Obrigado, {name}! Aqui estão suas fotos profissionais em qualidade máxima.');
 });
 
@@ -67,6 +68,7 @@ test('WhatsApp template service saves and renders editable admin messages', asyn
   await service.updateSettings({
     shareLink: { body: 'Abra {name}: {linkLabel}: {link}\nCódigo {code}' },
     paymentWaiting: { body: 'Pagamento pendente para {count} foto(s). {linkText}' },
+    paymentApproved: { body: 'Pago {name}. {linkText} Código {code}. Até {expiresAt} ({accessDays} dias).' },
     deliveryThanks: { body: 'Obrigado {name} pela compra de {count} foto(s)!' },
   });
 
@@ -83,10 +85,21 @@ test('WhatsApp template service saves and renders editable admin messages', asyn
     linkLabel: 'Ver pedido',
   });
   const deliveryMessage = await service.renderDeliveryThanksMessage({ count: 2, name: 'Ana' });
+  const approvedMessage = await service.renderPaymentApprovedMessage({
+    accessCode: 'AB12',
+    accessDays: 7,
+    expiresAt: '2026-07-21T15:00:00.000Z',
+    link: 'https://snap.test/s/abc',
+    name: 'Ana',
+  });
 
   assert.equal(shareMessage, 'Abra Ana: Clique aqui: https://snap.test/s/abc\nCódigo AB12');
   assert.equal(paymentMessage, 'Pagamento pendente para 2 foto(s). Ver pedido: https://snap.test/s/abc');
   assert.equal(deliveryMessage, 'Obrigado Ana pela compra de 2 foto(s)!');
+  assert.match(approvedMessage, /Pago Ana/);
+  assert.match(approvedMessage, /Acessar galeria privada: https:\/\/snap\.test\/s\/abc/);
+  assert.match(approvedMessage, /Código AB12/);
+  assert.match(approvedMessage, /7 dias/);
 });
 
 test('payment waiting message does not point clients to the admin root when there is no public link', async () => {

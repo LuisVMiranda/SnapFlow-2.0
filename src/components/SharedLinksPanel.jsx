@@ -7,7 +7,7 @@ import { mergePresetIds } from '../lib/photoPresets';
 import { packageLabel } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 import { mergeDetailPhotos, normalizeShareDetails } from '../lib/shareDetails';
-import { draftFromShare, galleryRouteErrorMessage, gallerySalesLabel, shareLink, statusMeta } from '../lib/sharedLinksPanel';
+import { dateTimeLocalValue, draftFromShare, galleryRouteErrorMessage, gallerySalesLabel, shareLink, statusMeta } from '../lib/sharedLinksPanel';
 import { useGalleryOverlayActions } from '../hooks/useGalleryOverlayActions';
 import { normalizeWatermarkSettings } from '../hooks/useWatermarkSettings';
 
@@ -210,6 +210,32 @@ export function SharedLinksPanel({
       fetchDashboard({ silent: true });
     } catch (error) {
       setNotice(buildNetworkErrorMessage('Não foi possível estender a galeria.', error));
+    }
+  };
+
+  const extendDownloadAccess = async (shareSession) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}/extend`, {
+        method: 'POST',
+        headers: adminJsonHeaders(),
+        body: JSON.stringify({ days: 7 }),
+      });
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        setNotice(buildApiErrorMessage('Não foi possível estender os downloads.', response, data));
+        return;
+      }
+      setDrafts((previous) => ({
+        ...previous,
+        [shareSession.token]: {
+          ...(previous[shareSession.token] || draftFromShare(shareSession)),
+          expiresAt: dateTimeLocalValue(data.expiresAt),
+        },
+      }));
+      setNotice('Acesso para download estendido por 7 dias.');
+      fetchDashboard({ silent: true });
+    } catch (error) {
+      setNotice(buildNetworkErrorMessage('Não foi possível estender os downloads.', error));
     }
   };
 
@@ -447,6 +473,8 @@ export function SharedLinksPanel({
       clientName: draft.clientName,
       clientEmail: draft.clientEmail,
       deliveryMode: draft.deliveryMode,
+      postPaymentAccessDays: draft.postPaymentAccessDays,
+      sendOriginalsViaWhatsapp: draft.sendOriginalsViaWhatsapp === true,
       discountAmount: discountRaw === '' ? '' : discountAmount,
       galleryName: draft.galleryName,
       galleryDescription: draft.galleryDescription,
@@ -457,6 +485,9 @@ export function SharedLinksPanel({
     };
     if (draft.accessCode) body.accessCode = draft.accessCode;
     if (draft.expiresMinutes) body.expiresMinutes = Number(draft.expiresMinutes);
+    if (draft.expiresAt && draft.expiresAt !== draftFromShare(shareSession).expiresAt) {
+      body.expiresAt = new Date(draft.expiresAt).toISOString();
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/admin/share-sessions/${shareSession.token}`, {
@@ -531,6 +562,7 @@ export function SharedLinksPanel({
                 deletePhoto={deletePhoto}
                 detail={details[shareSession.token]}
                 draft={draft}
+                extendDownloadAccess={extendDownloadAccess}
                 applyPhotoPresets={applyPhotoPresets}
                 isLoading={loadingDetailsToken === shareSession.token}
                 isPhotoBusy={photoActionToken === shareSession.token}
