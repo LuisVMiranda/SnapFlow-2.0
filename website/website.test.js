@@ -3,6 +3,7 @@ import fc from 'fast-check';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { carouselSlots, createCarousel, visibleCount } from './carousel';
 import { contactUrl, initializeContact, CONTACT_REASONS } from './contact';
+import { initializeTheme } from './navigation';
 
 const home = fs.readFileSync('website/index.html', 'utf8');
 const about = fs.readFileSync('website/sobre.html', 'utf8');
@@ -117,6 +118,35 @@ describe('public website', () => {
     expect(home).toMatch(/<section id="contato"/);
     expect(about).toMatch(/<section id="sobre"/);
     expect(about).not.toMatch(/<section id="servicos"/);
+  });
+
+  it('synchronizes system and cross-tab theme changes until the user chooses a mode', () => {
+    const storage = { getItem: vi.fn(() => null), setItem: vi.fn() };
+    const listeners = [];
+    const media = { matches: false, addEventListener: vi.fn((event, listener) => listeners.push(listener)) };
+    const originalStorage = window.localStorage;
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: storage });
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => media) });
+    document.body.innerHTML = home;
+    try {
+      initializeTheme(document);
+      expect(document.documentElement.dataset.theme).toBe('light');
+      media.matches = true; listeners[0]({ matches: true });
+      expect(document.documentElement).toHaveClass('dark');
+      expect(document.querySelector('[data-theme-toggle]')).toHaveAttribute('aria-pressed', 'true');
+      document.querySelector('[data-theme-toggle]').click();
+      expect(document.documentElement).not.toHaveClass('dark');
+      expect(storage.setItem).toHaveBeenCalledWith('erick-theme', 'light');
+      listeners[0]({ matches: true });
+      expect(document.documentElement).not.toHaveClass('dark');
+      window.dispatchEvent(new StorageEvent('storage', { key: 'erick-theme', newValue: 'dark' }));
+      expect(document.documentElement).toHaveClass('dark');
+      expect(document.querySelector('[data-theme-toggle]')).toHaveAttribute('aria-pressed', 'true');
+    } finally {
+      Object.defineProperty(window, 'localStorage', { configurable: true, value: originalStorage });
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
   });
 
   it.each([false, true])('shows a helpful empty or API-error state (failure=%s)', async (failure) => {
