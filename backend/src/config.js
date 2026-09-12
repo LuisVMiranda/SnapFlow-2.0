@@ -40,6 +40,7 @@ function createConfig() {
     host: textFromEnv('HOST', '127.0.0.1'),
     databaseUrl: textFromEnv('DATABASE_URL'),
     publicBaseUrl: textFromEnv('PUBLIC_BASE_URL', 'http://localhost:5173'),
+    publicWebsiteUrl: textFromEnv('PUBLIC_WEBSITE_URL'),
     adminAccessToken: textFromEnv('ADMIN_ACCESS_TOKEN'),
     mercadoPagoAccessToken: textFromEnv('MP_ACCESS_TOKEN'),
     mercadoPagoWebhookSecret: textFromEnv('MP_WEBHOOK_SECRET'),

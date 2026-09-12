@@ -7,6 +7,16 @@ async function startupRuntime() {
   return import('../../scripts/snapflow-startup.mjs');
 }
 
+test('website startup rejects duplicate ports and verifies website identity', async () => {
+  const { assertDistinctPorts, waitForSnapFlowWebsite } = await startupRuntime();
+  assert.deepEqual(assertDistinctPorts(['3000', '5173', '5174']), [3000, 5173, 5174]);
+  assert.throws(() => assertDistinctPorts(['3000', '5173', '5173']), /portas diferentes/);
+  await assert.rejects(waitForSnapFlowWebsite({ attempts: 1, url: 'http://127.0.0.1:5174',
+    request: async () => response('<title>SnapFlow</title>') }), /não ficou pronto/);
+  assert.equal((await waitForSnapFlowWebsite({ attempts: 1, url: 'http://127.0.0.1:5174',
+    request: async () => response('<meta name="snapflow-service" content="snapflow-website">') })).attempt, 1);
+});
+
 function response(body, status = 200) {
   return {
     ok: status >= 200 && status < 300,

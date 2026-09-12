@@ -556,6 +556,7 @@ export function SharedLinksPanel({
 
             {isEditing ? (
               <ShareGalleryEditor
+                adminHeaders={adminHeaders}
                 applyGalleryOverlay={applyGalleryOverlay}
                 closeEditor={() => setEditingToken('')}
                 clearGalleryOverlay={clearGalleryOverlay}

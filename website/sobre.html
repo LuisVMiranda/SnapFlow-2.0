@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sobre e serviços de Erick Ramon, fotógrafo de Maceió, Alagoas." />
+  <title>Sobre · Erick Ramon Fotografia</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+  <header class="site-header glass">
+    <nav class="nav-shell" aria-label="Navegação principal">
+      <a class="brand" href="index.html#portfolio" aria-label="Erick Ramon — Portfólio">E<span class="brand-dot">.</span>R</a>
+      <div class="nav-links">
+        <a href="index.html#portfolio">Portfólio</a>
+        <a href="sobre.html#sobre" aria-current="page">Sobre</a>
+        <a href="sobre.html#servicos">Serviços</a>
+        <a href="index.html#contato">Contato</a>
+      </div>
+      <div class="nav-actions">
+        <button class="icon-button" type="button" data-theme-toggle aria-label="Ativar tema escuro">🌙</button>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobileMenu"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M4 7h16M4 17h16" /></svg></button>
+      </div>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu" hidden>
+      <a href="index.html#portfolio">Portfólio</a>
+      <a href="sobre.html#sobre">Sobre</a>
+      <a href="sobre.html#servicos">Serviços</a>
+      <a href="index.html#contato">Contato</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="sobre" class="page-shell" aria-labelledby="about-title">
+      <div class="about-layout">
+        <figure class="about-photo reveal"><img src="erick-about-maceio.png" alt="Erick Ramon usando camisa branca diante de uma praia de Maceió" /></figure>
+        <div class="about-copy reveal">
+          <p class="page-kicker">Sobre o fotógrafo</p>
+          <h1 id="about-title">Imagens que preservam o jeito de viver Alagoas.</h1>
+          <div class="body-copy">
+            <p>Sou <strong>Erick Ramon</strong>, fotógrafo maceioense. Há mais de 30 anos, registro paisagens, encontros e detalhes que fazem o estado ser tão especial.</p>
+            <p>Meu processo começa com a observação da luz e do ambiente, criando imagens naturais — do patrimônio histórico às praias, sempre com respeito ao ritmo de cada pessoa e lugar.</p>
+            <p>Atendo moradores, famílias e viajantes que desejam levar uma lembrança autêntica, produzida com cuidado do primeiro clique à entrega final.</p>
+          </div>
+          <div class="stats" aria-label="Números da carreira">
+            <div class="stat"><strong>30+</strong><span>Anos de carreira</span></div>
+            <div class="stat"><strong>5k+</strong><span>Fotos entregues</span></div>
+            <div class="stat"><strong>100%</strong><span>Olhar alagoano</span></div>
+          </div>
+          <div class="page-actions"><a class="button button-primary" href="index.html#portfolio">Ver portfólio</a><a class="button button-secondary" href="index.html#contato">Falar comigo</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="servicos" class="section" aria-labelledby="services-title">
+      <div class="section-inner">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Serviços</p>
+          <h2 id="services-title">Uma experiência fotográfica para cada momento.</h2>
+          <p>Do registro espontâneo à imagem pronta para ocupar uma parede, cada etapa é pensada para valorizar o que você quer guardar.</p>
+        </div>
+        <div class="service-grid">
+          <article class="service-card reveal"><div class="service-icon" aria-hidden="true">◌</div><h3>Fotografia de viagem</h3><p>Roteiros, paisagens e cenas marcantes de Alagoas registrados com atenção à atmosfera e ao ritmo de cada lugar.</p></article>
+          <article class="service-card reveal"><div class="service-icon" aria-hidden="true">◉</div><h3>Retratos</h3><p>Ensaios de pessoas e famílias com direção leve, luz natural e espaço para a espontaneidade aparecer.</p></article>
+          <article class="service-card reveal"><div class="service-icon" aria-hidden="true">▧</div><h3>Edição & impressão</h3><p>Pós-produção cuidadosa e impressão de alta qualidade para transformar um registro em presença duradoura.</p></article>
+        </div>
+      </div>
+    </section>
+
+
+  </main>
+
+  <footer class="site-footer"><div class="footer-inner"><p>© <span data-year></span> Erick Ramon. Fotografia em Maceió, Alagoas.</p><div class="footer-links"><a href="index.html#portfolio">Portfólio</a><a href="index.html#contato">Contato</a><a href="sobre.html#sobre">Sobre</a><a href="sobre.html#servicos">Serviços</a></div></div></footer>
+
+  <script type="module" src="site.js"></script>
+</body>
+</html>

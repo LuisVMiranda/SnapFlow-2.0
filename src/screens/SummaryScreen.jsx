@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GalleryIdentityFields } from '../components/GalleryCoverControls';
 import { GalleryDeliveryControl } from '../components/GalleryDeliveryControl';
 import { OverlayPreviewModal } from '../components/OverlayPreviewModal';
 import { ShareCountdown } from '../components/ShareCountdown';
@@ -12,6 +13,7 @@ import { buildShareWhatsAppMessage } from '../lib/share';
 import { overlayAssetHasStoryProfile } from '../lib/storyDelivery';
 
 export function SummaryScreen({
+  galleryCreation,
   activeStage,
   clientName,
   clientEmail,
@@ -129,7 +131,7 @@ export function SummaryScreen({
           sendOriginalsViaWhatsapp: selectedDeliveryMode !== 'download',
         }
       : {};
-    return { ...selectedOverlayPayload(), ...storyOptions, ...deliveryOptions };
+    return { ...selectedOverlayPayload(), ...storyOptions, ...deliveryOptions, ...galleryCreation?.options };
   };
 
   const submitManualPayment = () => {
@@ -376,6 +378,7 @@ export function SummaryScreen({
         </div>
       ) : null}
 
+      {!shareToken && galleryCreation ? <GalleryIdentityFields draft={galleryCreation.draft} onChange={galleryCreation.setDraft} /> : null}
       <div className="summary-card" style={{ marginTop: '16px' }}>
         <div className="summary-label">Cliente</div>
         <input

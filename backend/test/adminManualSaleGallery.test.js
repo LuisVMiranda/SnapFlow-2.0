@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { createApp } = require('../src/app');
+const { createOrRestoreShareSession } = require('../src/routes/adminShareSessionCreation');
 
 function createManualSaleGalleryApp() {
   let share = null;
@@ -210,4 +211,27 @@ test('direct admin Pix sale creates a gallery and saves overlay before delivery'
       },
     },
   });
+});
+
+test('share creation cleans covers for detached duplicate galleries', async () => {
+  const removed = [];
+  const repos = {
+    findShareWithExactPhotos: async () => null,
+    createShareSession: async (payload) => ({ token: payload.token, accessCode: payload.accessCode }),
+    deleteDetachedShareDuplicates: async () => [{ token: 'duplicate-token' }],
+  };
+  await createOrRestoreShareSession({
+    accessCode: 'ABCD',
+    baseUrl: 'https://gallery.test',
+    expiresAt: new Date(Date.now() + 60_000),
+    galleryDescription: '',
+    galleryName: 'Evento',
+    galleryCovers: { remove: async (token, removeEntry) => removed.push({ token, removeEntry }) },
+    phone: { stored: '+5511999999999' },
+    photoIds: ['photo-1'],
+    repos,
+    requestBody: { clientName: 'Cliente', clientEmail: '', packageType: 'eventos', count: 1 },
+    retentionExpiresAt: new Date(Date.now() + 86_400_000),
+  });
+  assert.deepEqual(removed, [{ token: 'duplicate-token', removeEntry: true }]);
 });

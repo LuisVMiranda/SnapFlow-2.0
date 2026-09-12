@@ -3,8 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const workspaceRoot = path.resolve('.');
-const productionRoots = ['src', path.join('backend', 'src')].map((root) => path.join(workspaceRoot, root));
-const sourceExtensions = new Set(['.css', '.js', '.jsx']);
+const productionRoots = ['src', 'website', path.join('backend', 'src')].map((root) => path.join(workspaceRoot, root));
+const sourceExtensions = new Set(['.css', '.js', '.jsx', '.html']);
 const mojibakePieces = [
   String.fromCharCode(0x00c3),
   String.fromCharCode(0x00c2),

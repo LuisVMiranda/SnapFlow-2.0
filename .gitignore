@@ -62,6 +62,7 @@ exports/
 *.nef
 *.arw
 *.dng
+!website/erick-about-maceio.png
 tmp/
 temp/
 *.dump

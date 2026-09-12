@@ -18,6 +18,7 @@ if exist "%~dp0.env" (
     if /i "%%A"=="SNAPFLOW_DEV_PORT" set "SNAPFLOW_DEV_PORT=%%B"
     if /i "%%A"=="SNAPFLOW_API_PORT" set "SNAPFLOW_API_PORT=%%B"
     if /i "%%A"=="SNAPFLOW_ALLOWED_HOSTS" set "SNAPFLOW_ALLOWED_HOSTS=%%B"
+    if /i "%%A"=="SNAPFLOW_WEBSITE_PORT" set "SNAPFLOW_WEBSITE_PORT=%%B"
   )
 )
 set "BACKEND_API_PORT="
@@ -30,6 +31,9 @@ if not "%BACKEND_API_PORT%"=="" set "SNAPFLOW_API_PORT=%BACKEND_API_PORT%"
 if "%SNAPFLOW_DEV_HOST%"=="" set "SNAPFLOW_DEV_HOST=127.0.0.1"
 if "%SNAPFLOW_DEV_PORT%"=="" set "SNAPFLOW_DEV_PORT=5173"
 if "%SNAPFLOW_API_PORT%"=="" set "SNAPFLOW_API_PORT=3000"
+if "%SNAPFLOW_WEBSITE_PORT%"=="" set "SNAPFLOW_WEBSITE_PORT=5174"
+node scripts\snapflow-startup.mjs assert-distinct "%SNAPFLOW_API_PORT%" "%SNAPFLOW_DEV_PORT%" "%SNAPFLOW_WEBSITE_PORT%"
+if errorlevel 1 exit /b 1
 if "%SNAPFLOW_API_PORT%"=="%SNAPFLOW_DEV_PORT%" (
   echo ERRO: API e painel não podem usar a mesma porta %SNAPFLOW_API_PORT%.
   echo Ajuste PORT em backend\.env.local ou SNAPFLOW_DEV_PORT no arquivo .env.
@@ -48,6 +52,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+node scripts\snapflow-startup.mjs assert-port website "%SNAPFLOW_WEBSITE_PORT%"
+if errorlevel 1 exit /b 1
 call "%~dp0INICIAR_BANCO.bat" --skip-prepare
 if errorlevel 1 (
   echo.
@@ -75,5 +81,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo SnapFlow iniciado com banco, API e painel confirmados.
+start "APP FOTOGRAFIA - WEBSITE" cmd /k "cd /d ""%~dp0"" && npm.cmd run dev:website"
+node scripts\snapflow-startup.mjs wait-website "http://127.0.0.1:%SNAPFLOW_WEBSITE_PORT%/" 30 1000
+if errorlevel 1 exit /b 1
+echo SnapFlow iniciado com banco, API, painel e website confirmados.
 endlocal

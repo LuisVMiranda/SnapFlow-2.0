@@ -4,6 +4,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { ShareLockScreen } from './ShareLockScreen';
 
 describe('ShareLockScreen', () => {
+  it('shows covers before unlock, hides broken images and blocks expired galleries', () => {
+    const props = { shareCodeInput: '', setShareCodeInput: vi.fn(), handleUnlockSharedSession: vi.fn(), shareActionLoading: false };
+    const { rerender } = render(<ShareLockScreen {...props} shareSessionInfo={{ galleryName: 'Festa', coverUrl: '/cover', expired: true }} />);
+    expect(screen.getByRole('img', { name: 'Festa' })).toHaveAttribute('src', '/cover');
+    expect(screen.getByRole('button', { name: 'Abrir galeria' })).toBeDisabled();
+    fireEvent.error(screen.getByRole('img'));
+    expect(screen.queryByRole('img')).toBeNull();
+    rerender(<ShareLockScreen {...props} shareSessionInfo={{ galleryName: 'Festa' }} />);
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Abrir galeria' })).toBeEnabled();
+  });
   it('renders a loading-safe shell before shared metadata arrives', () => {
     render(
       <ShareLockScreen

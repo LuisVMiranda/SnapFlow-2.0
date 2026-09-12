@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GalleryCoverEditor } from './GalleryCoverControls';
 import { applyManualDiscount } from '../lib/discounts';
 import { formatMoney } from '../lib/formatters';
 import { resolvePresetStack } from '../lib/photoPresets';
@@ -28,6 +29,7 @@ export function ShareGalleryEditor({
   pricingOptions,
   removePhotoPresets = () => {},
   saveShare,
+  adminHeaders,
   shareSession,
   toggleDraftPreset = () => {},
   undoPhotoPresetApplication = () => {},
@@ -77,6 +79,7 @@ export function ShareGalleryEditor({
 
   return (
     <form className="share-edit-panel" onSubmit={(event) => saveShare(event, shareSession)}>
+      <GalleryCoverEditor token={shareSession.token} initialUrl={galleryDetail.coverUrl} adminHeaders={adminHeaders} />
       <label>
         Nome da galeria
         <input

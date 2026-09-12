@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
           url: 'http://localhost:3000/',
         },
       },
-      include: ['src/**/*.{test,spec}.{js,jsx}'],
+      include: ['src/**/*.{test,spec}.{js,jsx}', 'website/**/*.test.js'],
       setupFiles: './src/test/setup.js',
     },
     server: {

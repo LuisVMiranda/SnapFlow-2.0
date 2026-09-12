@@ -2,7 +2,7 @@ const { shareExpiresAtFromNow } = require('../services/shareExpiration');
 const { addDays, generateAccessCode } = require('../tokens');
 const { createOrRestoreShareSession, resolvePublicBaseUrl } = require('./adminShareSessionCreation');
 
-async function createSaleGallery({ config, credentials, repos }, sale) {
+async function createSaleGallery({ config, credentials, galleryCovers, repos }, sale) {
   const now = new Date();
   const retentionExpiresAt = addDays(now, config.defaultGalleryRetentionDays);
   const { expiresAt } = shareExpiresAtFromNow();
@@ -10,8 +10,9 @@ async function createSaleGallery({ config, credentials, repos }, sale) {
     accessCode: generateAccessCode(4),
     baseUrl: await resolvePublicBaseUrl(sale.req, config, credentials),
     expiresAt,
-    galleryDescription: '',
-    galleryName: sale.clientName ? `Venda - ${sale.clientName}` : 'Venda direta',
+    galleryDescription: String(sale.req.body.galleryDescription || '').trim().slice(0, 800),
+    galleryName: String(sale.req.body.galleryName || (sale.clientName ? `Venda - ${sale.clientName}` : 'Venda direta')).trim().slice(0, 120),
+    galleryCovers,
     phone: sale.phone,
     photoIds: sale.photoIds,
     repos,

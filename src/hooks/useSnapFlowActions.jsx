@@ -11,6 +11,7 @@ import { firstPackageKey } from '../lib/pricing';
 import { buildShareWhatsAppMessage, normalizeShareCode } from '../lib/share';
 import { createSessionId } from '../lib/session';
 import { galleryDeliveryPayload } from '../lib/deliveryMode';
+import { finishGalleryCover, galleryIdentityPayload } from '../lib/websiteApi';
 
 export function useSnapFlowActions(config) {
   const {
@@ -204,6 +205,7 @@ export function useSnapFlowActions(config) {
       setSessionId(generatedId);
 
       const payload = {
+        ...galleryIdentityPayload(overlay),
         subtotal,
         discountAmount,
         total,
@@ -237,6 +239,7 @@ export function useSnapFlowActions(config) {
       const data = await readJsonResponse(response);
 
       if (response.ok && data.qr_code_base64) {
+        await finishGalleryCover(overlay, data);
         setQrCodeBase64(data.qr_code_base64);
         setPixCopyPaste(data.qr_code || '');
         setPixWhatsAppMessage(data.whatsappMessage || '');
@@ -290,6 +293,7 @@ export function useSnapFlowActions(config) {
           packageType: type,
           paymentMethod,
           isShareSession: Boolean(shareToken),
+          ...galleryIdentityPayload(overlay),
           shareToken,
           accessCode: safeShareSessionInfo.accessCode || '',
           ...(!shareToken && overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
@@ -300,6 +304,7 @@ export function useSnapFlowActions(config) {
 
       const data = await readJsonResponse(response);
 
+      if (response.ok) await finishGalleryCover(overlay, data);
       if (response.ok && data.status === 'approved') {
         setLiveOps({
           paymentStatus: 'approved',
@@ -465,6 +470,7 @@ export function useSnapFlowActions(config) {
           discountAmount,
           total,
           expiresMinutes: shareDurationMinutes,
+          ...galleryIdentityPayload(overlay),
           photoPresetIds,
           ...(overlay?.assetId ? { overlayAssetId: overlay.assetId, overlaySettings: overlay.settings } : {}),
           ...(overlay?.storyDeliveryEnabled ? { storyDeliveryEnabled: true } : {}),
@@ -483,6 +489,7 @@ export function useSnapFlowActions(config) {
       }
 
       const link = data.link || window.location.origin + '/s/' + data.token;
+      await finishGalleryCover(overlay, data);
       const shareRecord = {
         token: data.token,
         code: data.accessCode,

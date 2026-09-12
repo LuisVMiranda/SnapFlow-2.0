@@ -10,6 +10,7 @@ const { createSessionRepo } = require('./sessions');
 const { createSettingsRepo } = require('./settings');
 const { createShareSessionRepo } = require('./shareSessions');
 const { createWatermarkAssetRepo } = require('./watermarkAssets');
+const { createWebsiteRepo } = require('./website');
 const { fromCents, toCents } = require('./mappers');
 
 function createRepos(config) {
@@ -45,6 +46,7 @@ function createRepos(config) {
     ...createSettingsRepo(context),
     ...createOverlayAssetRepo(context),
     ...createWatermarkAssetRepo(context),
+    ...createWebsiteRepo(context),
     close,
   };
 }

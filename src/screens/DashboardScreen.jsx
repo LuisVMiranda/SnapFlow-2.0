@@ -5,6 +5,7 @@ import { CredentialsPanel } from '../components/CredentialsPanel';
 import { GalleryControlPanel } from '../components/GalleryControlPanel';
 import { SalesStatsPanel } from '../components/SalesStatsPanel';
 import { SettingsPanel } from '../components/SettingsPanel';
+import { WebsitePanel } from '../components/WebsitePanel';
 import { DEFAULT_PRICING } from '../lib/pricing';
 
 export function DashboardScreen({
@@ -84,6 +85,7 @@ export function DashboardScreen({
   const [activeTab, setActiveTab] = useState('galerias');
 
   const renderPanel = () => {
+    if (activeTab === 'website') return <WebsitePanel adminHeaders={adminHeaders} />;
     if (activeTab === 'vendas') {
       return (
         <SalesStatsPanel

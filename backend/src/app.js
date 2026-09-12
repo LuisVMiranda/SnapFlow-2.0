@@ -1,5 +1,8 @@
 const cors = require('cors');
 const express = require('express');
+const { createWebsiteRouter } = require('./routes/websiteRoutes');
+const { createWebsiteService } = require('./services/websiteService');
+const { createGalleryCoverService } = require('./services/galleryCoverService');
 const { createAuth } = require('./auth');
 const { errorHandler } = require('./errors');
 const { createAdminOpsRouter } = require('./routes/adminOpsRoutes');
@@ -31,6 +34,8 @@ function createApp({ config, repos, media, payment, deliveryQueue, deliveryModeS
   const app = express();
   const auth = createAuth(config);
   const upload = createUploader(config, media);
+  const galleryCovers = createGalleryCoverService({ config, repos });
+  const website = createWebsiteService({ config, repos, credentials, packages });
   const photoPresets = providedPhotoPresets || createPhotoEditingPresetService({ repos });
   const overlayAssets = providedOverlayAssets || createOverlayAssetService({ media, repos });
   const storyDelivery = providedStoryDelivery || createStoryDeliverySettingsService({ repos });
@@ -47,7 +52,8 @@ function createApp({ config, repos, media, payment, deliveryQueue, deliveryModeS
   app.use(express.json({ limit: '2mb' }));
   app.use('/api', createHealthRouter());
   app.use('/api', createPackageRouter(deps));
-  app.use('/api/admin', createAdminRouter(deps));
+  app.use('/api', createWebsiteRouter({ ...deps, website, galleryCovers }));
+  app.use('/api/admin', createAdminRouter({ ...deps, galleryCovers }));
   app.use('/api/admin', createAdminSettingsRouter(deps));
   app.use('/api/admin', createAdminOpsRouter(deps));
   app.use('/api/admin', createStoryDeliveryRouter(deps));

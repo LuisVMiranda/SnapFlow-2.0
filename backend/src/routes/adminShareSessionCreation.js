@@ -8,7 +8,18 @@ async function resolvePublicBaseUrl(req, config, credentials) {
   return savedUrl || publicBaseUrlForRequest(req, config);
 }
 
-async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, galleryDescription, galleryName, phone, photoIds, repos, requestBody, retentionExpiresAt }) {
+async function cleanupDuplicateCovers(duplicates, galleryCovers) {
+  if (!galleryCovers?.remove || !duplicates?.length) return;
+  await Promise.all(duplicates.map(async (duplicate) => {
+    try {
+      await galleryCovers.remove(duplicate.token, true);
+    } catch (error) {
+      console.warn(`Falha ao limpar capa da galeria duplicada ${duplicate.token}: ${error.message}`);
+    }
+  }));
+}
+
+async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, galleryDescription, galleryName, galleryCovers, phone, photoIds, repos, requestBody, retentionExpiresAt }) {
   const existingShare = typeof repos.findShareWithExactPhotos === 'function'
     ? await repos.findShareWithExactPhotos(photoIds)
     : null;
@@ -43,7 +54,8 @@ async function createOrRestoreShareSession({ accessCode, baseUrl, expiresAt, gal
     : await repos.createShareSession(payload);
 
   if (share && typeof repos.deleteDetachedShareDuplicates === 'function') {
-    await repos.deleteDetachedShareDuplicates(share);
+    const duplicates = await repos.deleteDetachedShareDuplicates(share);
+    await cleanupDuplicateCovers(duplicates, galleryCovers);
   }
 
   return { accessCode: stableAccessCode, link, share };

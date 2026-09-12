@@ -1,5 +1,6 @@
 const { watermarkAssetPayload } = require('../services/watermarkAssetService');
 const { overlayAssetPayload } = require('../services/overlayAssetService');
+const { coverUrl } = require('../services/galleryCoverService');
 
 function adminPhotoPayload(photo) {
   const versionQuery = photo.mediaVersion ? `?v=${encodeURIComponent(photo.mediaVersion)}` : '';
@@ -26,6 +27,7 @@ function adminPhotoPagePayload(page) {
 async function adminShareDetails(repos, token, options = {}) {
   const share = await repos.getShareSession(token, { includeAccessCode: true });
   if (!share) return null;
+  const cover = await repos.getGalleryCover?.(token);
   const { items, page } = await repos.listPhotosForSharePage(share.token, options);
   const watermarkAsset = share.watermarkAssetId && typeof repos.getWatermarkAsset === 'function'
     ? await repos.getWatermarkAsset(share.watermarkAssetId)
@@ -35,6 +37,7 @@ async function adminShareDetails(repos, token, options = {}) {
     : null;
   return {
     ...share,
+    coverUrl: cover ? coverUrl(token, cover.version) : '',
     overlayAsset: overlayAssetPayload(overlayAsset),
     watermarkAsset: watermarkAssetPayload(watermarkAsset),
     photoCount: page.totalCount,

@@ -59,3 +59,14 @@ test('installers and database verification preserve the configured API port and 
   assert.match(databaseLauncher, /node --check scripts\\snapflow-startup\.mjs/i);
   assert.match(dockerEnvSync, /'SNAPFLOW_API_PORT'/i);
 });
+
+test('website Funnel launcher resolves configured API, panel and website ports', () => {
+  const funnel = read(path.join('scripts', 'configure-website-funnel.ps1'));
+  assert.match(funnel, /SNAPFLOW_API_PORT/);
+  assert.match(funnel, /SNAPFLOW_DEV_PORT/);
+  assert.match(funnel, /SNAPFLOW_WEBSITE_PORT/);
+  assert.match(funnel, /127\.0\.0\.1:\$websitePort/);
+  assert.match(funnel, /127\.0\.0\.1:\$panelPort/);
+  assert.doesNotMatch(funnel, /127\.0\.0\.1:5174/);
+  assert.doesNotMatch(funnel, /127\.0\.0\.1:5173/);
+});

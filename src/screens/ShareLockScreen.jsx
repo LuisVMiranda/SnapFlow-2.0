@@ -1,4 +1,5 @@
 import { ShareCountdown } from '../components/ShareCountdown';
+import { CoverImage } from '../components/GalleryCoverControls';
 import { normalizeShareCode } from '../lib/share';
 
 export function ShareLockScreen({
@@ -23,6 +24,7 @@ export function ShareLockScreen({
       </header>
 
       <div className="summary-card share-lock-card">
+        <CoverImage url={info.coverUrl} alt={galleryName || 'Capa da galeria'} className="share-lock-cover" />
         <div className="summary-label">Acesso temporário do cliente</div>
         {galleryName ? <h2 className="share-lock-title">{galleryName}</h2> : null}
         {galleryDescription ? <p className="share-lock-description">{galleryDescription}</p> : null}

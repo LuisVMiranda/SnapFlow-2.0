@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:website": "vite --config vite.website.config.js",
+    "build:website": "vite build --config vite.website.config.js",
     "build": "vite build .",
     "lint": "eslint .",
     "test": "vitest run",

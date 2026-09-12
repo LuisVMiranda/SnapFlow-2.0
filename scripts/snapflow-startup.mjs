@@ -108,6 +108,16 @@ export function waitForSnapFlowPanel(options = {}) {
   return waitForEndpoint({ ...options, validate: isSnapFlowPanelResponse });
 }
 
+export function waitForSnapFlowWebsite(options = {}) {
+  return waitForEndpoint({ ...options, validate: ({ text }) => /name="snapflow-service" content="snapflow-website"/.test(text) });
+}
+
+export function assertDistinctPorts(ports) {
+  const normalized = ports.map(normalizeTcpPort);
+  if (new Set(normalized).size !== normalized.length) throw new Error('API, painel e website precisam de portas diferentes.');
+  return normalized;
+}
+
 async function assertPortFree(label, value) {
   const port = normalizeTcpPort(value);
   if (!await isTcpPortOpen({ port })) return;
@@ -117,6 +127,12 @@ async function assertPortFree(label, value) {
 }
 
 async function runCli([command, ...args]) {
+  if (command === 'assert-distinct') { assertDistinctPorts(args); return; }
+  if (command === 'wait-website') {
+    await waitForSnapFlowWebsite({ url: args[0], attempts: args[1], delayMs: args[2] });
+    console.log('Website SnapFlow pronto.');
+    return;
+  }
   if (command === 'assert-port') {
     await assertPortFree(args[0] || 'serviço', args[1]);
     console.log(`Porta ${args[1]} livre para ${args[0] || 'serviço'}.`);

@@ -87,7 +87,7 @@ function whatsappSendErrorMessage(error) {
   return message || 'Não foi possível enviar pelo WhatsApp agora. Verifique se o WhatsApp está pareado no painel e tente reenviar.';
 }
 
-function createAdminRouter({ auth, config, credentials, deliveryModeSettings, deliveryQueue, deliveryRelease, galleryOverlays, galleryPresets, galleryWatermarks, media, packages, payment, repos, storyDelivery, upload, whatsapp, whatsappTemplates }) {
+function createAdminRouter({ auth, config, credentials, deliveryModeSettings, deliveryQueue, deliveryRelease, galleryOverlays, galleryPresets, galleryWatermarks, galleryCovers, media, packages, payment, repos, storyDelivery, upload, whatsapp, whatsappTemplates }) {
   const router = express.Router();
 
   async function assertStoryReady(body = {}, share = null) {
@@ -156,7 +156,7 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
-          { config, credentials, repos },
+          { config, credentials, galleryCovers, repos },
           { clientEmail, clientName, deliveryMode, phone, photoIds, postPaymentAccessDays, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
@@ -201,7 +201,7 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
       let shareToken = String(req.body.shareToken || '').trim();
       if (!shareToken && photoIds.length) {
         const saleGallery = await createSaleGallery(
-          { config, credentials, repos },
+          { config, credentials, galleryCovers, repos },
           { clientEmail, clientName, deliveryMode, phone, photoIds, postPaymentAccessDays, req, totals }
         );
         shareToken = saleGallery.share?.token || '';
@@ -300,6 +300,7 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         expiresAt,
         galleryDescription,
         galleryName,
+        galleryCovers,
         phone,
         photoIds,
         repos,
@@ -392,6 +393,9 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         const matched = await repos.findShareWithMatchingMetadata(original);
         if (matched) {
           await repos.deleteShareSession(original.token);
+          if (typeof repos.removeGalleryCover === 'function' && galleryCovers?.remove) {
+            await galleryCovers.remove(original.token, true);
+          }
           original = matched;
           photos = await repos.listPhotosForShare(original.token);
         }
@@ -415,7 +419,10 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
         link,
       });
       if (typeof repos.deleteDetachedShareDuplicates === 'function') {
-        await repos.deleteDetachedShareDuplicates(updated);
+        const duplicates = await repos.deleteDetachedShareDuplicates(updated);
+        if (typeof repos.removeGalleryCover === 'function' && galleryCovers?.remove) {
+          for (const duplicate of duplicates) await galleryCovers.remove(duplicate.token, true);
+        }
       }
 
       res.json({
@@ -576,6 +583,9 @@ function createAdminRouter({ auth, config, credentials, deliveryModeSettings, de
     asyncHandler(async (req, res) => {
       const deleted = await repos.deleteShareSession(req.params.token);
       if (!deleted) throw new HttpError(404, 'Link não encontrado. Atualize Galerias e confirme se ele ainda existe.', 'share_not_found');
+      if (typeof repos.removeGalleryCover === 'function' && galleryCovers?.remove) {
+        await galleryCovers.remove(deleted.token, true);
+      }
       res.json({ success: true, token: deleted.token, deletedAt: deleted.deletedAt });
     })
   );

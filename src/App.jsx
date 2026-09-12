@@ -1,5 +1,7 @@
 import './index.css';
 import { PhotoViewer } from './components/PhotoViewer';
+import { CoverUploadRetry } from './components/GalleryCoverControls';
+import { useGalleryCreationCover } from './hooks/useGalleryCreationCover';
 import { PendingManualApprovalPrompt } from './components/PendingManualApprovalPrompt';
 import { ScrollToTopButton } from './components/ScrollToTopButton';
 import { AdminApprovalScreen } from './screens/AdminApprovalScreen';
@@ -173,6 +175,9 @@ export default function App() {
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState(DEFAULT_DELIVERY_MODE);
   const [selectedPostPaymentAccessDays, setSelectedPostPaymentAccessDays] = useState(DEFAULT_POST_PAYMENT_ACCESS_DAYS);
   const [busyPendingApprovalId, setBusyPendingApprovalId] = useState('');
+  const galleryCreation = useGalleryCreationCover(adminHeaders);
+  const resetGalleryCreation = galleryCreation.reset;
+  useEffect(() => { if (screen === 'dashboard') resetGalleryCreation(); }, [screen, resetGalleryCreation]);
   const safeShareSessionInfo = shareSessionInfo && typeof shareSessionInfo === 'object' ? shareSessionInfo : {};
   const effectiveWatermarkSettings = safeShareSessionInfo.watermarkSettings || watermarkSettings;
   const effectiveOverlaySettings = safeShareSessionInfo.overlaySettings || { enabled: false };
@@ -213,6 +218,7 @@ export default function App() {
     <>
       {content}
       {pendingApprovalPrompt}
+      {isAdminUnlocked ? <CoverUploadRetry creation={galleryCreation} /> : null}
       <ScrollToTopButton />
     </>
   );
@@ -390,6 +396,7 @@ export default function App() {
   if (screen === 'summary') {
     return renderScreen(
       <SummaryScreen
+        galleryCreation={galleryCreation}
         activeStage={activeStage}
         clientName={clientName}
         clientEmail={clientEmail}

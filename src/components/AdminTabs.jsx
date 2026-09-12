@@ -1,9 +1,10 @@
-import { ChartColumn, Images, KeyRound, Settings } from 'lucide-react';
+import { ChartColumn, Globe, Images, KeyRound, Settings } from 'lucide-react';
 
 const TABS = [
   { key: 'galerias', label: 'Galerias', icon: Images },
   { key: 'vendas', label: 'Vendas', icon: ChartColumn },
   { key: 'configuracoes', label: 'Configurações', icon: Settings },
+  { key: 'website', label: 'Website', icon: Globe },
   { key: 'credenciais', label: 'Credenciais', icon: KeyRound },
 ];
 

@@ -1,4 +1,5 @@
 const express = require('express');
+const { coverUrl } = require('../services/galleryCoverService');
 const fs = require('fs/promises');
 const { HttpError, asyncHandler } = require('../errors');
 const { applyManualDiscount } = require('../services/discounts');
@@ -141,6 +142,8 @@ function createShareRouter({ galleryOverlays, galleryWatermarks, media, packages
 
   async function publicPayload(share, options = {}) {
     const payload = publicSharePayload(share);
+    const cover = await repos.getGalleryCover?.(share.token);
+    payload.coverUrl = cover ? coverUrl(share.token, cover.version) : '';
     payload.deliveryMode = share.deliveryMode || 'whatsapp';
     payload.galleryDownloadEnabled = allowsGalleryDownload(share.deliveryMode);
     payload.downloads = downloadsPayload(share, options.customerAccessToken || '', options.purchasedPhotoIds || []);

@@ -59,6 +59,21 @@ function makeActionsConfig(overrides = {}) {
 }
 
 describe('useSnapFlowActions shared null states', () => {
+  it.each(['pix', 'manual', 'shared'])('saves gallery identity before uploading its cover: %s', async (kind) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      token: 'created-token', shareToken: 'created-token', accessCode: 'ABCD', code: 'ABCD',
+      link: 'https://gallery.test/s/created-token', status: 'pending', sessionId: 'sale', qr_code_base64: 'qr', qr_code: 'code',
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetch);
+    const onGalleryCreated = vi.fn();
+    const options = { galleryName: 'Festa', galleryDescription: 'Uma festa', onGalleryCreated };
+    const actions = useSnapFlowActions(makeActionsConfig({ shareToken: '' }));
+    if (kind === 'pix') await actions.handleGeneratePix(options);
+    if (kind === 'manual') await actions.handleManualPayment('manual', options);
+    if (kind === 'shared') await actions.handleCreateShareSession([], options);
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ galleryName: 'Festa', galleryDescription: 'Uma festa' });
+    expect(onGalleryCreated).toHaveBeenCalledWith('created-token');
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
   });

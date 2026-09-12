@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="snapflow-service" content="snapflow-website" />
+  <meta name="description" content="Erick Ramon — Fotógrafo profissional de Maceió, Alagoas. Paisagens, retratos e histórias do Nordeste brasileiro." />
+  <title>Erick Ramon · Fotografia em Maceió</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+  <header class="site-header glass">
+    <nav class="nav-shell" aria-label="Navegação principal">
+      <a class="brand" href="index.html#portfolio" aria-label="Erick Ramon — Portfólio">E<span class="brand-dot">.</span>R</a>
+      <div class="nav-links">
+        <a href="index.html#portfolio" aria-current="page">Portfólio</a>
+        <a href="sobre.html#sobre">Sobre</a>
+        <a href="sobre.html#servicos">Serviços</a>
+        <a href="index.html#contato">Contato</a>
+      </div>
+      <div class="nav-actions">
+        <button class="icon-button" type="button" data-theme-toggle aria-label="Ativar tema escuro">🌙</button>
+        <button class="menu-toggle" id="menuToggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="mobileMenu"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M4 7h16M4 17h16" /></svg></button>
+      </div>
+    </nav>
+    <div class="mobile-menu" id="mobileMenu" hidden>
+      <a href="index.html#portfolio">Portfólio</a>
+      <a href="sobre.html#sobre">Sobre</a>
+      <a href="sobre.html#servicos">Serviços</a>
+      <a href="index.html#contato">Contato</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="portfolio" class="gallery-hero" aria-label="Portfólio de galerias">
+      <div class="carousel-shell" id="galleryCarousel" role="region" aria-roledescription="carrossel" aria-label="Galerias de fotografias">
+        <div class="gallery-stage" id="portfolioTrack"></div>
+        <div class="carousel-controls"><button class="carousel-arrow" id="carouselPrev" type="button" aria-label="Galeria anterior" disabled>←</button><p id="carouselStatus" aria-live="polite">Carregando galerias…</p><button class="carousel-arrow" id="carouselNext" type="button" aria-label="Próxima galeria" disabled>→</button></div>
+      </div>
+      <p id="galleryFeedback" role="status"></p>
+      <a class="text-link" href="#contato">Precisa de ajuda para encontrar suas fotos? Fale comigo ↗</a>
+    </section>
+    <section id="contato" class="section" aria-labelledby="contact-title">
+      <div class="section-inner">
+        <div class="contact-grid">
+          <div class="contact-copy reveal">
+            <p class="eyebrow">Contato</p>
+            <h2 id="contact-title">Vamos conversar?</h2>
+            <p>Fale comigo para agendar uma sessão, tirar dúvidas ou encomendar fotografias. Responderei o mais rápido possível.</p>
+            <div class="contact-details">
+              <div class="contact-line"><span class="contact-icon" aria-hidden="true">⌖</span><span>Maceió, Alagoas — Brasil</span></div>
+              <div class="contact-line"><a id="photographerWhatsApp" hidden></a></div>
+
+            </div>
+          </div>
+          <form id="contactForm" class="contact-form reveal">
+            <div class="field"><label for="nome">Seu nome</label><input id="nome" name="nome" type="text" required maxlength="80" autocomplete="name" placeholder="Como posso chamar você?" /></div>
+            <div class="field"><label for="motivo">Motivo do contato</label><select id="motivo" name="motivo" required><option value="">Selecione um assunto</option><option>Agendar sessão</option><option>Dúvida sobre galeria</option><option>Orçamento/serviços</option><option>Comprar/licenciar uma foto</option><option>Outro</option></select></div>
+            <button id="sendContact" class="button button-primary" type="submit" disabled>Enviar mensagem ↗</button>
+            <p id="formFeedback" class="form-feedback" aria-live="polite">Carregando contato…</p>
+            <small>O WhatsApp abrirá com sua mensagem pronta para enviar.</small>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+
+  <button class="icon-button" id="scrollTop" type="button" aria-label="Voltar ao topo">↑</button>
+  <footer class="site-footer"><div class="footer-inner"><p>© <span data-year></span> Erick Ramon. Fotografia em Maceió, Alagoas.</p><div class="footer-links"><a href="index.html#portfolio">Portfólio</a><a href="index.html#contato">Contato</a><a href="sobre.html#sobre">Sobre</a><a href="sobre.html#servicos">Serviços</a></div></div></footer>
+
+  <script type="module" src="site.js"></script>
+</body>
+</html>
