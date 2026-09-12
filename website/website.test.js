@@ -9,6 +9,12 @@ const about = fs.readFileSync('website/sobre.html', 'utf8');
 const items = Array.from({ length: 10 }, (_, i) => ({ title: `Evento ${i}`, galleryUrl: `https://gallery.test/s/g${i}`, coverUrl: `/cover${i}.webp` }));
 afterEach(() => { vi.unstubAllGlobals(); document.body.replaceChildren(); });
 
+function linksIn(html, className) {
+  const match = html.match(new RegExp(`<div class="${className}"[^>]*>([\\s\\S]*?)</div>`));
+  return [...(match?.[1] || '').matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)]
+    .map(([, href, label]) => ({ href, label: label.trim() }));
+}
+
 describe('public website', () => {
   it('preserves centering, uniqueness and valid indices across randomized carousel states', () => {
     fc.assert(fc.property(fc.integer({ min: 1, max: 10 }), fc.nat(1000), fc.constantFrom(1, 3, 5), (length, turn, count) => {
@@ -92,6 +98,25 @@ describe('public website', () => {
     expect(about).toContain('<a href="sobre.html#sobre" aria-current="page">Sobre</a>');
     expect(home).not.toContain('>Extra <');
     expect(fs.readFileSync('website/site.css', 'utf8')).toContain('prefers-reduced-motion');
+  });
+
+  it('keeps the shared menu order and puts services on the home page', () => {
+    const expected = [
+      { href: 'index.html#portfolio', label: 'Portfólio' },
+      { href: 'index.html#servicos', label: 'Serviços' },
+      { href: 'index.html#contato', label: 'Contato' },
+      { href: 'sobre.html#sobre', label: 'Sobre' },
+    ];
+    for (const html of [home, about]) {
+      expect(linksIn(html, 'nav-links')).toEqual(expected);
+      expect(linksIn(html, 'mobile-menu')).toEqual(expected);
+      expect(linksIn(html, 'footer-links')).toEqual(expected);
+    }
+    expect(home).toMatch(/<section id="portfolio"/);
+    expect(home).toMatch(/<section id="servicos"/);
+    expect(home).toMatch(/<section id="contato"/);
+    expect(about).toMatch(/<section id="sobre"/);
+    expect(about).not.toMatch(/<section id="servicos"/);
   });
 
   it.each([false, true])('shows a helpful empty or API-error state (failure=%s)', async (failure) => {
