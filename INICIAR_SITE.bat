@@ -1,4 +1,5 @@
 @echo off
+rem Keep this launcher in CRLF; cmd.exe misparses mixed line endings.
 setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"

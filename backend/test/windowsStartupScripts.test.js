@@ -9,6 +9,12 @@ function read(file) {
   return fs.readFileSync(path.join(root, file), 'utf8');
 }
 
+function assertCrLfOnly(file) {
+  const content = read(file);
+  const withoutCrLf = content.replace(/\r\n/g, '');
+  assert.doesNotMatch(withoutCrLf, /[\r\n]/, `${file} deve usar somente finais de linha CRLF`);
+}
+
 function assertOrdered(content, fragments) {
   let previousIndex = -1;
   for (const fragment of fragments) {
@@ -69,4 +75,9 @@ test('website Funnel launcher resolves configured API, panel and website ports',
   assert.match(funnel, /127\.0\.0\.1:\$panelPort/);
   assert.doesNotMatch(funnel, /127\.0\.0\.1:5174/);
   assert.doesNotMatch(funnel, /127\.0\.0\.1:5173/);
+});
+
+test('Windows command launchers use CRLF line endings consistently', () => {
+  const launchers = fs.readdirSync(root).filter((file) => file.endsWith('.bat'));
+  for (const launcher of launchers) assertCrLfOnly(launcher);
 });
