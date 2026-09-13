@@ -2,7 +2,7 @@
 
 ## Operation
 
-- Start the API, panel and website together with `INICIAR_TUDO.bat`.
+- Start the API, panel and website together with `INICIAR_TUDO.bat`. The three services run as hidden background processes, so no extra terminal windows remain open; inspect `logs\\api.log`, `logs\\panel.log` and `logs\\website.log` if needed.
 - Start only the website with `INICIAR_SITE.bat` after the API is ready.
 - Open the panel's **Website** tab, immediately after **Configurações**.
 - Register the photographer's commercial WhatsApp in **Credenciais**. Missing or invalid numbers disable contact; there is no hardcoded fallback recipient.

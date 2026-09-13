@@ -63,27 +63,50 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo Iniciando servidor e painel...
-start "APP FOTOGRAFIA - SERVIDOR" cmd /k "set SNAPFLOW_SKIP_STARTUP_MIGRATIONS=1&& cd /d ""%~dp0backend"" && cmd /c npm.cmd start"
+echo Iniciando servidor, painel e website em segundo plano...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name api -WorkingDirectory "%~dp0backend" -Command "set SNAPFLOW_SKIP_STARTUP_MIGRATIONS=1&& npm.cmd start"
+if errorlevel 1 (
+  echo Não foi possível iniciar o servidor em segundo plano.
+  echo Confira a mensagem acima e tente novamente.
+  pause
+  exit /b 1
+)
 echo Aguardando a API confirmar que está pronta...
 cmd /c node scripts\snapflow-startup.mjs wait-api "http://127.0.0.1:%SNAPFLOW_API_PORT%/api/health" 90 1000
 if errorlevel 1 (
   echo.
-  echo O servidor não ficou pronto. Confira a janela APP FOTOGRAFIA - SERVIDOR e corrija o erro exibido.
+  echo O servidor não ficou pronto. Confira logs\api.error.log e logs\api.log.
   pause
   exit /b 1
 )
-start "APP FOTOGRAFIA - PAINEL" cmd /k "cd /d ""%~dp0"" && set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name panel -WorkingDirectory "%~dp0" -Command "set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort"
+if errorlevel 1 (
+  echo Não foi possível iniciar o painel em segundo plano.
+  echo Confira logs\panel.error.log e logs\panel.log.
+  pause
+  exit /b 1
+)
 echo Aguardando o painel confirmar que está pronto...
 cmd /c node scripts\snapflow-startup.mjs wait-panel "http://127.0.0.1:%SNAPFLOW_DEV_PORT%/" 30 1000
 if errorlevel 1 (
   echo.
-  echo O painel não ficou pronto. Confira a janela APP FOTOGRAFIA - PAINEL e a porta %SNAPFLOW_DEV_PORT%.
+  echo O painel não ficou pronto. Confira logs\panel.error.log e logs\panel.log.
   pause
   exit /b 1
 )
-start "APP FOTOGRAFIA - WEBSITE" cmd /k "cd /d ""%~dp0"" && npm.cmd run dev:website"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name website -WorkingDirectory "%~dp0" -Command "npm.cmd run dev:website"
+if errorlevel 1 (
+  echo Não foi possível iniciar o website em segundo plano.
+  echo Confira logs\website.error.log e logs\website.log.
+  pause
+  exit /b 1
+)
 node scripts\snapflow-startup.mjs wait-website "http://127.0.0.1:%SNAPFLOW_WEBSITE_PORT%/" 30 1000
-if errorlevel 1 exit /b 1
+if errorlevel 1 (
+  echo O website não ficou pronto. Confira logs\website.error.log e logs\website.log.
+  pause
+  exit /b 1
+)
 echo SnapFlow iniciado com banco, API, painel e website confirmados.
+echo Os processos continuam em segundo plano. Logs: logs\api.log, logs\panel.log e logs\website.log.
 endlocal

@@ -31,16 +31,30 @@ test('INICIAR_TUDO waits for each SnapFlow branch instead of sleeping for a fixe
     'assert-port API',
     'assert-port painel',
     'INICIAR_BANCO.bat',
-    'start "APP FOTOGRAFIA - SERVIDOR"',
+    'start-snapflow-process.ps1" -Name api',
     'wait-api',
-    'start "APP FOTOGRAFIA - PAINEL"',
+    'start-snapflow-process.ps1" -Name panel',
     'wait-panel',
   ]);
   assert.match(script, /SNAPFLOW_SKIP_STARTUP_MIGRATIONS=1/i);
   assert.match(script, /BACKEND_API_PORT/i);
   assert.match(script, /SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%/i);
   assert.match(script, /--strictPort/i);
+  assert.match(script, /logs\\api\.error\.log/i);
+  assert.match(script, /logs\\panel\.error\.log/i);
+  assert.match(script, /logs\\website\.error\.log/i);
+  assert.doesNotMatch(script, /cmd \/k/i);
   assert.doesNotMatch(script, /timeout \/t 2/i);
+});
+
+test('background process runner hides child terminals and captures logs', () => {
+  const runner = read(path.join('scripts', 'start-snapflow-process.ps1'));
+
+  assert.match(runner, /ValidateSet\('api', 'panel', 'website'\)/i);
+  assert.match(runner, /Start-Process/i);
+  assert.match(runner, /-WindowStyle Hidden/i);
+  assert.match(runner, /-RedirectStandardOutput/i);
+  assert.match(runner, /-RedirectStandardError/i);
 });
 
 test('standalone launchers enforce API identity and strict port ownership', () => {
