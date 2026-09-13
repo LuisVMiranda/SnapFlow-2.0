@@ -319,10 +319,10 @@
 
   .admin-tabs {
     gap: 6px;
-    overflow-x: auto;
   }
 
   .admin-tab {
+    flex-basis: 112px;
     font-size: 10px;
     min-height: 58px;
   }

@@ -104,7 +104,7 @@ describe('DashboardScreen admin unlock', () => {
     expect(screen.getByText('Painel protegido')).toBeInTheDocument();
   });
 
-  it('shows the four compact sections after verified admin access', async () => {
+  it('shows website in the sales slot and keeps sales as the final admin category', async () => {
     const user = userEvent.setup();
     render(
       <DashboardScreen
@@ -114,10 +114,14 @@ describe('DashboardScreen admin unlock', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /Galerias/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Vendas/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Configurações/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Credenciais/i })).toBeInTheDocument();
+    const categoryButtons = screen.getByRole('navigation', { name: 'Seções administrativas' }).querySelectorAll('button');
+    expect([...categoryButtons].map((button) => button.textContent)).toEqual([
+      'Galerias',
+      'Website',
+      'Configurações',
+      'Credenciais',
+      'Vendas',
+    ]);
     expect(screen.getByRole('button', { name: 'Escolher fotos da câmera / galeria' })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: /Configurações/i }));
