@@ -73,6 +73,9 @@ test('website Funnel launcher resolves configured API, panel and website ports',
   assert.match(funnel, /SNAPFLOW_WEBSITE_PORT/);
   assert.match(funnel, /127\.0\.0\.1:\$websitePort/);
   assert.match(funnel, /127\.0\.0\.1:\$panelPort/);
+  assert.match(funnel, /wait-api .* 30 1000/);
+  assert.match(funnel, /wait-panel .* 30 1000/);
+  assert.match(funnel, /wait-website .* 30 1000/);
   assert.match(funnel, /Get-TailscaleDnsName/);
   assert.match(funnel, /tailscale status --json/);
   assert.match(funnel, /Assert-FunnelRoute/);

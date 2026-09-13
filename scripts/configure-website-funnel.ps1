@@ -105,11 +105,11 @@ try {
 
   node scripts/snapflow-startup.mjs assert-distinct $apiPort $panelPort $websitePort
   if ($LASTEXITCODE) { throw 'API, painel e website precisam usar portas diferentes.' }
-  node scripts/snapflow-startup.mjs wait-api "http://127.0.0.1:$apiPort/api/health" 1
+  node scripts/snapflow-startup.mjs wait-api "http://127.0.0.1:$apiPort/api/health" 30 1000
   if ($LASTEXITCODE) { throw 'Inicie a API antes de publicar.' }
-  node scripts/snapflow-startup.mjs wait-panel "http://127.0.0.1:$panelPort/" 1
+  node scripts/snapflow-startup.mjs wait-panel "http://127.0.0.1:$panelPort/" 30 1000
   if ($LASTEXITCODE) { throw 'Inicie o painel antes de publicar.' }
-  node scripts/snapflow-startup.mjs wait-website "http://127.0.0.1:$websitePort/" 1
+  node scripts/snapflow-startup.mjs wait-website "http://127.0.0.1:$websitePort/" 30 1000
   if ($LASTEXITCODE) { throw 'Inicie o website antes de publicar.' }
 
   tailscale up --timeout=20s
