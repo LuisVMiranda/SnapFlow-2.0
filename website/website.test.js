@@ -17,28 +17,31 @@ function linksIn(html, className) {
 }
 
 describe('public website', () => {
-  it('preserves centering, uniqueness and valid indices across randomized carousel states', () => {
+  it('preserves leading position, uniqueness and valid indices across randomized carousel states', () => {
     fc.assert(fc.property(fc.integer({ min: 1, max: 10 }), fc.nat(1000), fc.constantFrom(1, 3, 5), (length, turn, count) => {
       const active = turn % length;
       const slots = carouselSlots(length, active, count);
       expect(new Set(slots.map((slot) => slot.index)).size).toBe(slots.length);
-      expect(slots[Math.floor(slots.length / 2)].index).toBe(active);
+      expect(slots[0].index).toBe(active);
+      expect(slots[0].offset).toBe(0);
       expect(slots.every((slot) => slot.index >= 0 && slot.index < length)).toBe(true);
     }), { seed: 7351023 });
   });
-  it('uses 5/3/1 unique cards with the initial gallery centered and circular navigation', () => {
+  it('uses up to 5/3/1 contiguous cards in gallery order with circular navigation', () => {
     expect([1400, 900, 390].map(visibleCount)).toEqual([5, 3, 1]);
     for (let length = 1; length <= 10; length++) {
       const slots = carouselSlots(length, 0, 5);
+      expect(slots).toHaveLength(Math.min(length, 5));
       expect(new Set(slots.map((slot) => slot.index)).size).toBe(slots.length);
-      expect(slots.find((slot) => slot.offset === 0).index).toBe(0);
+      expect(slots.map((slot) => slot.index)).toEqual(Array.from({ length: Math.min(length, 5) }, (_, index) => index));
     }
     document.body.innerHTML = home;
     vi.stubGlobal('innerWidth', 1400);
     const region = document.querySelector('#galleryCarousel');
     const carousel = createCarousel(region, items);
     expect(region.querySelectorAll('.gallery-card')).toHaveLength(5);
-    expect(region.querySelectorAll('.gallery-card')[2]).toHaveAttribute('aria-current', 'true');
+    expect([...region.querySelectorAll('.gallery-card img')].every((image) => image.loading === 'eager')).toBe(true);
+    expect(region.querySelectorAll('.gallery-card')[0]).toHaveAttribute('aria-current', 'true');
     region.querySelector('#carouselPrev').click();
     expect(region.querySelector('.is-active')).toHaveAttribute('href', 'https://gallery.test/s/g9');
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
@@ -49,8 +52,45 @@ describe('public website', () => {
     expect(region.querySelectorAll('.gallery-card')).toHaveLength(1);
   });
 
+  it('keeps every available cover visible up to the responsive limit without card gaps or borders', () => {
+    document.body.innerHTML = home;
+    vi.stubGlobal('innerWidth', 1400);
+    const region = document.querySelector('#galleryCarousel');
+    createCarousel(region, items.slice(0, 4));
+    expect(region.querySelectorAll('.gallery-card')).toHaveLength(4);
+    expect(region.querySelector('#carouselPrev')).toBeDisabled();
+    const styles = fs.readFileSync('website/site.css', 'utf8');
+    expect(styles).toMatch(/\.gallery-stage\s*\{[^}]*gap:\s*0[;}]/s);
+    expect(styles).toMatch(/\.gallery-stage\s*\{[^}]*width:\s*100%[;}]/s);
+    expect(styles).toMatch(/\.gallery-hero\s*\{[^}]*padding:\s*calc\(5rem \+ 50px\)/s);
+    expect(styles).toMatch(/\.carousel-controls\s*\{[^}]*position:\s*absolute[;}]/s);
+    expect(styles).toMatch(/\.carousel-arrow\s*\{[^}]*background:\s*rgb\([^)]*\/\s*\.\d+\)[;}]/s);
+    expect(styles).toMatch(/\.gallery-card::after\s*\{[^}]*inset:\s*4px[;}][^}]*border:\s*1px solid rgb\(255 255 255 \/ \.68\)[^}]*opacity:\s*0[;}]/s);
+    expect(styles).toMatch(/\.gallery-card:hover::after[^}]*\{\s*opacity:\s*1[;}]/s);
+    expect(styles).not.toMatch(/\.gallery-card\.is-active\s*\{/);
+  });
+
+  it('animates one full card into view when an arrow is used', async () => {
+    document.body.innerHTML = home;
+    vi.stubGlobal('innerWidth', 1400);
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
+    const region = document.querySelector('#galleryCarousel');
+    const stage = region.querySelector('#portfolioTrack');
+    stage.animate = vi.fn(() => ({ finished: Promise.resolve() }));
+    createCarousel(region, items);
+    region.querySelector('#carouselNext').click();
+    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(6);
+    expect(stage.animate).toHaveBeenCalledWith([
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-20%)' },
+    ], { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    await vi.waitFor(() => expect(region.querySelector('.is-active')).toHaveAttribute('href', 'https://gallery.test/s/g1'));
+    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(5);
+  });
+
   it('renders titles as text, supports swipes, and handles broken covers and empty data', () => {
     document.body.innerHTML = home;
+    vi.stubGlobal('innerWidth', 390);
     const region = document.querySelector('#galleryCarousel');
     const title = '<img src=x onerror=alert(1)>';
     createCarousel(region, [{ ...items[0], title }, items[1]]);

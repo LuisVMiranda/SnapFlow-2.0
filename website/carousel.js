@@ -4,11 +4,9 @@ export function visibleCount(width) {
 }
 
 export function carouselSlots(length, active, count) {
-  const available = Math.min(length, count);
-  const visible = available > 0 && available % 2 === 0 ? available - 1 : available;
-  const center = Math.floor(visible / 2);
+  const visible = Math.min(length, count);
   return Array.from({ length: visible }, (_, slot) => ({
-    index: (active + slot - center + length) % length, offset: slot - center,
+    index: (active + slot) % length, offset: slot,
   }));
 }
 
@@ -34,7 +32,7 @@ function buildCard(item, offset) {
   image.width = 800;
   image.height = 1200;
   image.decoding = 'async';
-  image.loading = offset === 0 ? 'eager' : 'lazy';
+  image.loading = 'eager';
   image.addEventListener('error', () => card.classList.add('image-unavailable'));
   const label = document.createElement('span');
   label.className = 'gallery-label';
@@ -67,27 +65,56 @@ export function createCarousel(region, input) {
   const next = region.querySelector('#carouselNext');
   const status = region.querySelector('#carouselStatus');
   let active = 0;
+  let moving = false;
+  function draw(start, requestedCount, visible) {
+    const slots = carouselSlots(items.length, start, requestedCount);
+    stage.style.setProperty('--visible', Math.max(1, visible || slots.length));
+    stage.replaceChildren(...slots.map(({ index, offset }) => buildCard(items[index], offset)));
+    return slots;
+  }
   function render() {
     const count = visibleCount(window.innerWidth);
-    const slots = carouselSlots(items.length, active, count);
-    stage.style.setProperty('--visible', Math.max(1, slots.length));
-    stage.replaceChildren(...slots.map(({ index, offset }) => buildCard(items[index], offset)));
-    previous.disabled = items.length < 2;
-    next.disabled = items.length < 2;
+    if (items.length <= count) active = 0;
+    draw(active, count);
+    previous.disabled = items.length <= count;
+    next.disabled = items.length <= count;
     status.textContent = items.length ? `${active + 1} / ${items.length} · ${items[active].title}` : 'Nenhuma galeria disponível';
   }
-  function move(delta) {
-    if (!items.length) return;
-    active = (active + delta + items.length) % items.length;
+  function finishMove(nextActive, focusAfter) {
+    active = nextActive;
+    moving = false;
     render();
+    if (focusAfter) stage.querySelector('.is-active')?.focus();
+  }
+  function prefersStaticMovement() {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      || typeof stage.animate !== 'function';
+  }
+  function move(delta, focusAfter = false) {
+    const count = visibleCount(window.innerWidth);
+    if (items.length <= count || moving) return;
+    const nextActive = (active + delta + items.length) % items.length;
+    if (prefersStaticMovement()) {
+      finishMove(nextActive, focusAfter);
+      return;
+    }
+    moving = true;
+    const distance = 100 / count;
+    const forward = delta > 0;
+    draw(forward ? active : nextActive, count + 1, count);
+    const frames = forward
+      ? [{ transform: 'translateX(0)' }, { transform: `translateX(-${distance}%)` }]
+      : [{ transform: `translateX(-${distance}%)` }, { transform: 'translateX(0)' }];
+    stage.animate(frames, { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' }).finished
+      .catch(() => undefined)
+      .then(() => finishMove(nextActive, focusAfter));
   }
   previous.addEventListener('click', () => move(-1));
   next.addEventListener('click', () => move(1));
   region.addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
-    move(event.key === 'ArrowLeft' ? -1 : 1);
-    stage.querySelector('.is-active')?.focus();
+    move(event.key === 'ArrowLeft' ? -1 : 1, true);
   });
   bindGestures(stage, move);
   window.addEventListener('resize', render);

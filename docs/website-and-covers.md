@@ -70,8 +70,8 @@ All new admin routes require the existing admin bearer authentication:
 | Safe image processing and rollback | Database integration tests validate dimensions, orientation, metadata removal, size/type rejection, rollback, cleanup and caching |
 | Automatic latest galleries, manual order, exclusions, backfill | Real isolated PostgreSQL tests cover 12 galleries, limit 10, new first cover, exclusion/re-add, restoration and stale order |
 | Dedicated Website panel | URL copy, configuration warnings, package types, order controls, cover management and paginated search; frontend tests include failure states |
-| Five/three/one portrait carousel | Unit/property tests plus browser inspection at 1440, 900 and 390px; active centered, no horizontal overflow, circular arrows/keyboard and swipe logic |
-| Hover/focus titles and safe public DOM | Titles use `textContent`; focus/hover styles, inner stroke, broken-image handling and empty/API-error states |
+| Five/three/one portrait carousel | Unit/property tests plus browser inspection at 1440, 900 and 390px; ordered edge-to-edge strip, overlay arrows, smooth one-card transitions, no horizontal overflow, keyboard and swipe logic |
+| Hover/focus titles and safe public DOM | Titles use `textContent`; focus/hover styles, a 4px inset translucent frame, broken-image handling and empty/API-error states |
 | Contact redesign and old section removal | Required name ≤80 and exact five reasons; encoded WhatsApp message; obsolete buying/testimonial links/sections/styles removed |
 | Cover before gallery unlock | Existing access response and lock screen extended; covered/no-cover/expired/broken-image tests |
 | Separate port, startup identity, environment propagation | Startup tests and real local readiness checks; website Vite rejects duplicate/invalid ports |
