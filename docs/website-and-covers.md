@@ -15,14 +15,14 @@
 | Application | Local listener | Intended public URL |
 | --- | --- | --- |
 | API | `127.0.0.1:3000` | Proxied through the two web applications |
-| Website | `127.0.0.1:5174` | `https://desktop-luis.tail2104cf.ts.net` |
-| Panel/gallery | `127.0.0.1:5173` | `https://desktop-luis.tail2104cf.ts.net:8443` |
+| Website | `127.0.0.1:5174` | `https://<machine>.<tailnet>.ts.net` |
+| Panel/gallery | `127.0.0.1:5173` | `https://<machine>.<tailnet>.ts.net:8443` |
 
 Root `.env`: `SNAPFLOW_WEBSITE_HOST`, `SNAPFLOW_WEBSITE_PORT`, `SNAPFLOW_DEV_HOST`, `SNAPFLOW_DEV_PORT`, `SNAPFLOW_API_PORT`, `SNAPFLOW_ALLOWED_HOSTS`.
 Backend `.env.local`: `PUBLIC_WEBSITE_URL` and `PUBLIC_BASE_URL`; keep the website URL consistent with root `.env`.
 An explicitly saved public-base credential takes precedence over its environment fallback, matching existing SnapFlow behavior. Website gallery links are built from this current configuration, never the old link saved on a gallery.
 
-After all three applications are ready, enable Funnel for the machine and run `CONFIGURAR_SITE_PUBLICO.bat` (as administrator if Tailscale reports access denied). It validates application identities and hostname, then creates persistent background mappings for HTTPS 443 and 8443. Review existing Tailscale routes before using the helper if this computer later hosts other applications on those ports.
+After all three applications are ready, enable Funnel for the machine and run `CONFIGURAR_SITE_PUBLICO.bat` (as administrator if Tailscale reports access denied). It discovers the current `Self.DNSName`, preserves existing environment values, writes the public website and gallery URLs, then creates and verifies persistent background mappings for HTTPS 443 and 8443. Review existing Tailscale routes before using the helper if this computer later hosts other applications on those ports.
 
 Funnel makes these applications accessible to the public internet. Keep the existing admin authentication enabled, and keep local listeners bound to loopback. The computer, apps and Tailscale must remain running. Follow the [official Funnel documentation](https://tailscale.com/docs/reference/tailscale-cli/funnel) for account enablement and supported ports.
 
