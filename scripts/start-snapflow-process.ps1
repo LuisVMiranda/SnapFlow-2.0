@@ -24,9 +24,9 @@ try {
     -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
 
   Write-Output "$Name iniciado em segundo plano (PID $($process.Id))."
-  Write-Output "Saída: $stdoutPath"
-  Write-Output "Erros: $stderrPath"
+  Write-Output "Log principal: $stdoutPath"
+  Write-Output "Log de erros: $stderrPath"
 } catch {
-  Write-Error "Não foi possível iniciar $Name em segundo plano: $($_.Exception.Message)"
+  Write-Error "Nao foi possivel iniciar $Name em segundo plano: $($_.Exception.Message)"
   exit 1
 }

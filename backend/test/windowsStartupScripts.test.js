@@ -43,6 +43,8 @@ test('INICIAR_TUDO waits for each SnapFlow branch instead of sleeping for a fixe
   assert.match(script, /logs\\api\.error\.log/i);
   assert.match(script, /logs\\panel\.error\.log/i);
   assert.match(script, /logs\\website\.error\.log/i);
+  assert.doesNotMatch(script, /-WorkingDirectory "%~dp0"/i);
+  assert.match(script, /-WorkingDirectory "%~dp0\."/i);
   assert.doesNotMatch(script, /cmd \/k/i);
   assert.doesNotMatch(script, /timeout \/t 2/i);
 });

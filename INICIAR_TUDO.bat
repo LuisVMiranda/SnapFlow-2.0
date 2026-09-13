@@ -79,7 +79,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name panel -WorkingDirectory "%~dp0" -Command "set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name panel -WorkingDirectory "%~dp0." -Command "set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort"
 if errorlevel 1 (
   echo Não foi possível iniciar o painel em segundo plano.
   echo Confira logs\panel.error.log e logs\panel.log.
@@ -94,7 +94,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name website -WorkingDirectory "%~dp0" -Command "npm.cmd run dev:website"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name website -WorkingDirectory "%~dp0." -Command "npm.cmd run dev:website"
 if errorlevel 1 (
   echo Não foi possível iniciar o website em segundo plano.
   echo Confira logs\website.error.log e logs\website.log.
