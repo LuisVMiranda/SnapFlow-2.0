@@ -18,7 +18,7 @@ function linksIn(html, className) {
 
 describe('public website', () => {
   it('preserves leading position, uniqueness and valid indices across randomized carousel states', () => {
-    fc.assert(fc.property(fc.integer({ min: 1, max: 10 }), fc.nat(1000), fc.constantFrom(1, 3, 5), (length, turn, count) => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 10 }), fc.nat(1000), fc.constantFrom(1, 3, 4), (length, turn, count) => {
       const active = turn % length;
       const slots = carouselSlots(length, active, count);
       expect(new Set(slots.map((slot) => slot.index)).size).toBe(slots.length);
@@ -27,19 +27,19 @@ describe('public website', () => {
       expect(slots.every((slot) => slot.index >= 0 && slot.index < length)).toBe(true);
     }), { seed: 7351023 });
   });
-  it('uses up to 5/3/1 contiguous cards in gallery order with circular navigation', () => {
-    expect([1400, 900, 390].map(visibleCount)).toEqual([5, 3, 1]);
+  it('uses up to 4/3/1 contiguous cards in gallery order with circular navigation', () => {
+    expect([1400, 900, 390].map(visibleCount)).toEqual([4, 3, 1]);
     for (let length = 1; length <= 10; length++) {
-      const slots = carouselSlots(length, 0, 5);
-      expect(slots).toHaveLength(Math.min(length, 5));
+      const slots = carouselSlots(length, 0, 4);
+      expect(slots).toHaveLength(Math.min(length, 4));
       expect(new Set(slots.map((slot) => slot.index)).size).toBe(slots.length);
-      expect(slots.map((slot) => slot.index)).toEqual(Array.from({ length: Math.min(length, 5) }, (_, index) => index));
+      expect(slots.map((slot) => slot.index)).toEqual(Array.from({ length: Math.min(length, 4) }, (_, index) => index));
     }
     document.body.innerHTML = home;
     vi.stubGlobal('innerWidth', 1400);
     const region = document.querySelector('#galleryCarousel');
     const carousel = createCarousel(region, items);
-    expect(region.querySelectorAll('.gallery-card')).toHaveLength(5);
+    expect(region.querySelectorAll('.gallery-card')).toHaveLength(4);
     expect([...region.querySelectorAll('.gallery-card img')].every((image) => image.loading === 'eager')).toBe(true);
     expect(region.querySelectorAll('.gallery-card')[0]).toHaveAttribute('aria-current', 'true');
     region.querySelector('#carouselPrev').click();
@@ -79,22 +79,22 @@ describe('public website', () => {
     stage.animate = vi.fn(() => ({ finished: Promise.resolve() }));
     createCarousel(region, items);
     region.querySelector('#carouselNext').click();
-    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(6);
+    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(5);
     expect(stage.animate).toHaveBeenCalledWith([
       { transform: 'translateX(0)' },
-      { transform: 'translateX(-20%)' },
+      { transform: 'translateX(-25%)' },
     ], { duration: 420, easing: 'cubic-bezier(.22, 1, .36, 1)' });
     await vi.waitFor(() => expect(region.querySelector('.is-active')).toHaveAttribute('href', 'https://gallery.test/s/g1'));
-    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(5);
+    expect(stage.querySelectorAll('.gallery-card')).toHaveLength(4);
   });
 
-  it.each([1, 2, 4, 5])('preserves five desktop-sized slots with %i available galleries', (length) => {
+  it.each([1, 2, 3, 4])('preserves four desktop-sized slots with %i available galleries', (length) => {
     document.body.innerHTML = home;
     vi.stubGlobal('innerWidth', 1440);
     const region = document.querySelector('#galleryCarousel');
     const carousel = createCarousel(region, items.slice(0, length));
     expect(region.querySelectorAll('.gallery-card')).toHaveLength(length);
-    expect(region.style.getPropertyValue('--visible')).toBe('5');
+    expect(region.style.getPropertyValue('--visible')).toBe('4');
     expect(region.querySelector('#carouselNext')).toBeDisabled();
     vi.stubGlobal('innerWidth', 390);
     carousel.render();

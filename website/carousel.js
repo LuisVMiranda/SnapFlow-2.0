@@ -1,6 +1,6 @@
 export function visibleCount(width) {
   if (width <= 760) return 1;
-  return width <= 1100 ? 3 : 5;
+  return width <= 1100 ? 3 : 4;
 }
 
 export function carouselSlots(length, active, count) {
