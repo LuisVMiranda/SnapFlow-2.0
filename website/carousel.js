@@ -66,14 +66,15 @@ export function createCarousel(region, input) {
   const status = region.querySelector('#carouselStatus');
   let active = 0;
   let moving = false;
-  function draw(start, requestedCount, visible) {
+  function draw(start, requestedCount) {
     const slots = carouselSlots(items.length, start, requestedCount);
-    stage.style.setProperty('--visible', Math.max(1, visible || slots.length));
     stage.replaceChildren(...slots.map(({ index, offset }) => buildCard(items[index], offset)));
     return slots;
   }
   function render() {
     const count = visibleCount(window.innerWidth);
+    region.style.setProperty('--visible', count);
+    stage.classList.toggle('is-static', items.length <= count);
     if (items.length <= count) active = 0;
     draw(active, count);
     previous.disabled = items.length <= count;
@@ -101,7 +102,7 @@ export function createCarousel(region, input) {
     moving = true;
     const distance = 100 / count;
     const forward = delta > 0;
-    draw(forward ? active : nextActive, count + 1, count);
+    draw(forward ? active : nextActive, count + 1);
     const frames = forward
       ? [{ transform: 'translateX(0)' }, { transform: `translateX(-${distance}%)` }]
       : [{ transform: `translateX(-${distance}%)` }, { transform: 'translateX(0)' }];

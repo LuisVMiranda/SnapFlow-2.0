@@ -88,6 +88,20 @@ describe('public website', () => {
     expect(stage.querySelectorAll('.gallery-card')).toHaveLength(5);
   });
 
+  it.each([1, 2, 4, 5])('preserves five desktop-sized slots with %i available galleries', (length) => {
+    document.body.innerHTML = home;
+    vi.stubGlobal('innerWidth', 1440);
+    const region = document.querySelector('#galleryCarousel');
+    const carousel = createCarousel(region, items.slice(0, length));
+    expect(region.querySelectorAll('.gallery-card')).toHaveLength(length);
+    expect(region.style.getPropertyValue('--visible')).toBe('5');
+    expect(region.querySelector('#carouselNext')).toBeDisabled();
+    vi.stubGlobal('innerWidth', 390);
+    carousel.render();
+    expect(region.style.getPropertyValue('--visible')).toBe('1');
+    expect(region.querySelectorAll('.gallery-card')).toHaveLength(1);
+  });
+
   it('renders titles as text, supports swipes, and handles broken covers and empty data', () => {
     document.body.innerHTML = home;
     vi.stubGlobal('innerWidth', 390);
