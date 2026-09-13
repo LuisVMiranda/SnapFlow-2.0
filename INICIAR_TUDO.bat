@@ -41,15 +41,23 @@ if "%SNAPFLOW_API_PORT%"=="%SNAPFLOW_DEV_PORT%" (
   pause
   exit /b 1
 )
+echo Encerrando processos SnapFlow anteriores...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\stop-snapflow-processes.ps1" -ApiPort "%SNAPFLOW_API_PORT%" -PanelPort "%SNAPFLOW_DEV_PORT%" -WebsitePort "%SNAPFLOW_WEBSITE_PORT%" -RootPath "%~dp0."
+if errorlevel 1 (
+  echo Não foi possível liberar as portas do SnapFlow com segurança.
+  echo Feche manualmente o processo indicado e tente novamente.
+  pause
+  exit /b 1
+)
 cmd /c node scripts\snapflow-startup.mjs assert-port API "%SNAPFLOW_API_PORT%"
 if errorlevel 1 (
-  echo Feche a janela APP FOTOGRAFIA - SERVIDOR antiga e rode este arquivo novamente.
+  echo A porta da API continua ocupada por outro aplicativo. Libere-a e tente novamente.
   pause
   exit /b 1
 )
 cmd /c node scripts\snapflow-startup.mjs assert-port painel "%SNAPFLOW_DEV_PORT%"
 if errorlevel 1 (
-  echo Feche a janela APP FOTOGRAFIA - PAINEL ou o aplicativo que ocupa a porta e tente novamente.
+  echo A porta do painel continua ocupada por outro aplicativo. Libere-a e tente novamente.
   pause
   exit /b 1
 )

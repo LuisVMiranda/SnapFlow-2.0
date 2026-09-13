@@ -57,6 +57,29 @@ test('background process runner hides child terminals and captures logs', () => 
   assert.match(runner, /-WindowStyle Hidden/i);
   assert.match(runner, /-RedirectStandardOutput/i);
   assert.match(runner, /-RedirectStandardError/i);
+  assert.match(runner, /\$Name\.pid/i);
+});
+
+test('INICIAR_TUDO force-stops identified SnapFlow owners before checking ports', () => {
+  const script = read('INICIAR_TUDO.bat');
+  const stopper = read(path.join('scripts', 'stop-snapflow-processes.ps1'));
+
+  assertOrdered(script, [
+    'assert-distinct',
+    'stop-snapflow-processes.ps1',
+    'assert-port API',
+  ]);
+  assert.match(script, /-ApiPort "%SNAPFLOW_API_PORT%"/i);
+  assert.match(script, /-PanelPort "%SNAPFLOW_DEV_PORT%"/i);
+  assert.match(script, /-WebsitePort "%SNAPFLOW_WEBSITE_PORT%"/i);
+  assert.match(stopper, /Get-NetTCPConnection/i);
+  assert.match(stopper, /netstat\.exe/i);
+  assert.match(stopper, /Get-Process -Id/i);
+  assert.match(stopper, /taskkill\.exe/i);
+  assert.match(stopper, /\/T \/F/i);
+  assert.match(stopper, /server\.js/i);
+  assert.match(stopper, /vite\.website\.config\.js/i);
+  assert.match(stopper, /Processo SnapFlow nao identificado|processo.*nao identificado/i);
 });
 
 test('standalone launchers enforce API identity and strict port ownership', () => {
