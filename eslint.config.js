@@ -6,6 +6,13 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
   globalIgnores(['dist', 'node_modules', 'backend/node_modules']),
+  {
+    files: ['scripts/startup-command.mjs', 'scripts/database-startup-config.mjs',
+      'scripts/start-database.mjs', 'scripts/run-docker-compose.mjs', 'scripts/sync-docker-env.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: { globals: globals.node },
+    rules: { complexity: ['error', 10], 'max-params': ['error', 5], 'max-depth': ['error', 3], 'max-lines': ['error', 600] },
+  },
   { files: ['website/**/*.js'], extends: [js.configs.recommended], languageOptions: { globals: globals.browser } },
   {
     files: ['website/*.js', 'src/lib/websiteApi.js', 'src/hooks/useGalleryCreationCover.js',

@@ -1,5 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(new URL('../backend/package.json', import.meta.url));
+const { parse } = require('dotenv');
 
 const root = process.cwd();
 const rootEnvPath = path.join(root, '.env');
@@ -7,14 +11,7 @@ const backendEnvPath = path.join(root, 'backend', '.env.local');
 
 function readEnv(filePath) {
   if (!fs.existsSync(filePath)) return new Map();
-  const entries = new Map();
-  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
-    if (!line || line.trimStart().startsWith('#')) continue;
-    const index = line.indexOf('=');
-    if (index <= 0) continue;
-    entries.set(line.slice(0, index).trim(), line.slice(index + 1).trim());
-  }
-  return entries;
+  return new Map(Object.entries(parse(fs.readFileSync(filePath))));
 }
 
 function parseDatabaseUrl(value) {
@@ -25,6 +22,14 @@ function parseDatabaseUrl(value) {
     POSTGRES_PORT: String(url.port || 5432),
     POSTGRES_USER: decodeURIComponent(url.username),
   };
+}
+
+function envLine(key, value) {
+  const text = String(value);
+  if (!/[\s#'"`]/.test(text)) return `${key}=${text}`;
+  const quote = ["'", '"', '`'].find(mark => !text.includes(mark));
+  if (!quote) throw new Error(`Nao foi possivel serializar ${key} no .env. Confira as aspas do valor.`);
+  return `${key}=${quote}${text}${quote}`;
 }
 
 const rootEnv = readEnv(rootEnvPath);
@@ -69,11 +74,11 @@ const lines = [];
 const written = new Set();
 for (const key of preferredOrder) {
   if (!rootEnv.has(key)) continue;
-  lines.push(`${key}=${rootEnv.get(key)}`);
+  lines.push(envLine(key, rootEnv.get(key)));
   written.add(key);
 }
 for (const [key, value] of rootEnv.entries()) {
-  if (!written.has(key)) lines.push(`${key}=${value}`);
+  if (!written.has(key)) lines.push(envLine(key, value));
 }
 
 fs.writeFileSync(rootEnvPath, `${lines.join('\n')}\n`, 'utf8');

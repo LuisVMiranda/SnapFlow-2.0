@@ -67,6 +67,7 @@ call "%~dp0INICIAR_BANCO.bat" --skip-prepare
 if errorlevel 1 (
   echo.
   echo Não foi possível iniciar o banco de dados ou aplicar as migrações.
+  echo Consulte logs\database-startup.log para o motivo e as instrucoes de recuperacao.
   echo Corrija a mensagem acima e rode este arquivo novamente.
   pause
   exit /b 1

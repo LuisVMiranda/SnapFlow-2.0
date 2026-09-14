@@ -1,33 +1,30 @@
-import { spawnSync } from 'node:child_process';
+import { runCommand } from './startup-command.mjs';
 
-const args = process.argv.slice(2);
-
+const executable = name => process.platform === 'win32' ? `${name}.exe` : name;
 const candidates = [
-  { command: 'docker', prefix: ['compose'] },
-  { command: 'docker-compose', prefix: [] },
+  { command: executable('docker'), prefix: ['compose'] },
+  { command: executable('docker-compose'), prefix: [] },
 ];
 
-function run(command, argsToRun, options = {}) {
-  return spawnSync(command, argsToRun, {
-    shell: process.platform === 'win32',
-    stdio: options.stdio || 'inherit',
-  });
-}
-
-function resolveCompose() {
+async function resolveCompose() {
   for (const candidate of candidates) {
-    const result = run(candidate.command, [...candidate.prefix, 'version'], { stdio: 'ignore' });
-    if (result.status === 0) return candidate;
+    const result = await runCommand(candidate.command, [...candidate.prefix, 'version'], { timeoutMs: 5000 });
+    if (result.code === 0) return candidate;
   }
-  return null;
+  throw new Error('Docker Compose indisponivel. Confira a instalacao e o engine do Docker Desktop.');
 }
 
-const compose = resolveCompose();
-
-if (!compose) {
-  console.error('Docker Compose não foi encontrado. Instale Docker Desktop ou docker-compose.');
-  process.exit(1);
+try {
+  const compose = await resolveCompose();
+  const args = process.argv.slice(2);
+  // Following logs is an intentional ongoing command, never used by the startup probe.
+  const followLogs = args[0] === 'logs' && args.some(arg => ['-f', '--follow'].includes(arg));
+  const result = await runCommand(compose.command, [...compose.prefix, ...args], {
+    timeoutMs: followLogs ? 0 : 180000, onOutput: data => process.stdout.write(data),
+  });
+  if (result.timedOut) console.error('Docker Compose excedeu 180s. Confira o Docker Desktop e tente novamente.');
+  process.exitCode = result.code;
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
 }
-
-const result = run(compose.command, [...compose.prefix, ...args]);
-process.exit(result.status ?? 1);

@@ -146,7 +146,13 @@ Depois de configurado, o início continua igual:
 .\INICIAR_TUDO.bat
 ```
 
-Esse script prepara dependências locais, recusa portas já ocupadas, inicia o PostgreSQL, roda migrações pendentes uma única vez, abre o backend e aguarda uma resposta identificada do SnapFlow em `/api/health`. O painel só é aberto depois disso, sempre na porta configurada; se o Vite não puder usar essa porta, o início falha com orientação em vez de mudar silenciosamente para outra. Ao final, o próprio HTML do painel também é validado.
+Esse script prepara dependências locais, encerra processos anteriores identificados como SnapFlow, recusa portas ocupadas por outros aplicativos, inicia o PostgreSQL e roda migrações pendentes uma única vez. Depois inicia API, painel e website em segundo plano, verificando a identidade de cada aplicação. Se o Vite não puder usar a porta configurada, o início falha com orientação em vez de mudar silenciosamente para outra.
+
+`INICIAR_BANCO.bat` e `INICIAR_TUDO.bat` usam a mesma verificação do banco: autenticam e executam `SELECT 1` no endereço de `DATABASE_URL`. Uma porta TCP aberta ou um container marcado como `Running` não bastam. Após reiniciar o Windows, o iniciador tenta abrir o Docker Desktop quando necessário e aguarda o engine por até 120 segundos. Docker Compose tem limite de 180 segundos, a verificação PostgreSQL de 90 segundos e as migrações de 120 segundos. Sondas e comandos individuais também têm prazos, com mensagens de progresso. Ao falhar, a inicialização para antes de abrir as aplicações.
+
+O diagnóstico fica em `logs/database-startup.log`, com o registro anterior em `logs/database-startup.log.previous`. Ele inclui estado do container, porta publicada e últimas mensagens do PostgreSQL, com a URL de conexão e a senha configurada ocultadas. Se houver autenticação recusada, confira as credenciais: alterar `POSTGRES_PASSWORD` no `.env` não muda a senha de um volume existente. Se a publicação de portas ou o engine travar após reiniciar, reinicie o Docker Desktop e tente novamente. **Não apague o volume nem execute `docker compose down -v` para corrigir a inicialização.**
+
+No modo nativo, o serviço parado é iniciado com prazo limitado e a consulta ao banco é verificada em seguida. Se houver vários serviços PostgreSQL, configure `POSTGRES_SERVICE` no `.env` com o nome correto; se houver acesso negado, inicie o serviço pelo Windows ou execute o iniciador como administrador. `--sem-migracoes` omite somente as migrações, mantendo a verificação autenticada.
 
 Para verificar os scripts do banco e a sintaxe das sondas de inicialização sem iniciar serviços:
 
