@@ -146,7 +146,7 @@ Depois de configurado, o início continua igual:
 .\INICIAR_TUDO.bat
 ```
 
-Esse script prepara dependências locais, encerra processos anteriores identificados como SnapFlow, recusa portas ocupadas por outros aplicativos, inicia o PostgreSQL e roda migrações pendentes uma única vez. Depois inicia API, painel e website em segundo plano, verificando a identidade de cada aplicação. Se o Vite não puder usar a porta configurada, o início falha com orientação em vez de mudar silenciosamente para outra.
+Esse script prepara dependências locais, encerra processos anteriores identificados como SnapFlow, recusa portas ocupadas por outros aplicativos, inicia o PostgreSQL e roda migrações pendentes uma única vez. Depois compila o painel, inicia API, painel e website em segundo plano e verifica a identidade de cada aplicação. O painel usa arquivos versionados de produção, sem módulos de desenvolvimento ou recarga automática, para permanecer consistente entre navegadores mesmo depois de reiniciar o computador.
 
 `INICIAR_BANCO.bat` e `INICIAR_TUDO.bat` usam a mesma verificação do banco: autenticam e executam `SELECT 1` no endereço de `DATABASE_URL`. Uma porta TCP aberta ou um container marcado como `Running` não bastam. Após reiniciar o Windows, o iniciador tenta abrir o Docker Desktop quando necessário e aguarda o engine por até 120 segundos. Docker Compose tem limite de 180 segundos, a verificação PostgreSQL de 90 segundos e as migrações de 120 segundos. Sondas e comandos individuais também têm prazos, com mensagens de progresso. Ao falhar, a inicialização para antes de abrir as aplicações.
 
@@ -249,7 +249,7 @@ Use:
 .\INICIAR_TUDO.bat
 ```
 
-Esse arquivo abre o backend e o painel em janelas separadas.
+Esse arquivo mantém API, painel e website em segundo plano, com a saída gravada na pasta `logs`. O painel é recompilado antes de abrir para que o acesso local e o endereço público usem exatamente a mesma versão estável.
 
 ### Opção manual
 
@@ -278,7 +278,7 @@ A API roda por padrão em:
 http://localhost:3000
 ```
 
-Por segurança, o backend e o painel de desenvolvimento iniciam presos ao próprio computador (`127.0.0.1`). Para usar em VPS, Tailscale ou rede local confiável, abra esse acesso de forma intencional:
+Por segurança, o backend e o painel iniciam presos ao próprio computador (`127.0.0.1`). Para o uso público normal, mantenha esse endereço local e execute `CONFIGURAR_SITE_PUBLICO.bat`, que publica as rotas corretas pelo Tailscale Funnel. O comando de desenvolvimento abaixo deve ser usado apenas durante alterações no código:
 
 ```env
 HOST=0.0.0.0
@@ -526,6 +526,7 @@ O projeto também tem testes de propriedades com `fast-check` para normalizaçã
 - Se `INICIAR_TUDO.bat`, `INICIAR_PAINEL.bat` ou `INICIAR_SERVIDOR.bat` detectarem dependências ausentes, eles oferecem instalar os pacotes locais antes de continuar.
 - `A porta 3000/5173 já está em uso`: feche a janela antiga do servidor/painel ou o outro aplicativo indicado. O SnapFlow não troca de porta silenciosamente porque isso quebraria o proxy e o endereço publicado pelo Tailscale.
 - `HTTP 502/503` logo após reiniciar: o painel tenta novamente sem notificar nas duas primeiras falhas transitórias. Se a indisponibilidade persistir, confira a janela do servidor; quando a API voltar, o cartão do WhatsApp se recupera automaticamente.
+- `Tela branca` somente em alguns navegadores no endereço público: atualize o projeto e execute `INICIAR_TUDO.bat` novamente. O iniciador atual recompila o painel e entrega HTML sem cache junto de arquivos versionados, evitando que módulos de desenvolvimento antigos sejam misturados após uma reinicialização. Uma atualização forçada do navegador elimina qualquer página anterior que ainda esteja aberta.
 - `EBUSY ... .wwebjs_auth ... lockfile`: o Chromium ainda estava liberando o perfil do WhatsApp no Windows. O backend fecha o browser antigo, tenta a limpeza novamente e, se o perfil continuar bloqueado, isola-o e reconecta com um perfil novo sem derrubar a API. Aguarde o novo QR Code em `Vendas > WhatsApp de envio`; encerre processos antigos de Chrome/Node somente se o bloqueio reaparecer continuamente.
 - Se a porta do backend for alterada em `backend\.env.local`, os BATs usam esse `PORT` como fonte de verdade e o repassam ao proxy Vite como `SNAPFLOW_API_PORT`.
 - `connect ECONNREFUSED 127.0.0.1:55432`: o PostgreSQL não está rodando; abra o Docker Desktop e execute `.\INICIAR_BANCO.bat` ou `.\INICIAR_TUDO.bat`.

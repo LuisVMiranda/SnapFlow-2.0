@@ -37,6 +37,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      outDir: 'dist/panel',
+    },
     test: {
       environment: 'jsdom',
       environmentOptions: {

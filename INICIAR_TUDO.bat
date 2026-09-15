@@ -88,7 +88,14 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name panel -WorkingDirectory "%~dp0." -Command "set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort"
+echo Compilando uma versão estável do painel...
+cmd /c npm.cmd run build:panel
+if errorlevel 1 (
+  echo Não foi possível compilar o painel. Corrija a mensagem acima e tente novamente.
+  pause
+  exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-snapflow-process.ps1" -Name panel -WorkingDirectory "%~dp0." -Command "set SNAPFLOW_DEV_HOST=%SNAPFLOW_DEV_HOST%&& set SNAPFLOW_DEV_PORT=%SNAPFLOW_DEV_PORT%&& set SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%&& set SNAPFLOW_ALLOWED_HOSTS=%SNAPFLOW_ALLOWED_HOSTS%&& npm.cmd run serve:panel"
 if errorlevel 1 (
   echo Não foi possível iniciar o painel em segundo plano.
   echo Confira logs\panel.error.log e logs\panel.log.

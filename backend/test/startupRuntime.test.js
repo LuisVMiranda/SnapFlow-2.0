@@ -17,6 +17,15 @@ test('website startup rejects duplicate ports and verifies website identity', as
     request: async () => response('<meta name="snapflow-service" content="snapflow-website">') })).attempt, 1);
 });
 
+test('panel readiness requires the production bundle rather than Vite development modules', async () => {
+  const { waitForSnapFlowPanel } = await startupRuntime();
+  const production = '<meta name="snapflow-service" content="snapflow-panel"><title>SnapFlow</title><script type="module" src="/assets/index-abc123.js"></script>';
+  assert.equal((await waitForSnapFlowPanel({ attempts: 1, url: 'http://panel',
+    request: async () => response(production) })).attempt, 1);
+  await assert.rejects(waitForSnapFlowPanel({ attempts: 1, url: 'http://panel',
+    request: async () => response('<title>SnapFlow</title><script type="module" src="/src/main.jsx"></script>') }), /não ficou pronto/);
+});
+
 function response(body, status = 200) {
   return {
     ok: status >= 200 && status < 300,

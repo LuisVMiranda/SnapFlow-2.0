@@ -8,6 +8,8 @@
     "dev:website": "vite --config vite.website.config.js",
     "build:website": "vite build --config vite.website.config.js",
     "build": "vite build .",
+    "build:panel": "vite build .",
+    "serve:panel": "node scripts/panel-server.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "test:frontend": "vitest run",

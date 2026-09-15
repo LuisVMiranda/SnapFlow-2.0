@@ -97,7 +97,9 @@ function isSnapFlowApiResponse({ text }) {
 }
 
 function isSnapFlowPanelResponse({ text }) {
-  return /<title>\s*SnapFlow\b/i.test(text);
+  const hasIdentity = /name=["']snapflow-service["']\s+content=["']snapflow-panel["']/i.test(text);
+  const hasProductionAsset = /<script[^>]+src=["']\/assets\/[^"']+\.js["']/i.test(text);
+  return hasIdentity && hasProductionAsset && !text.includes('/src/main.jsx');
 }
 
 export function waitForSnapFlowApi(options = {}) {

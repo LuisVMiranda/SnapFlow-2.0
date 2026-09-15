@@ -48,7 +48,14 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+echo Compilando uma versão estável do painel...
+cmd /c npm.cmd run build:panel
+if errorlevel 1 (
+  echo Não foi possível compilar o painel. Corrija a mensagem acima e tente novamente.
+  pause
+  exit /b 1
+)
 echo Iniciando painel local em %SNAPFLOW_DEV_HOST%:%SNAPFLOW_DEV_PORT%...
-cmd /c npm.cmd run dev -- --host %SNAPFLOW_DEV_HOST% --port %SNAPFLOW_DEV_PORT% --strictPort
+cmd /c npm.cmd run serve:panel
 set "EXIT_CODE=%ERRORLEVEL%"
 endlocal & exit /b %EXIT_CODE%

@@ -67,7 +67,7 @@ function Test-SnapFlowProcess {
   if ($line.Contains($Root.ToLowerInvariant().TrimEnd('\'))) { return $true }
   switch ($Service) {
     'api' { return $line.Contains('server.js') -or $line.Contains('npm-cli.js start') -or $line.Contains('npm.cmd start') }
-    'panel' { return $line.Contains('npm-cli.js run dev') -or $line.Contains('npm.cmd run dev') -or ($line.Contains('vite') -and $line.Contains('--host')) }
+    'panel' { return $line.Contains('panel-server.mjs') -or $line.Contains('serve:panel') -or $line.Contains('npm-cli.js run dev') -or $line.Contains('npm.cmd run dev') -or ($line.Contains('vite') -and $line.Contains('--host')) }
     'website' { return $line.Contains('dev:website') -or $line.Contains('vite.website.config.js') }
     default { return $false }
   }

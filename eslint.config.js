@@ -8,7 +8,8 @@ export default defineConfig([
   globalIgnores(['dist', 'node_modules', 'backend/node_modules']),
   {
     files: ['scripts/startup-command.mjs', 'scripts/database-startup-config.mjs', 'scripts/docker-database.mjs',
-      'scripts/start-database.mjs', 'scripts/run-docker-compose.mjs', 'scripts/sync-docker-env.mjs'],
+      'scripts/start-database.mjs', 'scripts/run-docker-compose.mjs', 'scripts/sync-docker-env.mjs',
+      'scripts/panel-server.mjs'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
     rules: { complexity: ['error', 10], 'max-params': ['error', 5], 'max-depth': ['error', 3], 'max-lines': ['error', 600] },

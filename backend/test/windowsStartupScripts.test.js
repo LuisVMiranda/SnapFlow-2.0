@@ -33,13 +33,15 @@ test('INICIAR_TUDO waits for each SnapFlow branch instead of sleeping for a fixe
     'INICIAR_BANCO.bat',
     'start-snapflow-process.ps1" -Name api',
     'wait-api',
+    'npm.cmd run build:panel',
     'start-snapflow-process.ps1" -Name panel',
     'wait-panel',
   ]);
   assert.match(script, /SNAPFLOW_SKIP_STARTUP_MIGRATIONS=1/i);
   assert.match(script, /BACKEND_API_PORT/i);
   assert.match(script, /SNAPFLOW_API_PORT=%SNAPFLOW_API_PORT%/i);
-  assert.match(script, /--strictPort/i);
+  assert.match(script, /npm\.cmd run serve:panel/i);
+  assert.doesNotMatch(script, /npm\.cmd run dev -- --host/i);
   assert.match(script, /logs\\api\.error\.log/i);
   assert.match(script, /logs\\panel\.error\.log/i);
   assert.match(script, /logs\\website\.error\.log/i);
@@ -78,6 +80,7 @@ test('INICIAR_TUDO force-stops identified SnapFlow owners before checking ports'
   assert.match(stopper, /taskkill\.exe/i);
   assert.match(stopper, /\/T \/F/i);
   assert.match(stopper, /server\.js/i);
+  assert.match(stopper, /panel-server\.mjs|serve:panel/i);
   assert.match(stopper, /vite\.website\.config\.js/i);
   assert.match(stopper, /Processo SnapFlow nao identificado|processo.*nao identificado/i);
 });
@@ -87,10 +90,10 @@ test('standalone launchers enforce API identity and strict port ownership', () =
   const panel = read('INICIAR_PAINEL.bat');
 
   assertOrdered(server, ['assert-port API', 'INICIAR_BANCO.bat', 'SNAPFLOW_SKIP_STARTUP_MIGRATIONS', 'npm.cmd start']);
-  assertOrdered(panel, ['wait-api', 'assert-port painel', 'npm.cmd run dev']);
+  assertOrdered(panel, ['wait-api', 'assert-port painel', 'npm.cmd run build:panel', 'npm.cmd run serve:panel']);
   assert.match(panel, /SNAPFLOW_API_PORT/i);
   assert.match(panel, /BACKEND_API_PORT/i);
-  assert.match(panel, /--strictPort/i);
+  assert.doesNotMatch(panel, /npm\.cmd run dev/i);
 });
 
 test('installers and database verification preserve the configured API port and startup probe', () => {
