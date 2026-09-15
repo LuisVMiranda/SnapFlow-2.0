@@ -8,10 +8,18 @@ const inspectFormat = '{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .
   + '"service":{{json (index .Config.Labels "com.docker.compose.service")}},'
   + '"mounts":{{json .Mounts}},"bindings":{{json .HostConfig.PortBindings}},'
   + '"ports":{{json .NetworkSettings.Ports}},"status":{{json .State.Status}},'
-  + '"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}}';
+  // Docker omits Health entirely before the first start, and for images without a healthcheck.
+  + '"health":{{with index .State "Health"}}{{json (index . "Status")}}{{else}}null{{end}}}';
+
+function commandFailure(result) {
+  if (result.timedOut) return 'consulta Docker excedeu o tempo limite';
+  if (/template (?:parsing|executing) error/i.test(result.stderr || '')) return 'erro de template na inspecao Docker; atualize os scripts do SnapFlow';
+  if (/permission denied|access (?:is )?denied|acesso negado/i.test(result.stderr || '')) return 'acesso ao Docker negado; confira as permissoes';
+  return 'consulta Docker falhou. Confira o Docker Desktop e os logs';
+}
 
 function readJson(result, label) {
-  if (result.code !== 0 || result.timedOut) throw new Error(`${label}: consulta Docker falhou. Confira permissoes e logs.`);
+  if (result.code !== 0 || result.timedOut) throw new Error(`${label}: ${commandFailure(result)}.`);
   try { return JSON.parse(result.stdout); }
   catch { throw new Error(`${label}: Docker retornou uma resposta invalida.`); }
 }

@@ -156,6 +156,8 @@ Se o PostgreSQL estiver `healthy` dentro do container, mas a porta local estiver
 
 Antes de alterar o container, o iniciador confere contexto Docker local, projeto Compose, imagem, volume e mapeamento `127.0.0.1:porta → 5432`. Usa explicitamente o `docker-compose.yml` deste repositório e preserva o nome do projeto existente mesmo quando a pasta foi renomeada. Se a identidade ou o volume não corresponderem, para com orientação para evitar substituir o banco por um volume vazio. No Docker Desktop, `snapflow-20` é o **grupo Compose**; a linha `snapflow-postgres` dentro dele é o container. Um container separado com nome aleatório não é criado por este iniciador e não será excluído automaticamente.
 
+A inspeção também aceita containers em `Created` ou sem campo `Health`, permitindo retomar uma inicialização que falhou ao publicar a porta. O teste de integração real é opcional: no PowerShell, defina `$env:SNAPFLOW_TEST_DOCKER='1'` e execute `node --test backend/test/dockerDatabaseInspection.test.js`. Requer Docker e a imagem `postgres:16-alpine` já disponível; cria e remove somente um container de teste e seu volume descartável, sem executar PostgreSQL, publicar portas ou acessar o volume do SnapFlow.
+
 No modo nativo, o serviço parado é iniciado com prazo limitado e a consulta ao banco é verificada em seguida. Se houver vários serviços PostgreSQL, configure `POSTGRES_SERVICE` no `.env` com o nome correto; se houver acesso negado, inicie o serviço pelo Windows ou execute o iniciador como administrador. `--sem-migracoes` omite somente as migrações, mantendo a verificação autenticada.
 
 Para verificar os scripts do banco e a sintaxe das sondas de inicialização sem iniciar serviços:

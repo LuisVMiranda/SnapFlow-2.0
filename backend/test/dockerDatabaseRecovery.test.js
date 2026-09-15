@@ -43,6 +43,7 @@ function harness(options = {}) {
         if (options.inspectError) return { code: 1, stderr: 'permission denied' };
         if (options.firstInstall && !started) return { code: 1, stderr: 'Error: No such container: snapflow-postgres' };
         const value = container(options.container);
+        if (options.createdBeforeUp && !started) { value.status = 'created'; value.health = null; }
         if (repaired || options.staleForwarder) value.ports = value.bindings;
         return { code: 0, stdout: JSON.stringify(value) };
       }
@@ -150,6 +151,14 @@ test('PostgreSQL still recovering internally is never force-recreated', async ()
 test('first installation starts the declared service without forced recreation', async () => {
   const { startDatabase } = await import('../../scripts/start-database.mjs');
   const h = harness({ firstInstall: true, normalStartup: true, staleForwarder: true });
+  await startDatabase(h.settings, h.deps);
+  assert.equal(h.commands.filter(args => args.includes('up')).length, 1);
+  assert.equal(h.commands.filter(args => args.includes('--force-recreate')).length, 0);
+});
+
+test('a container left Created after a failed port binding can start normally on the next attempt', async () => {
+  const { startDatabase } = await import('../../scripts/start-database.mjs');
+  const h = harness({ createdBeforeUp: true, normalStartup: true, staleForwarder: true });
   await startDatabase(h.settings, h.deps);
   assert.equal(h.commands.filter(args => args.includes('up')).length, 1);
   assert.equal(h.commands.filter(args => args.includes('--force-recreate')).length, 0);
