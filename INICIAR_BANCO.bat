@@ -28,7 +28,7 @@ exit /b 0
 
 :verificar
 echo Verificando scripts do banco sem iniciar servicos...
-for %%F in (run-docker-compose.mjs sync-docker-env.mjs startup-command.mjs database-startup-config.mjs start-database.mjs) do (
+for %%F in (run-docker-compose.mjs sync-docker-env.mjs startup-command.mjs database-startup-config.mjs docker-database.mjs start-database.mjs) do (
   node --check "scripts\%%F"
   if errorlevel 1 goto falha
 )

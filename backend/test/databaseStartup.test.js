@@ -69,6 +69,23 @@ function settings(overrides = {}) {
     databaseUrl: 'postgres://user:secret@127.0.0.1:55432/snapflow', env: {}, ...overrides };
 }
 
+function dockerReply(args) {
+  const project = 'snapflow-20';
+  const volumeName = `${project}_snapflow_postgres_data`;
+  if (args[0] === 'context') return JSON.stringify('npipe:////./pipe/dockerDesktopLinuxEngine');
+  if (args[0] === 'volume') return JSON.stringify(volumeName);
+  if (args[0] === 'inspect') return JSON.stringify({ name: '/snapflow-postgres', service: 'postgres',
+    project, image: 'postgres:16-alpine', status: 'running', health: 'healthy',
+    mounts: [{ Type: 'volume', Name: volumeName, Destination: '/var/lib/postgresql/data' }],
+    ports: { '5432/tcp': [{ HostIp: '127.0.0.1', HostPort: '55432' }] } });
+  if (args.includes('config')) return JSON.stringify({ services: { postgres: {
+    container_name: 'snapflow-postgres', image: 'postgres:16-alpine',
+    ports: [{ host_ip: '127.0.0.1', published: '55432', target: 5432, protocol: 'tcp' }],
+    volumes: [{ type: 'volume', source: 'snapflow_postgres_data', target: '/var/lib/postgresql/data' }],
+  } }, volumes: { snapflow_postgres_data: { name: volumeName } } });
+  return '';
+}
+
 test('a ready database is reused without Docker/service changes and migrations run once', async () => {
   const { startDatabase } = await import('../../scripts/start-database.mjs');
   const calls = [];
@@ -96,7 +113,7 @@ test('cold Docker startup waits for engine, then authenticated database, before 
       assert.ok(options.timeoutMs > 0);
       commands.push(args);
       if (args[0] === 'info') return { code: ++engine > 1 ? 0 : 1 };
-      return { code: 0 };
+      return { code: 0, stdout: dockerReply(args) };
     },
     wait: async (label, probe) => { waits.push(label); assert.equal((await probe(10000)).ready, true); },
   });
@@ -112,7 +129,7 @@ test('unreachable database yields container/port diagnostics and never reaches m
   const logs = [];
   await assert.rejects(startDatabase(settings(), {
     log: text => logs.push(text), probe: async () => ({ ready: false }),
-    run: async (command, args) => { commands.push(args); return { code: 0, stdout: 'container running' }; },
+    run: async (command, args) => { commands.push(args); return { code: 0, stdout: dockerReply(args) }; },
     wait: async () => { throw new Error('PostgreSQL: tempo limite atingido'); },
   }), /tempo limite/);
   assert.ok(commands.some(args => args.includes('port')));

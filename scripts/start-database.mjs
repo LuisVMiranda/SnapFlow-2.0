@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadDatabaseSettings, probeDatabase, redact } from './database-startup-config.mjs';
 import { runCommand, waitUntil } from './startup-command.mjs';
+import { prepareDockerDatabase } from './docker-database.mjs';
 
 const docker = process.platform === 'win32' ? 'docker.exe' : 'docker';
 
@@ -14,7 +15,8 @@ function createOperations(settings, overrides) {
     onProgress: elapsed => log(`Operacao em andamento: ${Math.floor(elapsed / 1000)}/${Math.ceil(timeoutMs / 1000)}s...`),
   });
   const compose = (args, timeoutMs = 15000) => execute(process.execPath,
-    [path.join(settings.root, 'scripts/run-docker-compose.mjs'), ...args], timeoutMs);
+    [path.join(settings.root, 'scripts/run-docker-compose.mjs'),
+      ...(settings.composeProject ? ['--project-name', settings.composeProject] : []), ...args], timeoutMs);
   return { log, execute, compose, probe: overrides.probe || probeDatabase, wait: overrides.wait || waitUntil };
 }
 
@@ -42,10 +44,24 @@ async function ensureDocker(ops) {
   }, { timeoutMs: 120000, log: ops.log });
 }
 
-async function startDocker(ops) {
+async function startDocker(ops, settings) {
   await ensureDocker(ops);
   ops.log('Conferindo container PostgreSQL e publicacao da porta (limite: 180s)...');
-  requireSuccess(await ops.compose(['up', '-d', 'postgres'], 180000), 'Inicializacao Docker Compose', ops.log);
+  return prepareDockerDatabase(ops, settings);
+}
+
+async function waitForDatabase(ops, settings, managed) {
+  let last;
+  const wait = () => ops.wait('PostgreSQL', async remaining => {
+    last = await ops.probe(settings.databaseUrl, Math.min(3000, Math.max(1, Math.floor(remaining / 2))));
+    return last;
+  }, { timeoutMs: 90000, log: ops.log });
+  try { await wait(); }
+  catch (error) {
+    if (last?.fatal || !managed || !await managed.repair()) throw error;
+    ops.log('Porta recriada. Verificando novamente autenticacao e consulta por ate 90s...');
+    await wait();
+  }
 }
 
 async function startNative(ops, settings) {
@@ -78,11 +94,11 @@ export async function startDatabase(settings, overrides = {}) {
     const initial = await ops.probe(settings.databaseUrl);
     if (initial.fatal) throw new Error(initial.detail);
     if (!initial.ready) {
-      if (settings.mode === 'docker') await startDocker(ops);
+      let managed;
+      if (settings.mode === 'docker') managed = await startDocker(ops, settings);
       else await startNative(ops, settings);
       ops.log(`Aguardando autenticacao e consulta PostgreSQL em ${settings.target} por ate 90s...`);
-      await ops.wait('PostgreSQL', remaining => ops.probe(settings.databaseUrl, Math.min(3000, Math.max(1, Math.floor(remaining / 2)))),
-        { timeoutMs: 90000, log: ops.log });
+      await waitForDatabase(ops, settings, managed);
     }
     ops.log('PostgreSQL pronto: autenticacao e SELECT 1 confirmados.');
     if (settings.skipMigrations) return;

@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 export default defineConfig([
   globalIgnores(['dist', 'node_modules', 'backend/node_modules']),
   {
-    files: ['scripts/startup-command.mjs', 'scripts/database-startup-config.mjs',
+    files: ['scripts/startup-command.mjs', 'scripts/database-startup-config.mjs', 'scripts/docker-database.mjs',
       'scripts/start-database.mjs', 'scripts/run-docker-compose.mjs', 'scripts/sync-docker-env.mjs'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
